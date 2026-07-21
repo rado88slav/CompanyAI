@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Description: Create the project administration and documentation files.
 
 set -euo pipefail
 

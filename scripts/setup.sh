@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Description: Create the initial project structure and base files.
 
 set -e
 

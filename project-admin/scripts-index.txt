@@ -2,8 +2,17 @@
 Company AI - Scripts Index
 =========================================
 
-1. Project setup
-scripts/setup.sh
+Generated automatically.
 
-2. Administration setup
-scripts/admin-setup.sh
+1. scripts/admin-setup.sh
+   Description: Create the project administration and documentation files.
+   Status: executable
+
+2. scripts/maintenance/update-inventory.sh
+   Description: Generate the project inventory and Bash scripts index.
+   Status: executable
+
+3. scripts/setup.sh
+   Description: Create the initial project structure and base files.
+   Status: executable
+

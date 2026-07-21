@@ -26,8 +26,8 @@ Generated automatically by:
 ./docs/ARCHITECTURE.md
 ./docs/ROADMAP.md
 ./integrations/.gitkeep
-./project-admin/.inventory.ja5N76
-./project-admin/.scripts-index.JVjmbJ
+./project-admin/.inventory.YUjfaB
+./project-admin/.scripts-index.svi7el
 ./project-admin/bash-history.txt
 ./project-admin/decisions.md
 ./project-admin/inventory.md
@@ -44,6 +44,7 @@ Generated automatically by:
 ./scripts/maintenance/update-inventory.sh
 ./scripts/setup.sh
 ./scripts/setup/.gitkeep
+./scripts/setup/create-env.sh
 ./scripts/utils/.gitkeep
 ./storage/backups/.gitkeep
 ./storage/cache/.gitkeep

@@ -1,0 +1,9 @@
+=========================================
+Company AI - Scripts Index
+=========================================
+
+1. Project setup
+scripts/setup.sh
+
+2. Administration setup
+scripts/admin-setup.sh

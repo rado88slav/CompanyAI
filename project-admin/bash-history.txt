@@ -1,0 +1,56 @@
+=========================================
+Company AI - Bash History
+=========================================
+
+1. Check WSL
+wsl --status
+
+2. Install WSL components
+wsl --update
+
+3. List WSL distributions
+wsl --list --verbose
+
+4. Install Ubuntu
+wsl --install Ubuntu
+
+5. Check Docker version
+docker --version
+
+6. Check Docker Compose
+docker compose version
+
+7. Add user to docker group
+sudo usermod -aG docker "$USER"
+
+8. Restart WSL
+wsl --shutdown
+
+9. Verify docker group
+id
+
+10. Test Docker
+docker version
+docker run --rm hello-world
+
+11. Create projects directory
+mkdir -p ~/projects && cd ~/projects && pwd
+
+12. Create project directory
+mkdir -p ~/projects/company-ai && cd ~/projects/company-ai && pwd
+
+13. Create setup script
+mkdir -p scripts
+nano scripts/setup.sh
+
+14. Make setup executable
+chmod +x scripts/setup.sh
+
+15. Run setup
+./scripts/setup.sh
+
+16. Verify project structure
+find . -maxdepth 3 -print | sort
+
+17. Create bash history
+nano project-admin/bash-history.txt

@@ -30,6 +30,60 @@ services:
     networks:
       - company_ai_network
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    image: company-ai-backend:dev
+    restart: unless-stopped
+    init: true
+
+    environment:
+      APP_ENV: ${APP_ENV}
+      TZ: ${APP_TIMEZONE}
+
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "${BACKEND_HOST}",
+        "--port",
+        "${BACKEND_PORT}"
+      ]
+
+    ports:
+      - "${BACKEND_HOST_PORT}:${BACKEND_PORT}"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).read()"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    stop_grace_period: 30s
+
+    networks:
+      - company_ai_network
+
 volumes:
   postgres_data:
     name: company_ai_postgres_data

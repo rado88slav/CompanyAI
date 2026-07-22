@@ -10,7 +10,10 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db_session
 from app.models.company import Company
 from app.repositories.company import CompanyRepository
-from app.schemas.company import CompanyCreate
+from app.schemas.company import (
+    CompanyCreate,
+    CompanyUpdate,
+)
 
 
 class CompanyNotFoundError(Exception):
@@ -87,6 +90,80 @@ class CompanyService:
         total = self._repository.count()
 
         return companies, total
+
+    def update_company(
+        self,
+        company_id: UUID,
+        company_data: CompanyUpdate,
+    ) -> Company:
+        """Partially update an existing company."""
+
+        company = self.get_company(company_id)
+
+        if (
+            company_data.slug is not None
+            and company_data.slug != company.slug
+        ):
+            existing_company = self._repository.get_by_slug(
+                company_data.slug
+            )
+
+            if (
+                existing_company is not None
+                and existing_company.id != company.id
+            ):
+                raise CompanySlugConflictError(
+                    f"Company slug already exists: {company_data.slug}"
+                )
+
+        try:
+            updated_company = self._repository.update(
+                company,
+                company_data,
+            )
+            self._session.commit()
+        except IntegrityError as exc:
+            self._session.rollback()
+
+            raise CompanySlugConflictError(
+                "Company slug already exists."
+            ) from exc
+
+        return updated_company
+
+    def activate_company(
+        self,
+        company_id: UUID,
+    ) -> Company:
+        """Activate a company and synchronize its status."""
+
+        company = self.get_company(company_id)
+
+        activated_company = self._repository.set_active(
+            company,
+            is_active=True,
+        )
+
+        self._session.commit()
+
+        return activated_company
+
+    def deactivate_company(
+        self,
+        company_id: UUID,
+    ) -> Company:
+        """Deactivate a company and synchronize its status."""
+
+        company = self.get_company(company_id)
+
+        deactivated_company = self._repository.set_active(
+            company,
+            is_active=False,
+        )
+
+        self._session.commit()
+
+        return deactivated_company
 
 
 def get_company_service(

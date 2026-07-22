@@ -125,3 +125,11 @@ Incompatible API behavior must use a new API version rather than silently breaki
 Non-blocking tasks from an earlier phase may remain in the backlog while foundational work in the next phase begins.
 
 They must remain documented and be completed before MVP stabilization.
+
+## 016 — Company slug updates
+
+The Company UUID is the permanent canonical identifier.
+
+A company slug may be changed through the controlled Company update endpoint when the new slug remains unique.
+
+Internal relations must use the Company UUID rather than the mutable slug.

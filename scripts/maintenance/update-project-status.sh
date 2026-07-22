@@ -94,6 +94,11 @@ Completed:
 - company creation endpoint;
 - company list endpoint;
 - company read-by-ID endpoint;
+- company partial update endpoint;
+- company activation endpoint;
+- company deactivation endpoint;
+- synchronized `status` and `is_active` changes;
+- empty and null update validation;
 - duplicate slug conflict handling;
 - missing company handling;
 - Alembic migration `0002_companies`;
@@ -103,8 +108,6 @@ Completed:
 
 Remaining:
 
-- company update endpoint;
-- company activation and deactivation;
 - company settings;
 - administrator model;
 - local administrator account;
@@ -120,7 +123,7 @@ Remaining:
 
 Latest backend verification:
 
-    12 passed, 1 warning
+    19 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
@@ -137,7 +140,10 @@ Alembic migration chain:
     GET  /api/v1/health/ready
     POST /api/v1/companies
     GET  /api/v1/companies
-    GET  /api/v1/companies/{company_id}
+    GET   /api/v1/companies/{company_id}
+    PATCH /api/v1/companies/{company_id}
+    POST  /api/v1/companies/{company_id}/activate
+    POST  /api/v1/companies/{company_id}/deactivate
 
 ---
 
@@ -195,13 +201,12 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. company update and activation controls;
-2. company settings;
-3. administrator and authentication foundation;
-4. active company selection;
-5. company-owned data isolation;
-6. audit logging;
-7. development seed automation.
+1. company settings;
+2. administrator and authentication foundation;
+3. active company selection;
+4. company-owned data isolation;
+5. audit logging;
+6. development seed automation.
 
 ---
 
@@ -243,14 +248,14 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 
 ### 2. Company Management
 
-- [ ] Add a company update schema.
-- [ ] Add a company update repository operation.
-- [ ] Add a company update service operation.
-- [ ] Add `PATCH /api/v1/companies/{company_id}`.
-- [ ] Add company activation.
-- [ ] Add company deactivation.
-- [ ] Add tests for updates and status changes.
-- [ ] Decide whether company slugs may change after creation.
+- [x] Add a company update schema.
+- [x] Add a company update repository operation.
+- [x] Add a company update service operation.
+- [x] Add `PATCH /api/v1/companies/{company_id}`.
+- [x] Add company activation.
+- [x] Add company deactivation.
+- [x] Add tests for updates and status changes.
+- [x] Allow controlled slug changes while UUID remains the canonical identifier.
 
 ### 3. Company Settings
 
@@ -508,6 +513,14 @@ Incompatible API behavior must use a new API version rather than silently breaki
 Non-blocking tasks from an earlier phase may remain in the backlog while foundational work in the next phase begins.
 
 They must remain documented and be completed before MVP stabilization.
+
+## 016 — Company slug updates
+
+The Company UUID is the permanent canonical identifier.
+
+A company slug may be changed through the controlled Company update endpoint when the new slug remains unique.
+
+Internal relations must use the Company UUID rather than the mutable slug.
 EOF
 
 printf '%s\n' "Project administration documents updated."

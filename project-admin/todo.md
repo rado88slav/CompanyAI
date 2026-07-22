@@ -30,14 +30,14 @@
 
 ### 2. Company Management
 
-- [ ] Add a company update schema.
-- [ ] Add a company update repository operation.
-- [ ] Add a company update service operation.
-- [ ] Add `PATCH /api/v1/companies/{company_id}`.
-- [ ] Add company activation.
-- [ ] Add company deactivation.
-- [ ] Add tests for updates and status changes.
-- [ ] Decide whether company slugs may change after creation.
+- [x] Add a company update schema.
+- [x] Add a company update repository operation.
+- [x] Add a company update service operation.
+- [x] Add `PATCH /api/v1/companies/{company_id}`.
+- [x] Add company activation.
+- [x] Add company deactivation.
+- [x] Add tests for updates and status changes.
+- [x] Allow controlled slug changes while UUID remains the canonical identifier.
 
 ### 3. Company Settings
 

@@ -78,6 +78,11 @@ Completed:
 - company creation endpoint;
 - company list endpoint;
 - company read-by-ID endpoint;
+- company partial update endpoint;
+- company activation endpoint;
+- company deactivation endpoint;
+- synchronized `status` and `is_active` changes;
+- empty and null update validation;
 - duplicate slug conflict handling;
 - missing company handling;
 - Alembic migration `0002_companies`;
@@ -87,8 +92,6 @@ Completed:
 
 Remaining:
 
-- company update endpoint;
-- company activation and deactivation;
 - company settings;
 - administrator model;
 - local administrator account;
@@ -104,7 +107,7 @@ Remaining:
 
 Latest backend verification:
 
-    12 passed, 1 warning
+    19 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
@@ -121,7 +124,10 @@ Alembic migration chain:
     GET  /api/v1/health/ready
     POST /api/v1/companies
     GET  /api/v1/companies
-    GET  /api/v1/companies/{company_id}
+    GET   /api/v1/companies/{company_id}
+    PATCH /api/v1/companies/{company_id}
+    POST  /api/v1/companies/{company_id}/activate
+    POST  /api/v1/companies/{company_id}/deactivate
 
 ---
 
@@ -179,13 +185,12 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. company update and activation controls;
-2. company settings;
-3. administrator and authentication foundation;
-4. active company selection;
-5. company-owned data isolation;
-6. audit logging;
-7. development seed automation.
+1. company settings;
+2. administrator and authentication foundation;
+3. active company selection;
+4. company-owned data isolation;
+5. audit logging;
+6. development seed automation.
 
 ---
 

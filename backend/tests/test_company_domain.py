@@ -7,7 +7,10 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models.company import CompanyStatus
-from app.schemas.company import CompanyCreate
+from app.schemas.company import (
+    CompanyCreate,
+    CompanyUpdate,
+)
 from app.services.company import (
     CompanyNotFoundError,
     CompanySlugConflictError,
@@ -80,6 +83,54 @@ class FakeCompanyService:
             self.companies[offset:offset + limit],
             len(self.companies),
         )
+
+    def update_company(
+        self,
+        company_id: UUID,
+        company_data: CompanyUpdate,
+    ) -> FakeCompany:
+        company = self.get_company(company_id)
+
+        if company_data.slug is not None:
+            for existing_company in self.companies:
+                if (
+                    existing_company.id != company.id
+                    and existing_company.slug == company_data.slug
+                ):
+                    raise CompanySlugConflictError
+
+        update_fields = company_data.model_dump(
+            exclude_unset=True,
+        )
+
+        for field_name, value in update_fields.items():
+            setattr(company, field_name, value)
+
+        company.updated_at = datetime.now(timezone.utc)
+
+        return company
+
+    def activate_company(
+        self,
+        company_id: UUID,
+    ) -> FakeCompany:
+        company = self.get_company(company_id)
+        company.status = CompanyStatus.ACTIVE
+        company.is_active = True
+        company.updated_at = datetime.now(timezone.utc)
+
+        return company
+
+    def deactivate_company(
+        self,
+        company_id: UUID,
+    ) -> FakeCompany:
+        company = self.get_company(company_id)
+        company.status = CompanyStatus.INACTIVE
+        company.is_active = False
+        company.updated_at = datetime.now(timezone.utc)
+
+        return company
 
 
 def create_client(
@@ -223,3 +274,178 @@ def test_invalid_company_slug_is_rejected() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 422
+
+
+def test_update_company_name_and_slug() -> None:
+    service = FakeCompanyService()
+
+    company = service.create_company(
+        CompanyCreate(
+            name="Original Company",
+            slug="original-company",
+        )
+    )
+
+    try:
+        with create_client(service) as client:
+            response = client.patch(
+                f"/api/v1/companies/{company.id}",
+                json={
+                    "name": "Updated Company",
+                    "slug": "updated-company",
+                },
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Updated Company"
+    assert response.json()["slug"] == "updated-company"
+
+
+def test_update_company_slug_conflict() -> None:
+    service = FakeCompanyService()
+
+    first_company = service.create_company(
+        CompanyCreate(
+            name="First Company",
+            slug="first-company",
+        )
+    )
+
+    service.create_company(
+        CompanyCreate(
+            name="Second Company",
+            slug="second-company",
+        )
+    )
+
+    try:
+        with create_client(service) as client:
+            response = client.patch(
+                f"/api/v1/companies/{first_company.id}",
+                json={
+                    "slug": "second-company",
+                },
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "detail": "A company with this slug already exists."
+    }
+
+
+def test_empty_company_update_is_rejected() -> None:
+    service = FakeCompanyService()
+
+    company = service.create_company(
+        CompanyCreate(
+            name="Existing Company",
+            slug="existing-company",
+        )
+    )
+
+    try:
+        with create_client(service) as client:
+            response = client.patch(
+                f"/api/v1/companies/{company.id}",
+                json={},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+
+
+def test_null_company_update_is_rejected() -> None:
+    service = FakeCompanyService()
+
+    company = service.create_company(
+        CompanyCreate(
+            name="Existing Company",
+            slug="existing-company",
+        )
+    )
+
+    try:
+        with create_client(service) as client:
+            response = client.patch(
+                f"/api/v1/companies/{company.id}",
+                json={
+                    "name": None,
+                },
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+
+
+def test_update_missing_company_returns_not_found() -> None:
+    service = FakeCompanyService()
+
+    try:
+        with create_client(service) as client:
+            response = client.patch(
+                f"/api/v1/companies/{uuid4()}",
+                json={
+                    "name": "Missing Company",
+                },
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Company was not found."
+    }
+
+
+def test_deactivate_and_activate_company() -> None:
+    service = FakeCompanyService()
+
+    company = service.create_company(
+        CompanyCreate(
+            name="Status Company",
+            slug="status-company",
+        )
+    )
+
+    try:
+        with create_client(service) as client:
+            deactivate_response = client.post(
+                f"/api/v1/companies/{company.id}/deactivate"
+            )
+
+            activate_response = client.post(
+                f"/api/v1/companies/{company.id}/activate"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert deactivate_response.status_code == 200
+    assert deactivate_response.json()["status"] == "inactive"
+    assert deactivate_response.json()["is_active"] is False
+
+    assert activate_response.status_code == 200
+    assert activate_response.json()["status"] == "active"
+    assert activate_response.json()["is_active"] is True
+
+
+def test_activate_missing_company_returns_not_found() -> None:
+    service = FakeCompanyService()
+
+    try:
+        with create_client(service) as client:
+            response = client.post(
+                f"/api/v1/companies/{uuid4()}/activate"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json() == {
+        "detail": "Company was not found."
+    }

@@ -5,8 +5,14 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.company import Company
-from app.schemas.company import CompanyCreate
+from app.models.company import (
+    Company,
+    CompanyStatus,
+)
+from app.schemas.company import (
+    CompanyCreate,
+    CompanyUpdate,
+)
 
 
 class CompanyRepository:
@@ -73,3 +79,42 @@ class CompanyRepository:
         return int(
             self._session.scalar(statement) or 0
         )
+
+    def update(
+        self,
+        company: Company,
+        company_data: CompanyUpdate,
+    ) -> Company:
+        """Apply a partial update and flush the Company record."""
+
+        update_fields = company_data.model_dump(
+            exclude_unset=True,
+        )
+
+        for field_name, value in update_fields.items():
+            setattr(company, field_name, value)
+
+        self._session.flush()
+        self._session.refresh(company)
+
+        return company
+
+    def set_active(
+        self,
+        company: Company,
+        *,
+        is_active: bool,
+    ) -> Company:
+        """Synchronize Company status and active flag."""
+
+        company.is_active = is_active
+        company.status = (
+            CompanyStatus.ACTIVE.value
+            if is_active
+            else CompanyStatus.INACTIVE.value
+        )
+
+        self._session.flush()
+        self._session.refresh(company)
+
+        return company

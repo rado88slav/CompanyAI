@@ -15,6 +15,7 @@ from app.schemas.company import (
     CompanyCreate,
     CompanyListResponse,
     CompanyResponse,
+    CompanyUpdate,
 )
 from app.services.company import (
     CompanyNotFoundError,
@@ -27,6 +28,28 @@ router = APIRouter(
     prefix="/companies",
     tags=["companies"],
 )
+
+
+def company_not_found_exception(
+    exc: CompanyNotFoundError,
+) -> HTTPException:
+    """Create the standard Company not-found response."""
+
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Company was not found.",
+    )
+
+
+def company_slug_conflict_exception(
+    exc: CompanySlugConflictError,
+) -> HTTPException:
+    """Create the standard Company slug-conflict response."""
+
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="A company with this slug already exists.",
+    )
 
 
 @router.post(
@@ -47,10 +70,7 @@ def create_company(
     try:
         company = service.create_company(company_data)
     except CompanySlugConflictError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A company with this slug already exists.",
-        ) from exc
+        raise company_slug_conflict_exception(exc) from exc
 
     return CompanyResponse.model_validate(company)
 
@@ -109,9 +129,78 @@ def get_company(
     try:
         company = service.get_company(company_id)
     except CompanyNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Company was not found.",
-        ) from exc
+        raise company_not_found_exception(exc) from exc
+
+    return CompanyResponse.model_validate(company)
+
+
+@router.patch(
+    "/{company_id}",
+    response_model=CompanyResponse,
+    summary="Update a company",
+)
+def update_company(
+    company_id: UUID,
+    company_data: CompanyUpdate,
+    service: Annotated[
+        CompanyService,
+        Depends(get_company_service),
+    ],
+) -> CompanyResponse:
+    """Partially update a Company Context."""
+
+    try:
+        company = service.update_company(
+            company_id,
+            company_data,
+        )
+    except CompanyNotFoundError as exc:
+        raise company_not_found_exception(exc) from exc
+    except CompanySlugConflictError as exc:
+        raise company_slug_conflict_exception(exc) from exc
+
+    return CompanyResponse.model_validate(company)
+
+
+@router.post(
+    "/{company_id}/activate",
+    response_model=CompanyResponse,
+    summary="Activate a company",
+)
+def activate_company(
+    company_id: UUID,
+    service: Annotated[
+        CompanyService,
+        Depends(get_company_service),
+    ],
+) -> CompanyResponse:
+    """Activate a Company Context."""
+
+    try:
+        company = service.activate_company(company_id)
+    except CompanyNotFoundError as exc:
+        raise company_not_found_exception(exc) from exc
+
+    return CompanyResponse.model_validate(company)
+
+
+@router.post(
+    "/{company_id}/deactivate",
+    response_model=CompanyResponse,
+    summary="Deactivate a company",
+)
+def deactivate_company(
+    company_id: UUID,
+    service: Annotated[
+        CompanyService,
+        Depends(get_company_service),
+    ],
+) -> CompanyResponse:
+    """Deactivate a Company Context."""
+
+    try:
+        company = service.deactivate_company(company_id)
+    except CompanyNotFoundError as exc:
+        raise company_not_found_exception(exc) from exc
 
     return CompanyResponse.model_validate(company)

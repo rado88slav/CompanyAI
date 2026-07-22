@@ -61,8 +61,8 @@ Generated automatically by:
 ./docs/ARCHITECTURE.md
 ./docs/ROADMAP.md
 ./integrations/.gitkeep
-./project-admin/.inventory.dfeC63
-./project-admin/.scripts-index.rT5qok
+./project-admin/.inventory.GIRc02
+./project-admin/.scripts-index.fARdMY
 ./project-admin/bash-history.txt
 ./project-admin/decisions.md
 ./project-admin/inventory.md
@@ -89,6 +89,7 @@ Generated automatically by:
 ./scripts/setup/.gitkeep
 ./scripts/setup/add-backend-database.sh
 ./scripts/setup/add-company-domain.sh
+./scripts/setup/add-company-management.sh
 ./scripts/setup/add-database-migrations.sh
 ./scripts/setup/create-backend.sh
 ./scripts/setup/create-env.sh

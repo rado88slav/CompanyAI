@@ -40,23 +40,31 @@ Generated automatically.
    Description: Generate the project inventory and Bash scripts index.
    Status: executable
 
-10. scripts/setup.sh
+10. scripts/maintenance/update-project-status.sh
+   Description: Update project progress, tasks, architecture decisions and inventory.
+   Status: executable
+
+11. scripts/setup.sh
    Description: Create the initial project structure and base files.
    Status: executable
 
-11. scripts/setup/add-backend-database.sh
+12. scripts/setup/add-backend-database.sh
    Description: Add SQLAlchemy and PostgreSQL connectivity to the Company AI FastAPI backend.
    Status: executable
 
-12. scripts/setup/add-database-migrations.sh
+13. scripts/setup/add-company-domain.sh
+   Description: Add the Company domain model, migration, service layer and API to Company AI.
+   Status: executable
+
+14. scripts/setup/add-database-migrations.sh
    Description: Add Alembic database migrations and Bash migration tools to the Company AI backend.
    Status: executable
 
-13. scripts/setup/create-backend.sh
+15. scripts/setup/create-backend.sh
    Description: Generate the initial Company AI FastAPI backend structure and Docker configuration.
    Status: executable
 
-14. scripts/setup/create-env.sh
+16. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 

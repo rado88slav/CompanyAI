@@ -2,104 +2,136 @@
 
 ## Current Phase
 
-**Phase 1 — Docker and Database Foundation**
+**Phase 3 — Company and Administration Core**
 
 ---
 
 ## Immediate Tasks
 
-### 1. Environment Configuration
+### 1. Complete the Company Domain Foundation
 
-- [ ] Expand `.env.example`.
-- [ ] Define project and environment variables.
-- [ ] Define PostgreSQL database variables.
-- [ ] Create a local `.env` file.
-- [ ] Confirm that `.env` is ignored by Git.
+- [x] Create the Company database model.
+- [x] Create Company API schemas.
+- [x] Create the Company repository.
+- [x] Create the Company service.
+- [x] Create Company API routes.
+- [x] Create migration `0002_companies`.
+- [x] Apply the migration to PostgreSQL.
+- [x] Create Company API tests.
+- [x] Run all automated tests.
+- [x] Build the updated backend image.
+- [x] Restart and verify Docker services.
+- [x] Create the `CompanyTest` development company.
+- [x] Verify list and read-by-ID endpoints.
+- [x] Update project administration documents.
+- [x] Update project inventory.
+- [ ] Review staged files for secrets.
+- [ ] Commit the Company domain foundation.
 
-### 2. PostgreSQL Container
+### 2. Company Management
 
-- [ ] Add PostgreSQL to `docker-compose.yml`.
-- [ ] Create a persistent PostgreSQL volume.
-- [ ] Configure a database health check.
-- [ ] Configure safe restart behavior.
-- [ ] Test database startup.
-- [ ] Test data persistence after container restart.
+- [ ] Add a company update schema.
+- [ ] Add a company update repository operation.
+- [ ] Add a company update service operation.
+- [ ] Add `PATCH /api/v1/companies/{company_id}`.
+- [ ] Add company activation.
+- [ ] Add company deactivation.
+- [ ] Add tests for updates and status changes.
+- [ ] Decide whether company slugs may change after creation.
 
-### 3. Backend Container Foundation
+### 3. Company Settings
 
-- [ ] Create the backend Dockerfile.
-- [ ] Create the initial Python project files.
-- [ ] Add a temporary backend health endpoint.
-- [ ] Connect the backend container to PostgreSQL.
-- [ ] Add a backend health check.
+- [ ] Define the `CompanySetting` model.
+- [ ] Define supported setting categories.
+- [ ] Create a migration for company settings.
+- [ ] Create settings repository and service layers.
+- [ ] Create settings API endpoints.
+- [ ] Ensure every setting belongs to exactly one company.
+- [ ] Add company isolation tests.
 
-### 4. Agent Container Foundation
+### 4. Administrator Foundation
 
-- [ ] Create the agent Dockerfile.
-- [ ] Create the initial Python agent process.
-- [ ] Add a temporary agent health mechanism.
-- [ ] Connect the agent to PostgreSQL.
-- [ ] Confirm that the agent container can restart safely.
+- [ ] Define the administrator or user model.
+- [ ] Store passwords using a secure password hash.
+- [ ] Create one local administrator account.
+- [ ] Add a login endpoint.
+- [ ] Add authenticated session or token handling.
+- [ ] Protect administration endpoints.
+- [ ] Add authentication tests.
 
-### 5. Dashboard Container Foundation
+### 5. Active Company Context
 
-- [ ] Initialize React, TypeScript and Vite.
-- [ ] Create the dashboard Dockerfile.
-- [ ] Add a temporary system status page.
-- [ ] Expose the dashboard through a local port.
-- [ ] Confirm that the dashboard container starts correctly.
+- [ ] Define how the active company is selected.
+- [ ] Reject missing or invalid company context.
+- [ ] Ensure company-owned records contain `company_id`.
+- [ ] Prevent cross-company reads.
+- [ ] Prevent cross-company writes.
+- [ ] Add two-company isolation tests.
+- [ ] Prepare the future dashboard company selector.
 
-### 6. Docker Compose Management
+### 6. Audit Logging
 
-- [ ] Define the internal Docker network.
-- [ ] Define container startup dependencies.
-- [ ] Add service health checks.
-- [ ] Verify clean startup of all containers.
-- [ ] Verify clean shutdown of all containers.
-- [ ] Verify restart behavior.
+- [ ] Define the `AuditLog` model.
+- [ ] Record company creation.
+- [ ] Record company updates.
+- [ ] Record activation and deactivation.
+- [ ] Record administrator actions.
+- [ ] Create a company activity endpoint.
+- [ ] Add audit log tests.
 
-### 7. Bash Automation
+### 7. Development Seed Data
 
-- [ ] Create `scripts/docker/start.sh`.
-- [ ] Create `scripts/docker/stop.sh`.
-- [ ] Create `scripts/docker/restart.sh`.
-- [ ] Create `scripts/docker/status.sh`.
-- [ ] Create `scripts/docker/logs.sh`.
-- [ ] Create `scripts/docker/reset-dev.sh`.
-- [ ] Register descriptions in every new script.
-- [ ] Update the automatic scripts index.
-
-### 8. Documentation and Git
-
-- [ ] Document local Docker startup.
-- [ ] Document environment variables.
-- [ ] Update `project-admin/progress.md`.
-- [ ] Update the project inventory.
-- [ ] Verify that no secrets are staged.
-- [ ] Commit Phase 1 in logical Git commits.
+- [ ] Create a repeatable seed script.
+- [ ] Preserve the `CompanyTest` development convention.
+- [ ] Make seed execution idempotent.
+- [ ] Prevent development seeds from running in production.
+- [ ] Document seed usage.
 
 ---
 
-## Phase 1 Completion Criteria
+## Remaining Phase 1 Work
 
-Phase 1 is complete when:
+- [ ] Create the initial agent container.
+- [ ] Create the initial dashboard container.
+- [ ] Add agent health information.
+- [ ] Add dashboard health information.
+- [ ] Create `scripts/docker/reset-dev.sh`.
+- [ ] Complete Docker startup documentation.
 
-- [ ] PostgreSQL starts through Docker Compose.
-- [ ] PostgreSQL data survives container restarts.
-- [ ] Backend, agent and dashboard containers start.
-- [ ] All required services expose health information.
-- [ ] The full environment starts with one Bash command.
-- [ ] The full environment stops with one Bash command.
-- [ ] No undocumented manual configuration is required.
-- [ ] Git working tree is clean.
+---
+
+## Remaining Phase 2 Work
+
+- [ ] Add structured backend logging.
+- [ ] Add a unified API error response format.
+- [ ] Add `GET /api/v1/system/info`.
+- [ ] Review health endpoint naming against the roadmap.
+- [ ] Document backend module conventions.
+- [ ] Document migration creation and execution.
+
+---
+
+## Phase 3 Completion Criteria
+
+Phase 3 is complete when:
+
+- [ ] At least two test companies can exist.
+- [ ] Companies can be created, read, updated and activated.
+- [ ] A local administrator can authenticate.
+- [ ] Company settings are stored separately.
+- [ ] Company-owned records are isolated.
+- [ ] Cross-company access tests pass.
+- [ ] Company changes create audit records.
+- [ ] The active company can be identified by the dashboard.
+- [ ] Development seed data can be created safely.
 - [ ] Documentation and inventory are current.
+- [ ] No secrets are committed.
+- [ ] Git working tree is clean.
 
 ---
 
 ## Later Phases
 
-- [ ] Phase 2 — Backend API Foundation
-- [ ] Phase 3 — Company and Administration Core
 - [ ] Phase 4 — Dashboard Foundation
 - [ ] Phase 5 — Task and Agent Runtime
 - [ ] Phase 6 — AI Provider Integration
@@ -132,4 +164,4 @@ The following features must not delay the MVP:
 
 ## Last Updated
 
-2026-07-21
+2026-07-22

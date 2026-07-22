@@ -1,5 +1,12 @@
 """Company AI database models.
 
-New SQLAlchemy model modules must be imported here so Alembic can discover
-their table metadata during automatic migration generation.
+Every SQLAlchemy model must be imported here so Alembic can discover its
+metadata during automatic migration generation.
 """
+
+from app.models.company import Company, CompanyStatus
+
+__all__ = [
+    "Company",
+    "CompanyStatus",
+]

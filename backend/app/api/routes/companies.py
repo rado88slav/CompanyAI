@@ -11,6 +11,10 @@ from fastapi import (
     status,
 )
 
+from app.api.dependencies.authentication import (
+    require_current_administrator,
+)
+
 from app.schemas.company import (
     CompanyCreate,
     CompanyListResponse,
@@ -27,6 +31,7 @@ from app.services.company import (
 router = APIRouter(
     prefix="/companies",
     tags=["companies"],
+    dependencies=[Depends(require_current_administrator)],
 )
 
 

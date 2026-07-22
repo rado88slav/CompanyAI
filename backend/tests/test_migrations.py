@@ -22,7 +22,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0003_company_settings"
+        "0004_administrators"
     ]
 
 
@@ -69,3 +69,18 @@ def test_company_settings_migration_follows_company_revision() -> None:
 
     assert revision is not None
     assert revision.down_revision == "0002_companies"
+
+
+def test_administrator_migration_follows_settings_revision() -> None:
+    """Administrator storage must follow company settings."""
+
+    script_directory = ScriptDirectory.from_config(
+        create_alembic_config()
+    )
+
+    revision = script_directory.get_revision(
+        "0004_administrators"
+    )
+
+    assert revision is not None
+    assert revision.down_revision == "0003_company_settings"

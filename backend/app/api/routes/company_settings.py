@@ -13,6 +13,10 @@ from fastapi import (
     status,
 )
 
+from app.api.dependencies.authentication import (
+    require_current_administrator,
+)
+
 from app.schemas.company_setting import (
     CompanySettingListResponse,
     CompanySettingResponse,
@@ -28,6 +32,7 @@ from app.services.company_setting import (
 router = APIRouter(
     prefix="/companies/{company_id}/settings",
     tags=["company-settings"],
+    dependencies=[Depends(require_current_administrator)],
 )
 
 SettingCategory = Annotated[

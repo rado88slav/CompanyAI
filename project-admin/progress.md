@@ -99,13 +99,26 @@ Completed:
 - company ownership validation;
 - cross-company isolation tests;
 - Alembic migration `0003_company_settings`;
-- Company Settings API verified against PostgreSQL.
+- Company Settings API verified against PostgreSQL;
+- `Administrator` SQLAlchemy model;
+- globally unique lowercase administrator emails;
+- Argon2 password hashing;
+- signed JWT access tokens;
+- administrator login endpoint;
+- authenticated administrator profile endpoint;
+- Bearer authentication dependency;
+- protected Company and Company Settings APIs;
+- inactive administrator rejection;
+- generic login failure responses;
+- successful login timestamp tracking;
+- local superuser creation CLI;
+- local superuser stored in PostgreSQL;
+- Alembic migration `0004_administrators`;
+- authentication and security tests;
+- Authentication API verified against PostgreSQL.
 
 Remaining:
 
-- administrator model;
-- local administrator account;
-- authentication;
 - active company context;
 - company data isolation;
 - audit log records;
@@ -117,13 +130,13 @@ Remaining:
 
 Latest backend verification:
 
-    28 passed, 1 warning
+    39 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings (head)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators (head)
 
 ---
 
@@ -132,6 +145,8 @@ Alembic migration chain:
     GET  /
     GET  /api/v1/health
     GET  /api/v1/health/ready
+    POST /api/v1/auth/login
+    GET  /api/v1/auth/me
     POST /api/v1/companies
     GET  /api/v1/companies
     GET   /api/v1/companies/{company_id}
@@ -142,6 +157,8 @@ Alembic migration chain:
     GET    /api/v1/companies/{company_id}/settings
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
     DELETE /api/v1/companies/{company_id}/settings/{category}/{key}
+
+Company and Company Settings routes require a valid administrator Bearer token.
 
 ---
 
@@ -190,6 +207,8 @@ The real company will later be created as a separate Company Context without cha
 - Alembic migrations: operational
 - Company API: operational
 - Company Settings API: operational
+- Administrator authentication: operational
+- Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
 - Automated tests: passing
@@ -201,11 +220,10 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. administrator and authentication foundation;
-2. active company selection;
-3. company-owned data isolation;
-4. audit logging;
-5. development seed automation.
+1. active company selection;
+2. company-owned data isolation;
+3. audit logging;
+4. development seed automation.
 
 ---
 

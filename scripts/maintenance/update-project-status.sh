@@ -115,13 +115,26 @@ Completed:
 - company ownership validation;
 - cross-company isolation tests;
 - Alembic migration `0003_company_settings`;
-- Company Settings API verified against PostgreSQL.
+- Company Settings API verified against PostgreSQL;
+- `Administrator` SQLAlchemy model;
+- globally unique lowercase administrator emails;
+- Argon2 password hashing;
+- signed JWT access tokens;
+- administrator login endpoint;
+- authenticated administrator profile endpoint;
+- Bearer authentication dependency;
+- protected Company and Company Settings APIs;
+- inactive administrator rejection;
+- generic login failure responses;
+- successful login timestamp tracking;
+- local superuser creation CLI;
+- local superuser stored in PostgreSQL;
+- Alembic migration `0004_administrators`;
+- authentication and security tests;
+- Authentication API verified against PostgreSQL.
 
 Remaining:
 
-- administrator model;
-- local administrator account;
-- authentication;
 - active company context;
 - company data isolation;
 - audit log records;
@@ -133,13 +146,13 @@ Remaining:
 
 Latest backend verification:
 
-    28 passed, 1 warning
+    39 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings (head)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators (head)
 
 ---
 
@@ -148,6 +161,8 @@ Alembic migration chain:
     GET  /
     GET  /api/v1/health
     GET  /api/v1/health/ready
+    POST /api/v1/auth/login
+    GET  /api/v1/auth/me
     POST /api/v1/companies
     GET  /api/v1/companies
     GET   /api/v1/companies/{company_id}
@@ -158,6 +173,8 @@ Alembic migration chain:
     GET    /api/v1/companies/{company_id}/settings
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
     DELETE /api/v1/companies/{company_id}/settings/{category}/{key}
+
+Company and Company Settings routes require a valid administrator Bearer token.
 
 ---
 
@@ -206,6 +223,8 @@ The real company will later be created as a separate Company Context without cha
 - Alembic migrations: operational
 - Company API: operational
 - Company Settings API: operational
+- Administrator authentication: operational
+- Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
 - Automated tests: passing
@@ -217,11 +236,10 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. administrator and authentication foundation;
-2. active company selection;
-3. company-owned data isolation;
-4. audit logging;
-5. development seed automation.
+1. active company selection;
+2. company-owned data isolation;
+3. audit logging;
+4. development seed automation.
 
 ---
 
@@ -284,13 +302,13 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 
 ### 4. Administrator Foundation
 
-- [ ] Define the administrator or user model.
-- [ ] Store passwords using a secure password hash.
-- [ ] Create one local administrator account.
-- [ ] Add a login endpoint.
-- [ ] Add authenticated session or token handling.
-- [ ] Protect administration endpoints.
-- [ ] Add authentication tests.
+- [x] Define the administrator or user model.
+- [x] Store passwords using a secure password hash.
+- [x] Create one local administrator account.
+- [x] Add a login endpoint.
+- [x] Add authenticated session or token handling.
+- [x] Protect administration endpoints.
+- [x] Add authentication tests.
 
 ### 5. Active Company Context
 
@@ -350,7 +368,7 @@ Phase 3 is complete when:
 
 - [ ] At least two test companies can exist.
 - [ ] Companies can be created, read, updated and activated.
-- [ ] A local administrator can authenticate.
+- [x] A local administrator can authenticate.
 - [x] Company settings are stored separately.
 - [ ] Company-owned records are isolated.
 - [ ] Cross-company access tests pass.
@@ -554,6 +572,26 @@ The combination of company, category and key must remain unique.
 Passwords, API keys, access tokens and other secrets must not be stored in `company_settings`.
 
 Secrets will use a separate encrypted credential storage system in a later phase.
+
+## 018 — Administrator authentication
+
+Administrator accounts are global platform identities and do not contain a direct `company_id`.
+
+Future company access permissions must use a separate membership or authorization relationship so one administrator can safely access one or more companies.
+
+Administrator passwords must be stored only as Argon2 hashes.
+
+Plaintext passwords must never be stored, logged, committed or passed through command-line arguments.
+
+Authentication uses short-lived signed JWT access tokens.
+
+JWT validation must explicitly allow only the configured algorithm and require the subject, token type, issued-at time and expiration time.
+
+The signing key is supplied through `APP_SECRET_KEY` and must not be committed to Git.
+
+Health and login endpoints remain public.
+
+Company and Company Settings endpoints require a valid active administrator Bearer token.
 EOF
 
 printf '%s\n' "Project administration documents updated."

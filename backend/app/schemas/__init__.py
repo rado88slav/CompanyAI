@@ -1,5 +1,11 @@
 """Company AI API schemas."""
 
+from app.schemas.authentication import (
+    AdministratorCreate,
+    AdministratorResponse,
+    LoginRequest,
+    TokenResponse,
+)
 from app.schemas.company import (
     CompanyCreate,
     CompanyListResponse,
@@ -13,6 +19,8 @@ from app.schemas.company_setting import (
 )
 
 __all__ = [
+    "AdministratorCreate",
+    "AdministratorResponse",
     "CompanyCreate",
     "CompanyListResponse",
     "CompanyResponse",
@@ -20,4 +28,6 @@ __all__ = [
     "CompanySettingResponse",
     "CompanySettingUpsert",
     "CompanyUpdate",
+    "LoginRequest",
+    "TokenResponse",
 ]

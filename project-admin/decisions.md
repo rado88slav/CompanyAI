@@ -151,3 +151,23 @@ The combination of company, category and key must remain unique.
 Passwords, API keys, access tokens and other secrets must not be stored in `company_settings`.
 
 Secrets will use a separate encrypted credential storage system in a later phase.
+
+## 018 — Administrator authentication
+
+Administrator accounts are global platform identities and do not contain a direct `company_id`.
+
+Future company access permissions must use a separate membership or authorization relationship so one administrator can safely access one or more companies.
+
+Administrator passwords must be stored only as Argon2 hashes.
+
+Plaintext passwords must never be stored, logged, committed or passed through command-line arguments.
+
+Authentication uses short-lived signed JWT access tokens.
+
+JWT validation must explicitly allow only the configured algorithm and require the subject, token type, issued-at time and expiration time.
+
+The signing key is supplied through `APP_SECRET_KEY` and must not be committed to Git.
+
+Health and login endpoints remain public.
+
+Company and Company Settings endpoints require a valid active administrator Bearer token.

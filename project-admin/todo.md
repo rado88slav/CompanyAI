@@ -51,13 +51,13 @@
 
 ### 4. Administrator Foundation
 
-- [ ] Define the administrator or user model.
-- [ ] Store passwords using a secure password hash.
-- [ ] Create one local administrator account.
-- [ ] Add a login endpoint.
-- [ ] Add authenticated session or token handling.
-- [ ] Protect administration endpoints.
-- [ ] Add authentication tests.
+- [x] Define the administrator or user model.
+- [x] Store passwords using a secure password hash.
+- [x] Create one local administrator account.
+- [x] Add a login endpoint.
+- [x] Add authenticated session or token handling.
+- [x] Protect administration endpoints.
+- [x] Add authentication tests.
 
 ### 5. Active Company Context
 
@@ -117,7 +117,7 @@ Phase 3 is complete when:
 
 - [ ] At least two test companies can exist.
 - [ ] Companies can be created, read, updated and activated.
-- [ ] A local administrator can authenticate.
+- [x] A local administrator can authenticate.
 - [x] Company settings are stored separately.
 - [ ] Company-owned records are isolated.
 - [ ] Cross-company access tests pass.

@@ -3,3 +3,5 @@ uvicorn[standard]==0.50.1
 SQLAlchemy==2.0.51
 psycopg[binary]==3.3.4
 alembic==1.16.5
+pwdlib[argon2]==0.3.0
+PyJWT==2.13.0

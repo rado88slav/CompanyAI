@@ -71,6 +71,9 @@ class Settings:
     api_prefix: str
     debug: bool
 
+    app_secret_key: str
+    access_token_expire_minutes: int
+
     postgres_host: str
     postgres_port: int
     postgres_database: str
@@ -108,6 +111,11 @@ def get_settings() -> Settings:
             getenv("BACKEND_API_PREFIX", "/api/v1")
         ),
         debug=_read_boolean("BACKEND_DEBUG", default=False),
+        app_secret_key=getenv("APP_SECRET_KEY", ""),
+        access_token_expire_minutes=_read_positive_integer(
+            "ACCESS_TOKEN_EXPIRE_MINUTES",
+            default=60,
+        ),
         postgres_host=getenv("POSTGRES_HOST", "postgres"),
         postgres_port=_read_positive_integer(
             "POSTGRES_PORT",

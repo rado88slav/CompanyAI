@@ -5,6 +5,10 @@ from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
+from app.api.dependencies.authentication import (
+    require_current_administrator,
+)
+
 from app.main import app
 from app.models.company import CompanyStatus
 from app.schemas.company import (
@@ -137,6 +141,11 @@ def create_client(
     service: FakeCompanyService,
 ) -> TestClient:
     """Create a client with the Company service overridden."""
+
+    # Authentication behavior is tested separately.
+    app.dependency_overrides[
+        require_current_administrator
+    ] = lambda: object()
 
     app.dependency_overrides[get_company_service] = (
         lambda: service

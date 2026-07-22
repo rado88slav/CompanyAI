@@ -110,6 +110,23 @@
 
 ### 9. Development Seed Data
 
+### 9. Agent Identity and Internal Agent Authentication
+
+- [x] Define company-owned agents and lifecycle states.
+- [x] Add one-time HMAC-protected machine credentials.
+- [x] Add short-lived, separately configured agent JWTs.
+- [x] Revalidate agent, credential, company and auth version per request.
+- [x] Add exact revocable permission history.
+- [x] Add administrator management and internal authentication endpoints.
+- [x] Integrate agent identities with Approval Manager foreign keys.
+- [x] Add atomic agent audit events and security tests.
+- [x] Create schema-only migration `0008_agent_identity`.
+- [x] Apply migration `0008_agent_identity` after explicit approval.
+- [x] Verify the empty Agent Identity schema against real PostgreSQL without exposing secrets.
+- [ ] Recreate the backend container and re-verify invalid agent JWT handling after explicit approval.
+
+### 10. Development Seed Data
+
 - [ ] Create a repeatable seed script.
 - [ ] Preserve the `CompanyTest` development convention.
 - [ ] Make seed execution idempotent.

@@ -202,6 +202,18 @@ Completed:
 - commit `da9386c` pushed successfully to `origin/main`;
 - local `main`, `origin/main` and `origin/HEAD` verified at `da9386c`, with a clean working tree immediately after the push;
 - this later documentation synchronization remains a separate uncommitted change pending review;
+- first-class company-owned Agent Identity foundation with persistent agents, credentials and exact permissions;
+- administrator identity and agent identity remain cryptographically and semantically separate;
+- versioned one-time machine credentials use HMAC-SHA256 with a dedicated server-side pepper;
+- short-lived agent JWTs use dedicated issuer, audience, signing configuration and database revalidation on every request;
+- agent, credential, company and `auth_version` changes invalidate authentication immediately;
+- agent lifecycle, credential rotation/revocation and permission history are append-only or soft-state transitions with atomic audit events;
+- administrator agent-management APIs and internal credential exchange/identity endpoints;
+- Approval Manager agent actor foreign keys and trusted authenticated-identity action helper;
+- schema-only migration `0008_agent_identity` created after `0007_approval_manager` and applied locally;
+- real PostgreSQL is at `0008_agent_identity`; the three agent tables exist and contain zero rows;
+- backend Compose now propagates all six Agent Authentication settings by placeholder; container recreation and invalid-JWT runtime re-verification remain pending;
+- Agent Identity implementation is uncommitted pending review;
 - randomized communication scheduling deferred to the Campaign Scheduler;
 
 Remaining:
@@ -214,13 +226,13 @@ Remaining:
 
 Latest backend verification:
 
-    172 passed, 1 warning
+    208 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager (head, applied locally)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity (head, applied locally)
 
 ---
 
@@ -258,6 +270,22 @@ Alembic migration chain:
     POST  /api/v1/companies/{company_id}/authorization-policies/{policy_id}/revoke
     GET   /api/v1/companies/{company_id}/authorization-usages
     GET   /api/v1/companies/{company_id}/authorization-usages/{usage_id}
+    POST  /api/v1/companies/{company_id}/agents
+    GET   /api/v1/companies/{company_id}/agents
+    GET   /api/v1/companies/{company_id}/agents/{agent_id}
+    PATCH /api/v1/companies/{company_id}/agents/{agent_id}
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/activate
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/deactivate
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/revoke
+    GET   /api/v1/companies/{company_id}/agents/{agent_id}/credentials
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/credentials
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/credentials/{credential_id}/rotate
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/credentials/{credential_id}/revoke
+    GET   /api/v1/companies/{company_id}/agents/{agent_id}/permissions
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/permissions
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/permissions/{permission_id}/revoke
+    POST  /api/v1/internal/agent-auth/token
+    GET   /api/v1/internal/agent-auth/me
     PUT    /api/v1/companies/{company_id}/settings/{category}/{key}
     GET    /api/v1/companies/{company_id}/settings
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
@@ -338,6 +366,10 @@ The real company will later be created as a separate Company Context without cha
 - Authorization audit data: 12 create events and 6 revoke events; historical records preserved
 - Safety invariant: independently verified with exactly one valid active policy per action and no unexpected or duplicate active bootstrap policies
 - Runtime external actions: none executed
+- Agent Identity: implemented and automatically verified, uncommitted
+- Agent migration `0008_agent_identity`: applied locally; real database is at `0008_agent_identity`
+- Real agent data: `agents`, `agent_credentials` and `agent_permissions` each contain zero rows
+- Internal agent authentication: invalid raw credentials return 401; Compose propagation is corrected, while invalid-JWT runtime re-verification awaits an explicitly permitted container recreation
 - Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
@@ -353,9 +385,10 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. review this post-commit project-status synchronization;
-2. commit and push the documentation synchronization only after explicit approval;
-3. continue with the next separately approved project task.
+1. review the uncommitted Agent Identity implementation and the applied `0008_agent_identity` schema;
+2. apply migration `0008` only after separate explicit approval;
+3. perform real PostgreSQL and runtime verification only after separate approval;
+4. commit and push only after explicit approval.
 
 ---
 
@@ -476,6 +509,23 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [x] Verify the empty Approval Manager schema and read-only collections against local PostgreSQL.
 
 ### 9. Development Seed Data
+
+### 9. Agent Identity and Internal Agent Authentication
+
+- [x] Define company-owned agents and lifecycle states.
+- [x] Add one-time HMAC-protected machine credentials.
+- [x] Add short-lived, separately configured agent JWTs.
+- [x] Revalidate agent, credential, company and auth version per request.
+- [x] Add exact revocable permission history.
+- [x] Add administrator management and internal authentication endpoints.
+- [x] Integrate agent identities with Approval Manager foreign keys.
+- [x] Add atomic agent audit events and security tests.
+- [x] Create schema-only migration `0008_agent_identity`.
+- [x] Apply migration `0008_agent_identity` after explicit approval.
+- [x] Verify the empty Agent Identity schema against real PostgreSQL without exposing secrets.
+- [ ] Recreate the backend container and re-verify invalid agent JWT handling after explicit approval.
+
+### 10. Development Seed Data
 
 - [ ] Create a repeatable seed script.
 - [ ] Preserve the `CompanyTest` development convention.
@@ -812,6 +862,16 @@ Bootstrap idempotence now requires an exact match across the complete security-r
 Independent read-only verification confirmed 12 policies total, split into six active and six revoked, with zero approval requests, decisions and usages. Audit totals are 12 `authorization_policy.created` events and six `authorization_policy.revoked` events. Each active policy has exactly one create event; each revoked legacy policy retains its historical create event and has exactly one revoke event. The strict invariant check found exactly one valid active policy for every safety action, exactly six expected revoked legacy policies, no unexpected or duplicate active bootstrap policies, and all expected audit records. No policy was deleted, historical records were preserved, and no external action was executed. Normal bootstrap is expected to be idempotent after repair, but no additional real bootstrap run has been performed.
 
 After commit `da9386c` was pushed, local `main`, `origin/main` and `origin/HEAD` were all verified at `da9386c`, and the working tree was clean. This later documentation synchronization is not part of that commit and remains a new working-tree change pending its own review and commit.
+
+## 023 — Agent Identity and Internal Agent Authentication
+
+Agents are first-class company-owned machine identities and never administrator identities. Administrator access tokens use the existing human authentication contract; agent JWTs use dedicated signing configuration, issuer, audience, `token_type = agent`, credential ID and agent `auth_version`. Each authenticated agent request revalidates the agent, credential and company from PostgreSQL so lifecycle changes, credential rotation and revocation take effect immediately.
+
+Machine credentials use the versioned `cai_agent_v1_<public_id>.<secret>` shape. The public ID supports direct lookup; the secret has at least 256 bits of entropy and is stored only as HMAC-SHA256 using `AGENT_CREDENTIAL_PEPPER`. Plaintext is returned exactly once after creation or rotation and is excluded from list schemas, audit details and logs. The pepper and dedicated JWT secret are environment-only values; `.env.example` contains placeholders and the real `.env` is not modified by this module.
+
+Permissions are exact normalized keys with preserved revoked history and no wildcard semantics. Agents, credentials and permissions are isolated by explicit `company_id`; credentials and permissions use composite company/agent foreign keys, and credential rotation lineage is database-constrained to the same company and agent. Agent revocation permanently revokes the identity, active credentials and active permissions in one transaction. Security-sensitive mutations and their audit events commit atomically.
+
+Migration `0008_agent_identity` creates `agents`, `agent_credentials` and `agent_permissions`, extends audit actors with agent identity, and adds the three deferred Approval Manager agent foreign keys. It is a static schema-only migration after `0007_approval_manager` and is applied locally. The real database is at `0008`; all three agent tables contain zero rows. Backend Compose propagates the six Agent Authentication variables through tracked placeholders, without storing their values. Invalid raw credentials return 401; invalid-agent-JWT runtime re-verification remains pending until an explicitly permitted backend container recreation. Retell agents remain future external voice executors; Tool Registry, Agent Runtime and external provider integrations are not implemented here. The implementation is uncommitted pending review.
 EOF
 
 printf '%s\n' "Project administration documents updated."

@@ -6,6 +6,7 @@ from app.schemas.authentication import (
     LoginRequest,
     TokenResponse,
 )
+from app.schemas.agent import AgentCreate, AgentResponse, AgentTokenResponse, AuthenticatedAgentResponse
 from app.schemas.audit_log import (
     AuditLogListResponse,
     AuditLogResponse,
@@ -37,6 +38,10 @@ from app.schemas.company_membership import (
 __all__ = [
     "ActiveCompanyContext",
     "ActiveCompanyContextResponse",
+    "AgentCreate",
+    "AgentResponse",
+    "AgentTokenResponse",
+    "AuthenticatedAgentResponse",
     "AdministratorCreate",
     "AdministratorResponse",
     "AuditLogListResponse",

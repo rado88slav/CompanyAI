@@ -17,6 +17,7 @@ from app.models.audit_log import AuditAction
 from app.models.company_membership import CompanyRole
 from app.repositories.approval import ApprovalRepository, AuthorizationRepository
 from app.repositories.audit_log import AuditLogRepository
+from app.repositories.agent import AgentRepository
 from app.schemas.approval import ApprovalDecisionCreate, ApprovalRequestCreate, ManualPolicyCreate
 from app.services.audit_log import AuditLogService
 
@@ -49,8 +50,8 @@ def _dedup(company_id: UUID, actor_id: UUID, payload: ApprovalRequestCreate) -> 
 
 
 class ApprovalManagerService:
-    def __init__(self, approvals: ApprovalRepository, authorizations: AuthorizationRepository, audit: AuditLogService, session: Session) -> None:
-        self._approvals, self._authorizations, self._audit, self._session = approvals, authorizations, audit, session
+    def __init__(self, approvals: ApprovalRepository, authorizations: AuthorizationRepository, audit: AuditLogService, session: Session, agents: AgentRepository | None = None) -> None:
+        self._approvals, self._authorizations, self._audit, self._session, self._agents = approvals, authorizations, audit, session, agents
 
     def _atomic(self, operation):
         try:
@@ -161,6 +162,7 @@ class ApprovalManagerService:
         risk = payload.risk_level_max or RiskLevel.HIGH
         if not actor.is_superuser and actor_role not in {CompanyRole.OWNER.value, CompanyRole.ADMIN.value}: raise ApprovalForbiddenError
         if actor_role == CompanyRole.ADMIN.value and (RISK_ORDER[risk.value] > RISK_ORDER[RiskLevel.MEDIUM.value] or payload.effect.value != "allow"): raise ApprovalForbiddenError
+        if payload.subject_agent_id is not None and (self._agents is None or self._agents.get_agent(company_id=company_id, agent_id=payload.subject_agent_id) is None): raise ApprovalNotFoundError
         limits = _json(payload.limits)
         def operation():
             item = self._authorizations.create_policy(policy_scope="company", company_id=company_id, effect=payload.effect.value, authorization_mode=payload.authorization_mode.value, source_type="manual", source_approval_request_id=None, source_approval_decision_id=None, created_by_administrator_id=actor.id, subject_type=payload.subject_type.value, subject_administrator_id=payload.subject_administrator_id, subject_agent_id=payload.subject_agent_id, scope_type=payload.scope_type, scope_id=payload.scope_id, action_type=payload.action_type, tool_identifier=payload.tool_identifier, campaign_id=payload.campaign_id, batch_id=payload.batch_id, contact_list_id=payload.contact_list_id, provider_connection_id=payload.provider_connection_id, risk_level_max=risk.value, status="active", max_total_actions=limits.get("max_total_actions"), max_hourly_actions=limits.get("max_hourly_actions"), max_daily_actions=limits.get("max_daily_actions"), max_followups_per_target=limits.get("max_followups_per_target"), max_budget_amount=limits.get("max_budget_amount"), budget_currency=limits.get("budget_currency"), valid_from=payload.valid_from, expires_at=limits.get("expires_at"), conditions_schema_version=1, conditions=_json(payload.conditions))
@@ -212,4 +214,4 @@ class ApprovalManagerService:
 
 
 def get_approval_manager_service(session: Annotated[Session, Depends(get_db_session)]) -> ApprovalManagerService:
-    return ApprovalManagerService(ApprovalRepository(session), AuthorizationRepository(session), AuditLogService(AuditLogRepository(session)), session)
+    return ApprovalManagerService(ApprovalRepository(session), AuthorizationRepository(session), AuditLogService(AuditLogRepository(session)), session, AgentRepository(session))

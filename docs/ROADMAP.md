@@ -213,6 +213,8 @@ The Company Memberships and Roles foundation was committed as `d311521 Add compa
 
 This subsequent documentation synchronization is a separate uncommitted working-tree change pending review.
 
+The Agent Identity and Internal Agent Authentication foundation is now implemented as an uncommitted change. It introduces company-owned agents, one-time HMAC-protected machine credentials, short-lived separately signed agent JWTs, exact revocable permissions, lifecycle and audit management, administrator APIs and internal authentication endpoints. Static migration `0008_agent_identity` follows `0007` and is applied locally; the real database is at `0008`, and all three agent tables contain zero rows. Backend Compose propagation for the six Agent Authentication settings is corrected with tracked placeholders; runtime invalid-JWT re-verification remains pending until an explicitly permitted container recreation. Tool Registry, Agent Runtime and provider integrations remain outside this scope.
+
 ## Initial entities
 
 - Company

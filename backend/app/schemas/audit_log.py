@@ -18,6 +18,7 @@ class AuditLogResponse(BaseModel):
     company_id: UUID | None
     actor_type: AuditActorType
     actor_administrator_id: UUID | None
+    actor_agent_id: UUID | None = None
     action: str
     resource_type: str
     resource_id: UUID | None

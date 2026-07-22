@@ -20,7 +20,6 @@ _FORBIDDEN_DETAIL_KEY_PARTS = frozenset(
         "api_key",
         "authorization",
         "cookie",
-        "credential",
         "encryption_key",
         "hash",
         "password",
@@ -76,7 +75,7 @@ class AuditLogService:
             normalized_action = AuditAction(action).value
         except ValueError as exc:
             raise ValueError("Unsupported company audit action.") from exc
-        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage"}:
+        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_credential", "agent_permission"}:
             raise ValueError("Unsupported company audit resource_type.")
         _validate_safe_details(details)
         return self._repository.create(
@@ -84,6 +83,7 @@ class AuditLogService:
             company_id=company_id,
             actor_type=(AuditActorType.ADMINISTRATOR.value if actor_administrator_id is not None else AuditActorType.SYSTEM.value),
             actor_administrator_id=actor_administrator_id,
+            actor_agent_id=None,
             action=normalized_action,
             resource_type=resource_type,
             resource_id=resource_id,
@@ -115,6 +115,13 @@ class AuditLogService:
             raise ValueError("Unsupported platform audit resource_type.")
         _validate_safe_details(details)
         return self._repository.create(scope=AuditScope.PLATFORM.value, company_id=None, actor_type=AuditActorType.ADMINISTRATOR.value, actor_administrator_id=actor_administrator_id, action=action, resource_type=resource_type, resource_id=resource_id, details=details)
+
+    def append_agent_event(self, *, company_id: UUID, actor_agent_id: UUID, action: str, resource_type: str, resource_id: UUID | None, details: dict[str, Any]) -> AuditLog:
+        """Append a safe company event performed by an authenticated agent."""
+        if action != AuditAction.AGENT_AUTHENTICATED.value or resource_type != "agent":
+            raise ValueError("Unsupported agent audit event.")
+        _validate_safe_details(details)
+        return self._repository.create(scope=AuditScope.COMPANY.value, company_id=company_id, actor_type=AuditActorType.AGENT.value, actor_administrator_id=None, actor_agent_id=actor_agent_id, action=action, resource_type=resource_type, resource_id=resource_id, details=details)
 
 
 def get_audit_log_service(

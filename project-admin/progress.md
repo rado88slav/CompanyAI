@@ -186,6 +186,18 @@ Completed:
 - commit `da9386c` pushed successfully to `origin/main`;
 - local `main`, `origin/main` and `origin/HEAD` verified at `da9386c`, with a clean working tree immediately after the push;
 - this later documentation synchronization remains a separate uncommitted change pending review;
+- first-class company-owned Agent Identity foundation with persistent agents, credentials and exact permissions;
+- administrator identity and agent identity remain cryptographically and semantically separate;
+- versioned one-time machine credentials use HMAC-SHA256 with a dedicated server-side pepper;
+- short-lived agent JWTs use dedicated issuer, audience, signing configuration and database revalidation on every request;
+- agent, credential, company and `auth_version` changes invalidate authentication immediately;
+- agent lifecycle, credential rotation/revocation and permission history are append-only or soft-state transitions with atomic audit events;
+- administrator agent-management APIs and internal credential exchange/identity endpoints;
+- Approval Manager agent actor foreign keys and trusted authenticated-identity action helper;
+- schema-only migration `0008_agent_identity` created after `0007_approval_manager` and applied locally;
+- real PostgreSQL is at `0008_agent_identity`; the three agent tables exist and contain zero rows;
+- backend Compose now propagates all six Agent Authentication settings by placeholder; container recreation and invalid-JWT runtime re-verification remain pending;
+- Agent Identity implementation is uncommitted pending review;
 - randomized communication scheduling deferred to the Campaign Scheduler;
 
 Remaining:
@@ -198,13 +210,13 @@ Remaining:
 
 Latest backend verification:
 
-    172 passed, 1 warning
+    208 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager (head, applied locally)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity (head, applied locally)
 
 ---
 
@@ -242,6 +254,22 @@ Alembic migration chain:
     POST  /api/v1/companies/{company_id}/authorization-policies/{policy_id}/revoke
     GET   /api/v1/companies/{company_id}/authorization-usages
     GET   /api/v1/companies/{company_id}/authorization-usages/{usage_id}
+    POST  /api/v1/companies/{company_id}/agents
+    GET   /api/v1/companies/{company_id}/agents
+    GET   /api/v1/companies/{company_id}/agents/{agent_id}
+    PATCH /api/v1/companies/{company_id}/agents/{agent_id}
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/activate
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/deactivate
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/revoke
+    GET   /api/v1/companies/{company_id}/agents/{agent_id}/credentials
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/credentials
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/credentials/{credential_id}/rotate
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/credentials/{credential_id}/revoke
+    GET   /api/v1/companies/{company_id}/agents/{agent_id}/permissions
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/permissions
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/permissions/{permission_id}/revoke
+    POST  /api/v1/internal/agent-auth/token
+    GET   /api/v1/internal/agent-auth/me
     PUT    /api/v1/companies/{company_id}/settings/{category}/{key}
     GET    /api/v1/companies/{company_id}/settings
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
@@ -322,6 +350,10 @@ The real company will later be created as a separate Company Context without cha
 - Authorization audit data: 12 create events and 6 revoke events; historical records preserved
 - Safety invariant: independently verified with exactly one valid active policy per action and no unexpected or duplicate active bootstrap policies
 - Runtime external actions: none executed
+- Agent Identity: implemented and automatically verified, uncommitted
+- Agent migration `0008_agent_identity`: applied locally; real database is at `0008_agent_identity`
+- Real agent data: `agents`, `agent_credentials` and `agent_permissions` each contain zero rows
+- Internal agent authentication: invalid raw credentials return 401; Compose propagation is corrected, while invalid-JWT runtime re-verification awaits an explicitly permitted container recreation
 - Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
@@ -337,9 +369,10 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. review this post-commit project-status synchronization;
-2. commit and push the documentation synchronization only after explicit approval;
-3. continue with the next separately approved project task.
+1. review the uncommitted Agent Identity implementation and the applied `0008_agent_identity` schema;
+2. apply migration `0008` only after separate explicit approval;
+3. perform real PostgreSQL and runtime verification only after separate approval;
+4. commit and push only after explicit approval.
 
 ---
 

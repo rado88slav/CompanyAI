@@ -75,7 +75,7 @@ def test_company_role_permission_matrix() -> None:
     assert not role_has_permission("viewer", CompanyPermission.APPROVALS_READ)
 
 
-def test_human_routes_registered_but_internal_routes_absent() -> None:
+def test_human_routes_and_agent_auth_registered_but_internal_runtime_routes_absent() -> None:
     paths = app.openapi()["paths"]
     expected = {
         "/api/v1/companies/{company_id}/approval-requests",
@@ -84,7 +84,9 @@ def test_human_routes_registered_but_internal_routes_absent() -> None:
         "/api/v1/companies/{company_id}/authorization-usages",
     }
     assert expected <= set(paths)
-    assert not any("internal" in path or "agent-authorization" in path for path in paths)
+    assert "/api/v1/internal/agent-auth/token" in paths
+    assert "/api/v1/internal/agent-auth/me" in paths
+    assert not any("agent-authorization" in path or "authorization/evaluate" in path for path in paths)
 
 
 def test_action_actor_identity_is_explicit() -> None:

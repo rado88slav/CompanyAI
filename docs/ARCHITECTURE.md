@@ -588,7 +588,15 @@ The Company Memberships and Roles foundation is recorded in commit `d311521 Add 
 
 Randomized sending cadence is not authorization logic and belongs to the future Campaign Scheduler.
 
-## 15. Docker Architecture
+## 15. Agent Identity Boundary
+
+Agents are company-owned machine identities, never administrators. Machine credentials use a versioned public lookup ID plus a high-entropy secret. Only an HMAC-SHA256 digest keyed by the environment-only `AGENT_CREDENTIAL_PEPPER` is stored; plaintext is returned once after creation or rotation. Agent JWTs use dedicated secret, algorithm, issuer, audience and short TTL configuration and cannot authenticate through administrator dependencies.
+
+Every agent JWT request revalidates the active company, agent status, agent `auth_version`, credential ownership, status and expiry from PostgreSQL. Exact permission keys remain database-authoritative and immediately revocable; no permission wildcard or provider capability is introduced here. Agent, credential and permission mutations preserve history and share one transaction with their audit events. Credential rotation lineage is enforced by a composite database relationship, so a rotated credential can reference only a predecessor owned by the same company and agent.
+
+Migration `0008_agent_identity` creates the three agent tables, adds agent audit actors and connects Approval Manager's deferred agent identifiers with `ON DELETE RESTRICT` foreign keys. It is applied locally and the real database is at `0008_agent_identity`; `agents`, `agent_credentials` and `agent_permissions` each contain zero rows. Backend Compose passes the dedicated credential pepper and agent JWT settings only through environment placeholders. Runtime invalid-JWT re-verification awaits an explicitly permitted backend container recreation after that propagation correction. Tool Registry, Agent Runtime, Retell/Twilio and provider integrations remain future modules. Retell agents will be external voice executors managed by Company AI rather than replacements for internal Agent Identity.
+
+## 16. Docker Architecture
 
 The initial Docker Compose environment will contain:
 

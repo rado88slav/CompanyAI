@@ -5,6 +5,7 @@ metadata during automatic migration generation.
 """
 
 from app.models.administrator import Administrator
+from app.models.agent import Agent, AgentCredential, AgentCredentialStatus, AgentPermission, AgentPermissionStatus, AgentStatus, AgentType
 from app.models.audit_log import (
     AuditAction,
     AuditActorType,
@@ -17,6 +18,13 @@ from app.models.company_membership import CompanyMembership, CompanyRole
 
 __all__ = [
     "Administrator",
+    "Agent",
+    "AgentCredential",
+    "AgentCredentialStatus",
+    "AgentPermission",
+    "AgentPermissionStatus",
+    "AgentStatus",
+    "AgentType",
     "AuditAction",
     "AuditActorType",
     "AuditLog",

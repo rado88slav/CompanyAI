@@ -9,6 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, UniqueConstraint
 
 from app.models.approval import ApprovalDecision, ApprovalRequest, AuthorizationPolicy, AuthorizationUsage
+from app.models.agent import Agent, AgentCredential, AgentPermission
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,7 +28,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0007_approval_manager"
+        "0008_agent_identity"
     ]
 
 
@@ -115,6 +116,49 @@ def test_approval_manager_migration_follows_membership_revision() -> None:
     revision = ScriptDirectory.from_config(create_alembic_config()).get_revision("0007_approval_manager")
     assert revision is not None
     assert revision.down_revision == "0006_company_memberships"
+
+
+def test_agent_identity_migration_follows_approval_manager() -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision("0008_agent_identity")
+    assert revision is not None and revision.down_revision == "0007_approval_manager"
+
+
+def test_agent_identity_migration_is_static_complete_and_identifier_safe() -> None:
+    migration = BACKEND_ROOT / "migrations/versions/0008_create_agent_identity.py"
+    source = migration.read_text(encoding="utf-8"); tree = ast.parse(source)
+    imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+    assert not any(module == "app" or module.startswith("app.") for module in imports)
+    assert "op.get_bind" not in source and "__table__" not in source
+    for name in {"agents", "agent_credentials", "agent_permissions", "fk_approval_requests_requester_agent", "fk_auth_policies_subject_agent", "fk_auth_usages_actor_agent", "uq_agent_permissions_active_key", "uq_agents_company_slug", "uq_agent_credentials_public_id", "uq_agent_credentials_company_agent_id", "fk_agent_credentials_rotation_lineage"}: assert f'"{name}"' in source
+    assert source.count('ondelete="RESTRICT"') == 15
+    names=[]
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            for keyword in node.keywords:
+                if keyword.arg == "name" and isinstance(keyword.value, ast.Constant): names.append(keyword.value.value)
+            if isinstance(node.func, ast.Attribute) and node.func.attr in {"create_index", "create_foreign_key"} and node.args and isinstance(node.args[0], ast.Constant): names.append(node.args[0].value)
+    assert names and all(len(name.encode()) <= 63 for name in names)
+    lineage = next(
+        constraint
+        for constraint in AgentCredential.__table__.foreign_key_constraints
+        if constraint.name == "fk_agent_credentials_rotation_lineage"
+    )
+    assert tuple(lineage.column_keys) == ("company_id", "agent_id", "rotated_from_credential_id")
+    assert tuple(element.target_fullname for element in lineage.elements) == (
+        "agent_credentials.company_id",
+        "agent_credentials.agent_id",
+        "agent_credentials.id",
+    )
+    assert '["company_id", "agent_id", "rotated_from_credential_id"], ["agent_credentials.company_id", "agent_credentials.agent_id", "agent_credentials.id"]' in source
+    assert source.index('op.drop_constraint("fk_auth_usages_actor_agent"') < source.index('op.drop_table("agents")')
+    assert source.index('op.drop_table("agent_credentials")') < source.index('op.drop_table("agents")')
+
+
+def test_agent_orm_contains_expected_uniqueness_indexes_and_restrict_fks() -> None:
+    assert {"agents", "agent_credentials", "agent_permissions"} == {Agent.__tablename__, AgentCredential.__tablename__, AgentPermission.__tablename__}
+    for model in (Agent, AgentCredential, AgentPermission):
+        assert all(fk.ondelete == "RESTRICT" for fk in model.__table__.foreign_key_constraints)
+    assert any(index.name == "uq_agent_permissions_active_key" and index.unique for index in AgentPermission.__table__.indexes)
 
 
 def test_approval_manager_migration_is_static_and_application_independent() -> None:
@@ -262,7 +306,7 @@ def test_approval_manager_static_snapshot_matches_orm(monkeypatch) -> None:
         migration_constraints = {item.name for item in migration_table.constraints if isinstance(item, named_types) and item.name}
         assert migration_constraints == orm_constraints
 
-        orm_fks = {(tuple(item.parent.name for item in constraint.elements), tuple(item.target_fullname for item in constraint.elements), constraint.ondelete) for constraint in orm_table.foreign_key_constraints}
+        orm_fks = {(tuple(item.parent.name for item in constraint.elements), tuple(item.target_fullname for item in constraint.elements), constraint.ondelete) for constraint in orm_table.foreign_key_constraints if not any(item.target_fullname == "agents.id" for item in constraint.elements)}
         migration_fks = {(tuple(item.parent.name for item in constraint.elements), tuple(item.target_fullname for item in constraint.elements), constraint.ondelete) for constraint in migration_table.foreign_key_constraints}
         assert migration_fks == orm_fks
 

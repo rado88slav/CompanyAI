@@ -78,6 +78,8 @@ generate_fernet_key() {
 
 POSTGRES_PASSWORD="$(openssl rand -hex 24)"
 APP_SECRET_KEY="$(openssl rand -hex 32)"
+AGENT_CREDENTIAL_PEPPER="$(openssl rand -hex 32)"
+AGENT_JWT_SECRET="$(openssl rand -hex 32)"
 CREDENTIAL_ENCRYPTION_KEY="$(generate_fernet_key)"
 
 umask 077
@@ -93,6 +95,8 @@ trap cleanup EXIT
 awk \
     -v postgres_password="$POSTGRES_PASSWORD" \
     -v app_secret_key="$APP_SECRET_KEY" \
+    -v agent_credential_pepper="$AGENT_CREDENTIAL_PEPPER" \
+    -v agent_jwt_secret="$AGENT_JWT_SECRET" \
     -v encryption_key="$CREDENTIAL_ENCRYPTION_KEY" '
         /^POSTGRES_PASSWORD=/ {
             print "POSTGRES_PASSWORD=" postgres_password
@@ -101,6 +105,16 @@ awk \
 
         /^APP_SECRET_KEY=/ {
             print "APP_SECRET_KEY=" app_secret_key
+            next
+        }
+
+        /^AGENT_CREDENTIAL_PEPPER=/ {
+            print "AGENT_CREDENTIAL_PEPPER=" agent_credential_pepper
+            next
+        }
+
+        /^AGENT_JWT_SECRET=/ {
+            print "AGENT_JWT_SECRET=" agent_jwt_secret
             next
         }
 

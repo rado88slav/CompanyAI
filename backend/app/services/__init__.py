@@ -9,6 +9,7 @@ from app.services.authentication import (
     IssuedAccessToken,
     get_authentication_service,
 )
+from app.services.agent_identity import AgentIdentityService, AuthenticatedAgent, get_agent_identity_service
 from app.services.audit_log import (
     AuditLogService,
     get_audit_log_service,
@@ -33,6 +34,8 @@ from app.services.authorization_evaluator import AuthorizationEvaluatorService
 
 __all__ = [
     "AdministratorEmailConflictError",
+    "AgentIdentityService",
+    "AuthenticatedAgent",
     "AdministratorInactiveError",
     "AdministratorNotFoundError",
     "AuthenticationService",
@@ -48,6 +51,7 @@ __all__ = [
     "InvalidCredentialsError",
     "IssuedAccessToken",
     "get_authentication_service",
+    "get_agent_identity_service",
     "get_audit_log_service",
     "get_company_service",
     "get_company_membership_service",

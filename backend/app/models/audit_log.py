@@ -32,6 +32,7 @@ class AuditActorType(StrEnum):
     """Supported audit event actor types."""
 
     ADMINISTRATOR = "administrator"
+    AGENT = "agent"
     SYSTEM = "system"
 
 
@@ -57,6 +58,17 @@ class AuditAction(StrEnum):
     AUTHORIZATION_USAGE_SUCCEEDED = "authorization_usage.succeeded"
     AUTHORIZATION_USAGE_FAILED = "authorization_usage.failed"
     AUTHORIZATION_USAGE_RELEASED = "authorization_usage.released"
+    AGENT_CREATED = "agent.created"
+    AGENT_UPDATED = "agent.updated"
+    AGENT_ACTIVATED = "agent.activated"
+    AGENT_DEACTIVATED = "agent.deactivated"
+    AGENT_REVOKED = "agent.revoked"
+    AGENT_CREDENTIAL_CREATED = "agent_credential.created"
+    AGENT_CREDENTIAL_ROTATED = "agent_credential.rotated"
+    AGENT_CREDENTIAL_REVOKED = "agent_credential.revoked"
+    AGENT_AUTHENTICATED = "agent.authenticated"
+    AGENT_PERMISSION_GRANTED = "agent_permission.granted"
+    AGENT_PERMISSION_REVOKED = "agent_permission.revoked"
 
 
 class AuditLog(Base):
@@ -69,7 +81,7 @@ class AuditLog(Base):
             name="ck_audit_logs_scope",
         ),
         CheckConstraint(
-            "actor_type IN ('administrator', 'system')",
+            "actor_type IN ('administrator', 'agent', 'system')",
             name="ck_audit_logs_actor_type",
         ),
         CheckConstraint(
@@ -78,10 +90,9 @@ class AuditLog(Base):
             name="ck_audit_logs_scope_company",
         ),
         CheckConstraint(
-            "(actor_type = 'administrator' AND "
-            "actor_administrator_id IS NOT NULL) OR "
-            "(actor_type = 'system' AND "
-            "actor_administrator_id IS NULL)",
+            "(actor_type = 'administrator' AND actor_administrator_id IS NOT NULL AND actor_agent_id IS NULL) OR "
+            "(actor_type = 'agent' AND actor_administrator_id IS NULL AND actor_agent_id IS NOT NULL) OR "
+            "(actor_type = 'system' AND actor_administrator_id IS NULL AND actor_agent_id IS NULL)",
             name="ck_audit_logs_actor_administrator",
         ),
         CheckConstraint(
@@ -108,6 +119,7 @@ class AuditLog(Base):
             "created_at",
             "id",
         ),
+        Index("ix_audit_logs_actor_agent_created_id", "actor_agent_id", "created_at", "id"),
         Index(
             "ix_audit_logs_action_created_id",
             "action",
@@ -140,6 +152,7 @@ class AuditLog(Base):
         ForeignKey("administrators.id", ondelete="RESTRICT"),
         nullable=True,
     )
+    actor_agent_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("agents.id", ondelete="RESTRICT"), nullable=True)
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
     resource_id: Mapped[UUID | None] = mapped_column(

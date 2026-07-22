@@ -73,6 +73,12 @@ class Settings:
 
     app_secret_key: str
     access_token_expire_minutes: int
+    agent_credential_pepper: str
+    agent_jwt_secret: str
+    agent_jwt_algorithm: str
+    agent_jwt_ttl_seconds: int
+    agent_jwt_issuer: str
+    agent_jwt_audience: str
 
     postgres_host: str
     postgres_port: int
@@ -116,6 +122,12 @@ def get_settings() -> Settings:
             "ACCESS_TOKEN_EXPIRE_MINUTES",
             default=60,
         ),
+        agent_credential_pepper=getenv("AGENT_CREDENTIAL_PEPPER", ""),
+        agent_jwt_secret=getenv("AGENT_JWT_SECRET", ""),
+        agent_jwt_algorithm=getenv("AGENT_JWT_ALGORITHM", "HS256"),
+        agent_jwt_ttl_seconds=_read_positive_integer("AGENT_JWT_TTL_SECONDS", default=300),
+        agent_jwt_issuer=getenv("AGENT_JWT_ISSUER", "company-ai"),
+        agent_jwt_audience=getenv("AGENT_JWT_AUDIENCE", "company-ai-agent-runtime"),
         postgres_host=getenv("POSTGRES_HOST", "postgres"),
         postgres_port=_read_positive_integer(
             "POSTGRES_PORT",

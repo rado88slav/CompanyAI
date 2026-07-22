@@ -8,10 +8,12 @@ from app.repositories.company import CompanyRepository
 from app.repositories.company_setting import (
     CompanySettingRepository,
 )
+from app.repositories.company_membership import CompanyMembershipRepository
 
 __all__ = [
     "AdministratorRepository",
     "AuditLogRepository",
     "CompanyRepository",
+    "CompanyMembershipRepository",
     "CompanySettingRepository",
 ]

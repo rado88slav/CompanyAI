@@ -16,8 +16,9 @@ from fastapi import (
 from app.api.dependencies.authentication import (
     require_current_administrator,
 )
-from app.api.dependencies.company_context import (
-    require_matching_active_company,
+from app.api.dependencies.company_authorization import (
+    require_company_settings_read,
+    require_company_settings_write,
 )
 
 from app.schemas.company_setting import (
@@ -89,7 +90,7 @@ def upsert_company_setting(
     company_id: UUID,
     _context: Annotated[
         ActiveCompanyContext,
-        Depends(require_matching_active_company),
+        Depends(require_company_settings_write),
     ],
     category: SettingCategory,
     key: SettingKey,
@@ -123,7 +124,7 @@ def list_company_settings(
     company_id: UUID,
     _context: Annotated[
         ActiveCompanyContext,
-        Depends(require_matching_active_company),
+        Depends(require_company_settings_read),
     ],
     service: Annotated[
         CompanySettingService,
@@ -178,7 +179,7 @@ def get_company_setting(
     company_id: UUID,
     _context: Annotated[
         ActiveCompanyContext,
-        Depends(require_matching_active_company),
+        Depends(require_company_settings_read),
     ],
     category: SettingCategory,
     key: SettingKey,
@@ -212,7 +213,7 @@ def delete_company_setting(
     company_id: UUID,
     _context: Annotated[
         ActiveCompanyContext,
-        Depends(require_matching_active_company),
+        Depends(require_company_settings_write),
     ],
     category: SettingCategory,
     key: SettingKey,

@@ -14,6 +14,7 @@ from app.api.dependencies.company_context import (
 )
 
 from app.main import app
+from app.schemas.company_context import ActiveCompanyContext
 from app.schemas.company_setting import CompanySettingUpsert
 from app.services.company import CompanyNotFoundError
 from app.services.company_setting import (
@@ -191,14 +192,36 @@ def create_client(
 ) -> TestClient:
     """Create a client with the setting service overridden."""
 
-    # Authentication behavior is tested separately.
+    # Authentication and path/header resolution are tested separately.
+    company_id = next(iter(service.company_ids), uuid4())
+    administrator = type(
+        "AdministratorContext",
+        (),
+        {
+            "id": uuid4(),
+            "is_active": True,
+            "is_superuser": True,
+        },
+    )()
+    company = type(
+        "CompanyContext",
+        (),
+        {"id": company_id, "is_active": True, "status": "active"},
+    )()
+    context = ActiveCompanyContext(
+        administrator=administrator,  # type: ignore[arg-type]
+        company=company,  # type: ignore[arg-type]
+        membership=None,
+        is_platform_superuser=True,
+    )
+
     app.dependency_overrides[
         require_current_administrator
-    ] = lambda: object()
+    ] = lambda: administrator
 
     app.dependency_overrides[
         require_matching_active_company
-    ] = lambda: object()
+    ] = lambda: context
 
     app.dependency_overrides[
         get_company_setting_service

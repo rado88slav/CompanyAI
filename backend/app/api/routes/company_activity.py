@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies.authentication import require_current_administrator
-from app.api.dependencies.company_context import require_matching_active_company
+from app.api.dependencies.company_authorization import require_company_activity_read
 from app.schemas.audit_log import AuditLogListResponse, AuditLogResponse
 from app.schemas.company_context import ActiveCompanyContext
 from app.services.audit_log import AuditLogService, get_audit_log_service
@@ -27,7 +27,7 @@ def list_company_activity(
     company_id: UUID,
     _context: Annotated[
         ActiveCompanyContext,
-        Depends(require_matching_active_company),
+        Depends(require_company_activity_read),
     ],
     service: Annotated[
         AuditLogService,

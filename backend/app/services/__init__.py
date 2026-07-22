@@ -24,6 +24,10 @@ from app.services.company_setting import (
     CompanySettingService,
     get_company_setting_service,
 )
+from app.services.company_membership import (
+    CompanyMembershipService,
+    get_company_membership_service,
+)
 
 __all__ = [
     "AdministratorEmailConflictError",
@@ -33,6 +37,7 @@ __all__ = [
     "AuditLogService",
     "CompanyNotFoundError",
     "CompanyService",
+    "CompanyMembershipService",
     "CompanySettingNotFoundError",
     "CompanySettingService",
     "CompanySlugConflictError",
@@ -41,5 +46,6 @@ __all__ = [
     "get_authentication_service",
     "get_audit_log_service",
     "get_company_service",
+    "get_company_membership_service",
     "get_company_setting_service",
 ]

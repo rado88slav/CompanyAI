@@ -6,7 +6,9 @@ from pydantic import BaseModel
 
 from app.models.administrator import Administrator
 from app.models.company import Company
+from app.models.company_membership import CompanyMembership
 from app.schemas.company import CompanyResponse
+from app.models.company_membership import CompanyRole
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,9 +17,13 @@ class ActiveCompanyContext:
 
     administrator: Administrator
     company: Company
+    membership: CompanyMembership | None
+    is_platform_superuser: bool
 
 
 class ActiveCompanyContextResponse(BaseModel):
     """Public representation of the resolved active company context."""
 
     company: CompanyResponse
+    membership_role: CompanyRole | None
+    is_platform_superuser: bool

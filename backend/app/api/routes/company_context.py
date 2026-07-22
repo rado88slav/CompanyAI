@@ -29,4 +29,6 @@ def get_active_company_context(
 
     return ActiveCompanyContextResponse(
         company=CompanyResponse.model_validate(context.company),
+        membership_role=(context.membership.role if context.membership else None),
+        is_platform_superuser=context.is_platform_superuser,
     )

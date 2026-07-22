@@ -25,6 +25,14 @@ from app.schemas.company_context import (
     ActiveCompanyContext,
     ActiveCompanyContextResponse,
 )
+from app.schemas.company_membership import (
+    CompanyMembershipCreate,
+    CompanyMembershipListResponse,
+    CompanyMembershipResponse,
+    CompanyMembershipRoleUpdate,
+    MyCompanyMembershipListResponse,
+    MyCompanyMembershipResponse,
+)
 
 __all__ = [
     "ActiveCompanyContext",
@@ -34,6 +42,10 @@ __all__ = [
     "AuditLogListResponse",
     "AuditLogResponse",
     "CompanyCreate",
+    "CompanyMembershipCreate",
+    "CompanyMembershipListResponse",
+    "CompanyMembershipResponse",
+    "CompanyMembershipRoleUpdate",
     "CompanyListResponse",
     "CompanyResponse",
     "CompanySettingListResponse",
@@ -41,5 +53,7 @@ __all__ = [
     "CompanySettingUpsert",
     "CompanyUpdate",
     "LoginRequest",
+    "MyCompanyMembershipListResponse",
+    "MyCompanyMembershipResponse",
     "TokenResponse",
 ]

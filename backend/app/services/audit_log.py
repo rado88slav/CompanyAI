@@ -76,8 +76,8 @@ class AuditLogService:
             normalized_action = AuditAction(action).value
         except ValueError as exc:
             raise ValueError("Unsupported company audit action.") from exc
-        if resource_type != "company":
-            raise ValueError("Company audit resource_type must be 'company'.")
+        if resource_type not in {"company", "company_membership"}:
+            raise ValueError("Unsupported company audit resource_type.")
         _validate_safe_details(details)
         return self._repository.create(
             scope=AuditScope.COMPANY.value,

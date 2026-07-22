@@ -17,6 +17,7 @@ from app.models.audit_log import AuditAction, AuditLog
 from app.models.company import CompanyStatus
 from app.repositories.audit_log import AuditLogRepository
 from app.schemas.audit_log import AuditLogResponse
+from app.schemas.company_context import ActiveCompanyContext
 from app.schemas.company import CompanyCreate, CompanyUpdate
 from app.services.audit_log import AuditLogService, get_audit_log_service
 from app.services.company import (
@@ -151,6 +152,19 @@ class RecordingAuditService:
         return object()
 
 
+class FakeMembershipRepository:
+    """Create owner memberships without database access."""
+
+    def create(self, *, company_id: UUID, administrator_id: UUID, role: str) -> object:
+        return SimpleNamespace(
+            id=uuid4(),
+            company_id=company_id,
+            administrator_id=administrator_id,
+            role=role,
+            is_active=True,
+        )
+
+
 def create_company_service(
     *,
     company: FakeCompany | None = None,
@@ -164,6 +178,7 @@ def create_company_service(
     service = CompanyService(
         repository=repository,  # type: ignore[arg-type]
         audit_service=audit_service,  # type: ignore[arg-type]
+        membership_repository=FakeMembershipRepository(),  # type: ignore[arg-type]
         session=session,  # type: ignore[arg-type]
     )
     return service, session, repository, audit_service
@@ -262,7 +277,7 @@ def test_company_creation_is_audited_and_committed_once() -> None:
     )
     assert session.commit_count == 1
     assert session.rollback_count == 0
-    assert len(audit.events) == 1
+    assert len(audit.events) == 2
     assert audit.events[0] == {
         "company_id": company.id,
         "actor_administrator_id": actor_id,
@@ -271,6 +286,8 @@ def test_company_creation_is_audited_and_committed_once() -> None:
         "resource_id": company.id,
         "details": {"name": "Created Company", "slug": "created-company"},
     }
+    assert audit.events[1]["action"] == "company_membership.created"
+    assert audit.events[1]["resource_type"] == "company_membership"
 
 
 def test_company_update_records_only_actual_changes() -> None:
@@ -336,6 +353,7 @@ def test_audit_integrity_error_rolls_back_company_mutation() -> None:
     service = CompanyService(
         repository=repository,  # type: ignore[arg-type]
         audit_service=audit,  # type: ignore[arg-type]
+        membership_repository=FakeMembershipRepository(),  # type: ignore[arg-type]
         session=session,  # type: ignore[arg-type]
     )
     with pytest.raises(IntegrityError):
@@ -352,6 +370,7 @@ def test_company_and_audit_repositories_share_request_session() -> None:
     service = get_company_service(session)  # type: ignore[arg-type]
     assert service._repository._session is session
     assert service._audit_service._repository._session is session
+    assert service._membership_repository._session is session
 
 
 def test_mutation_failure_creates_no_audit_event_and_rolls_back() -> None:
@@ -416,10 +435,19 @@ class FakeActivityService:
 def test_matching_company_activity_returns_pagination_contract() -> None:
     company_id = uuid4()
     actor_id = uuid4()
-    app.dependency_overrides[require_current_administrator] = lambda: (
-        SimpleNamespace(id=actor_id, is_active=True, is_superuser=True)
+    administrator = SimpleNamespace(
+        id=actor_id,
+        is_active=True,
+        is_superuser=True,
     )
-    app.dependency_overrides[require_matching_active_company] = lambda: object()
+    context = ActiveCompanyContext(
+        administrator=administrator,  # type: ignore[arg-type]
+        company=SimpleNamespace(id=company_id),  # type: ignore[arg-type]
+        membership=None,
+        is_platform_superuser=True,
+    )
+    app.dependency_overrides[require_current_administrator] = lambda: administrator
+    app.dependency_overrides[require_matching_active_company] = lambda: context
     app.dependency_overrides[get_audit_log_service] = lambda: (
         FakeActivityService(company_id, actor_id)
     )
@@ -479,6 +507,14 @@ def test_company_activity_enforces_active_company_context(
                 raise CompanyNotFoundError
             return company
 
+        def get_active_membership(
+            self,
+            *,
+            company_id: UUID,
+            administrator_id: UUID,
+        ) -> None:
+            return None
+
     app.dependency_overrides[require_current_administrator] = lambda: (
         SimpleNamespace(id=uuid4(), is_active=True, is_superuser=is_superuser)
     )
@@ -521,8 +557,19 @@ def test_company_activity_rejects_path_context_mismatch() -> None:
 @pytest.mark.parametrize("query", ["limit=0", "limit=101", "offset=-1"])
 def test_company_activity_rejects_invalid_pagination(query: str) -> None:
     company_id = uuid4()
-    app.dependency_overrides[require_current_administrator] = lambda: object()
-    app.dependency_overrides[require_matching_active_company] = lambda: object()
+    administrator = SimpleNamespace(
+        id=uuid4(),
+        is_active=True,
+        is_superuser=True,
+    )
+    context = ActiveCompanyContext(
+        administrator=administrator,  # type: ignore[arg-type]
+        company=SimpleNamespace(id=company_id),  # type: ignore[arg-type]
+        membership=None,
+        is_platform_superuser=True,
+    )
+    app.dependency_overrides[require_current_administrator] = lambda: administrator
+    app.dependency_overrides[require_matching_active_company] = lambda: context
     app.dependency_overrides[get_audit_log_service] = lambda: object()
     try:
         with TestClient(app) as client:

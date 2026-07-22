@@ -42,6 +42,10 @@ class AuditAction(StrEnum):
     COMPANY_UPDATED = "company.updated"
     COMPANY_ACTIVATED = "company.activated"
     COMPANY_DEACTIVATED = "company.deactivated"
+    COMPANY_MEMBERSHIP_CREATED = "company_membership.created"
+    COMPANY_MEMBERSHIP_ROLE_CHANGED = "company_membership.role_changed"
+    COMPANY_MEMBERSHIP_ACTIVATED = "company_membership.activated"
+    COMPANY_MEMBERSHIP_DEACTIVATED = "company_membership.deactivated"
 
 
 class AuditLog(Base):

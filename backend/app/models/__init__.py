@@ -13,6 +13,7 @@ from app.models.audit_log import (
 )
 from app.models.company import Company, CompanyStatus
 from app.models.company_setting import CompanySetting
+from app.models.company_membership import CompanyMembership, CompanyRole
 
 __all__ = [
     "Administrator",
@@ -21,6 +22,8 @@ __all__ = [
     "AuditLog",
     "AuditScope",
     "Company",
+    "CompanyMembership",
+    "CompanyRole",
     "CompanySetting",
     "CompanyStatus",
 ]

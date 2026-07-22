@@ -4,7 +4,7 @@
 
 **Phase 3 — Company and Administration Core: In Progress**
 
-The Company domain, Company Settings, administrator authentication, Active Company Context and Audit Logging foundations are operational.
+The Company domain, Company Settings, administrator authentication, Active Company Context, Audit Logging and Company Memberships and Roles foundations are operational locally.
 
 Some non-blocking work from Phase 1 and Phase 2 remains in the backlog, including the initial agent container, dashboard container, structured logging and additional system endpoints.
 
@@ -117,7 +117,7 @@ Completed:
 - authentication and security tests;
 - Authentication API verified against PostgreSQL.
 - stateless request-scoped Active Company Context through `X-Company-ID`;
-- superuser-only company context selection for the MVP;
+- database-backed company context selection for active members, with platform superuser override;
 - active company validation and typed request context;
 - company context discovery endpoint;
 - Company Settings path and header context enforcement;
@@ -136,6 +136,18 @@ Completed:
 - verification event company and resource IDs match `CompanyTest`, and its actor ID matches the authenticated local administrator;
 - audit logging, rollback and activity API tests;
 - complete Audit Logging backend suite verification;
+- `CompanyMembership` model with owner, admin, operator and viewer roles;
+- request-time database authorization and centralized company permissions;
+- membership management and current-administrator membership APIs;
+- last-active-owner protection with parent Company row locking;
+- automatic owner membership and audit event for future company creation;
+- membership audit actions and atomic mutation transactions;
+- explicit idempotent owner bootstrap command, completed successfully for CompanyTest;
+- schema-only Alembic migration `0006_company_memberships`, applied locally;
+- membership table, constraints, indexes and foreign keys verified against PostgreSQL;
+- active owner membership created for the authenticated CompanyTest superuser;
+- `company_membership.created` audit persistence verified;
+- complete Company Memberships and Roles backend suite verification;
 
 Remaining:
 
@@ -147,13 +159,13 @@ Remaining:
 
 Latest backend verification:
 
-    76 passed, 1 warning
+    103 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs (head, applied locally)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships (head, applied locally)
 
 ---
 
@@ -172,14 +184,21 @@ Alembic migration chain:
     POST  /api/v1/companies/{company_id}/activate
     POST  /api/v1/companies/{company_id}/deactivate
     GET   /api/v1/companies/{company_id}/activity
+    POST  /api/v1/companies/{company_id}/memberships
+    GET   /api/v1/companies/{company_id}/memberships
+    GET   /api/v1/companies/{company_id}/memberships/{membership_id}
+    PATCH /api/v1/companies/{company_id}/memberships/{membership_id}/role
+    POST  /api/v1/companies/{company_id}/memberships/{membership_id}/activate
+    POST  /api/v1/companies/{company_id}/memberships/{membership_id}/deactivate
+    GET   /api/v1/company-memberships/me
     PUT    /api/v1/companies/{company_id}/settings/{category}/{key}
     GET    /api/v1/companies/{company_id}/settings
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
     DELETE /api/v1/companies/{company_id}/settings/{category}/{key}
 
-Company management routes require a valid administrator Bearer token.
+Platform Company management routes require an active platform superuser.
 
-The Company Context endpoint and Company Settings routes also require `X-Company-ID`. Only active superusers may select a company context, and Company Settings URL company IDs must match the header context.
+The Company Context endpoint and company-scoped routes require `X-Company-ID`. Active members may select their companies according to their role; active platform superusers may select any active company without membership. URL company IDs must match the header context.
 
 Company activity requires the same Active Company Context protection. Inactive company activity is not viewable through this endpoint in the current version.
 
@@ -238,6 +257,12 @@ The real company will later be created as a separate Company Context without cha
 - Audit schema persistence: verified against PostgreSQL
 - Audit event persistence and company activity retrieval: verified end-to-end
 - Audit history: one explicitly approved no-op verification event; no historical backfill
+- Company Memberships and Roles: operational locally
+- Membership migration `0006_company_memberships`: applied locally
+- Membership schema persistence: verified against PostgreSQL
+- CompanyTest membership: one active owner membership for the authenticated superuser
+- Membership bootstrap: completed successfully
+- Membership audit persistence: `company_membership.created` verified
 - Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
@@ -250,7 +275,9 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. development seed automation.
+1. review the complete uncommitted Company Memberships and Roles work;
+2. create the Git commit after explicit approval;
+3. development seed automation.
 
 ---
 

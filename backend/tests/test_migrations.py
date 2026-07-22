@@ -22,7 +22,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0005_audit_logs"
+        "0006_company_memberships"
     ]
 
 
@@ -95,3 +95,12 @@ def test_audit_log_migration_follows_administrator_revision() -> None:
     revision = script_directory.get_revision("0005_audit_logs")
     assert revision is not None
     assert revision.down_revision == "0004_administrators"
+
+
+def test_membership_migration_follows_audit_revision() -> None:
+    """Company membership storage must follow audit logging."""
+
+    script_directory = ScriptDirectory.from_config(create_alembic_config())
+    revision = script_directory.get_revision("0006_company_memberships")
+    assert revision is not None
+    assert revision.down_revision == "0005_audit_logs"

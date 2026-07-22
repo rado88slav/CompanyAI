@@ -1,0 +1,27 @@
+"""Central company role and permission definitions."""
+
+from enum import StrEnum
+
+from app.models.company_membership import CompanyRole
+
+
+class CompanyPermission(StrEnum):
+    SETTINGS_READ = "settings.read"
+    SETTINGS_WRITE = "settings.write"
+    ACTIVITY_READ = "activity.read"
+    MEMBERSHIPS_READ = "memberships.read"
+    MEMBERSHIPS_MANAGE = "memberships.manage"
+
+
+ROLE_PERMISSIONS: dict[str, frozenset[CompanyPermission]] = {
+    CompanyRole.OWNER.value: frozenset(CompanyPermission),
+    CompanyRole.ADMIN.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.SETTINGS_WRITE, CompanyPermission.ACTIVITY_READ, CompanyPermission.MEMBERSHIPS_READ, CompanyPermission.MEMBERSHIPS_MANAGE}),
+    CompanyRole.OPERATOR.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.ACTIVITY_READ}),
+    CompanyRole.VIEWER.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.ACTIVITY_READ}),
+}
+
+
+def role_has_permission(role: str, permission: CompanyPermission) -> bool:
+    """Return whether a normalized role grants one permission."""
+
+    return permission in ROLE_PERMISSIONS.get(role, frozenset())

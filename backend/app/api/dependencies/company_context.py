@@ -39,7 +39,7 @@ def require_active_company_context(
         Header(alias="X-Company-ID"),
     ] = None,
 ) -> ActiveCompanyContext:
-    """Resolve an active company selected by an authenticated superuser."""
+    """Resolve an active company and any real active membership."""
 
     if company_header is None or not company_header.strip():
         raise HTTPException(
@@ -51,12 +51,6 @@ def require_active_company_context(
         company_id = UUID(company_header.strip())
     except (ValueError, AttributeError) as exc:
         raise invalid_company_header_exception() from exc
-
-    if not administrator.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Superuser access is required to select a company context.",
-        )
 
     try:
         company = service.get_company(company_id)
@@ -72,9 +66,21 @@ def require_active_company_context(
             detail="Inactive company cannot be selected as active context.",
         )
 
+    membership = service.get_active_membership(
+        company_id=company.id,
+        administrator_id=administrator.id,
+    )
+    if not administrator.is_superuser and membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to the selected company is forbidden.",
+        )
+
     return ActiveCompanyContext(
         administrator=administrator,
         company=company,
+        membership=membership,
+        is_platform_superuser=administrator.is_superuser,
     )
 
 

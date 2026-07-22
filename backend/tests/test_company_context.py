@@ -41,11 +41,33 @@ class FakeCompany:
         self.updated_at = NOW
 
 
+class FakeMembership:
+    """Company membership attributes used by context resolution tests."""
+
+    def __init__(
+        self,
+        *,
+        company_id: UUID,
+        administrator_id: UUID,
+        role: str,
+        is_active: bool = True,
+    ) -> None:
+        self.company_id = company_id
+        self.administrator_id = administrator_id
+        self.role = role
+        self.is_active = is_active
+
+
 class FakeCompanyService:
     """Resolve companies without database access."""
 
-    def __init__(self, companies: list[FakeCompany]) -> None:
+    def __init__(
+        self,
+        companies: list[FakeCompany],
+        memberships: list[FakeMembership] | None = None,
+    ) -> None:
         self.companies = {company.id: company for company in companies}
+        self.memberships = memberships or []
 
     def get_company(self, company_id: UUID) -> FakeCompany:
         company = self.companies.get(company_id)
@@ -54,6 +76,21 @@ class FakeCompanyService:
             raise CompanyNotFoundError
 
         return company
+
+    def get_active_membership(
+        self,
+        *,
+        company_id: UUID,
+        administrator_id: UUID,
+    ) -> FakeMembership | None:
+        for membership in self.memberships:
+            if (
+                membership.company_id == company_id
+                and membership.administrator_id == administrator_id
+                and membership.is_active
+            ):
+                return membership
+        return None
 
 
 class RecordingSettingService:
@@ -79,6 +116,7 @@ def create_client(
     *,
     administrator: FakeAdministrator,
     companies: list[FakeCompany],
+    memberships: list[FakeMembership] | None = None,
     setting_service: RecordingSettingService | None = None,
 ) -> TestClient:
     """Create a client with authentication and services overridden."""
@@ -87,7 +125,7 @@ def create_client(
         lambda: administrator
     )
     app.dependency_overrides[get_company_service] = (
-        lambda: FakeCompanyService(companies)
+        lambda: FakeCompanyService(companies, memberships)
     )
 
     if setting_service is not None:
@@ -199,6 +237,116 @@ def test_company_context_endpoint_returns_selected_company() -> None:
     assert response.status_code == 200
     assert response.json()["company"]["id"] == str(company.id)
     assert response.json()["company"]["status"] == "active"
+    assert response.json()["membership_role"] is None
+    assert response.json()["is_platform_superuser"] is True
+
+
+def test_superuser_context_returns_real_active_owner_membership() -> None:
+    company = FakeCompany(company_id=uuid4())
+    administrator = FakeAdministrator(is_superuser=True)
+    membership = FakeMembership(
+        company_id=company.id,
+        administrator_id=administrator.id,
+        role="owner",
+    )
+
+    try:
+        with create_client(
+            administrator=administrator,
+            companies=[company],
+            memberships=[membership],
+        ) as client:
+            response = client.get(
+                "/api/v1/company-context",
+                headers={"X-Company-ID": str(company.id)},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["membership_role"] == "owner"
+    assert response.json()["is_platform_superuser"] is True
+
+
+def test_ordinary_administrator_context_returns_real_membership_role() -> None:
+    company = FakeCompany(company_id=uuid4())
+    administrator = FakeAdministrator(is_superuser=False)
+    membership = FakeMembership(
+        company_id=company.id,
+        administrator_id=administrator.id,
+        role="operator",
+    )
+
+    try:
+        with create_client(
+            administrator=administrator,
+            companies=[company],
+            memberships=[membership],
+        ) as client:
+            response = client.get(
+                "/api/v1/company-context",
+                headers={"X-Company-ID": str(company.id)},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["membership_role"] == "operator"
+    assert response.json()["is_platform_superuser"] is False
+
+
+def test_inactive_membership_is_not_exposed_for_superuser_context() -> None:
+    company = FakeCompany(company_id=uuid4())
+    administrator = FakeAdministrator(is_superuser=True)
+    membership = FakeMembership(
+        company_id=company.id,
+        administrator_id=administrator.id,
+        role="owner",
+        is_active=False,
+    )
+
+    try:
+        with create_client(
+            administrator=administrator,
+            companies=[company],
+            memberships=[membership],
+        ) as client:
+            response = client.get(
+                "/api/v1/company-context",
+                headers={"X-Company-ID": str(company.id)},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["membership_role"] is None
+    assert response.json()["is_platform_superuser"] is True
+
+
+def test_inactive_membership_does_not_authorize_ordinary_administrator() -> None:
+    company = FakeCompany(company_id=uuid4())
+    administrator = FakeAdministrator(is_superuser=False)
+    membership = FakeMembership(
+        company_id=company.id,
+        administrator_id=administrator.id,
+        role="viewer",
+        is_active=False,
+    )
+
+    try:
+        with create_client(
+            administrator=administrator,
+            companies=[company],
+            memberships=[membership],
+        ) as client:
+            response = client.get(
+                "/api/v1/company-context",
+                headers={"X-Company-ID": str(company.id)},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 403
 
 
 def test_matching_settings_path_and_header_reaches_service() -> None:

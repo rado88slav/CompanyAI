@@ -11,9 +11,7 @@ from fastapi import (
     status,
 )
 
-from app.api.dependencies.authentication import (
-    require_current_administrator,
-)
+from app.api.dependencies.company_authorization import require_platform_superuser
 from app.models.administrator import Administrator
 
 from app.schemas.company import (
@@ -32,7 +30,7 @@ from app.services.company import (
 router = APIRouter(
     prefix="/companies",
     tags=["companies"],
-    dependencies=[Depends(require_current_administrator)],
+    dependencies=[Depends(require_platform_superuser)],
 )
 
 
@@ -68,7 +66,7 @@ def create_company(
     company_data: CompanyCreate,
     administrator: Annotated[
         Administrator,
-        Depends(require_current_administrator),
+        Depends(require_platform_superuser),
     ],
     service: Annotated[
         CompanyService,
@@ -157,7 +155,7 @@ def update_company(
     company_data: CompanyUpdate,
     administrator: Annotated[
         Administrator,
-        Depends(require_current_administrator),
+        Depends(require_platform_superuser),
     ],
     service: Annotated[
         CompanyService,
@@ -189,7 +187,7 @@ def activate_company(
     company_id: UUID,
     administrator: Annotated[
         Administrator,
-        Depends(require_current_administrator),
+        Depends(require_platform_superuser),
     ],
     service: Annotated[
         CompanyService,
@@ -218,7 +216,7 @@ def deactivate_company(
     company_id: UUID,
     administrator: Annotated[
         Administrator,
-        Depends(require_current_administrator),
+        Depends(require_platform_superuser),
     ],
     service: Annotated[
         CompanyService,

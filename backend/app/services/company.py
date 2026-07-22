@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db_session
 from app.models.audit_log import AuditAction
 from app.models.company import Company
+from app.models.company_membership import CompanyMembership
 from app.repositories.company import CompanyRepository
+from app.repositories.company_membership import CompanyMembershipRepository
 from app.schemas.company import (
     CompanyCreate,
     CompanyUpdate,
@@ -34,10 +36,12 @@ class CompanyService:
         self,
         repository: CompanyRepository,
         audit_service: AuditLogService,
+        membership_repository: CompanyMembershipRepository,
         session: Session,
     ) -> None:
         self._repository = repository
         self._audit_service = audit_service
+        self._membership_repository = membership_repository
         self._session = session
 
     def create_company(
@@ -59,6 +63,11 @@ class CompanyService:
 
         try:
             company = self._repository.create(company_data)
+            membership = self._membership_repository.create(
+                company_id=company.id,
+                administrator_id=actor_administrator_id,
+                role="owner",
+            )
         except IntegrityError as exc:
             self._session.rollback()
 
@@ -78,6 +87,18 @@ class CompanyService:
                 resource_id=company.id,
                 details={"name": company.name, "slug": company.slug},
             )
+            self._audit_service.append_company_event(
+                company_id=company.id,
+                actor_administrator_id=actor_administrator_id,
+                action=AuditAction.COMPANY_MEMBERSHIP_CREATED.value,
+                resource_type="company_membership",
+                resource_id=membership.id,
+                details={
+                    "administrator_id": str(actor_administrator_id),
+                    "role": "owner",
+                    "is_active": True,
+                },
+            )
             self._session.commit()
         except Exception:
             self._session.rollback()
@@ -96,6 +117,22 @@ class CompanyService:
             )
 
         return company
+
+    def get_active_membership(
+        self,
+        *,
+        company_id: UUID,
+        administrator_id: UUID,
+    ) -> CompanyMembership | None:
+        """Resolve current database-backed access for one administrator."""
+
+        membership = self._membership_repository.get_for_administrator(
+            company_id=company_id,
+            administrator_id=administrator_id,
+        )
+        if membership is None or not membership.is_active:
+            return None
+        return membership
 
     def list_companies(
         self,
@@ -269,5 +306,6 @@ def get_company_service(
     return CompanyService(
         repository=CompanyRepository(session),
         audit_service=AuditLogService(AuditLogRepository(session)),
+        membership_repository=CompanyMembershipRepository(session),
         session=session,
     )

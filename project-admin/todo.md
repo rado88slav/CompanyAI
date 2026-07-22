@@ -63,7 +63,7 @@
 
 - [x] Define `X-Company-ID` as the stateless company selector.
 - [x] Reject missing or invalid company context.
-- [x] Restrict context selection to active superusers.
+- [x] Resolve active member access at request time with a platform superuser override.
 - [x] Ensure company-owned records contain `company_id`.
 - [x] Prevent cross-company reads.
 - [x] Prevent cross-company writes and deletes.
@@ -80,7 +80,20 @@
 - [x] Create a company activity endpoint.
 - [x] Add audit log and transaction rollback tests.
 
-### 7. Development Seed Data
+### 7. Company Memberships and Roles
+
+- [x] Define owner, admin, operator and viewer roles.
+- [x] Add database-backed request-time company authorization.
+- [x] Protect the last active owner with Company row locking.
+- [x] Add membership and current-administrator membership APIs.
+- [x] Restrict platform Company CRUD to superusers.
+- [x] Add membership audit actions and atomic transactions.
+- [x] Create schema-only migration `0006_company_memberships`.
+- [x] Apply migration `0006_company_memberships` after approval.
+- [x] Verify the module against PostgreSQL.
+- [x] Execute the explicit owner bootstrap after approval.
+
+### 8. Development Seed Data
 
 - [ ] Create a repeatable seed script.
 - [ ] Preserve the `CompanyTest` development convention.
@@ -124,6 +137,7 @@ Phase 3 is complete when:
 - [x] Cross-company access tests pass.
 - [x] Company changes create audit records.
 - [ ] The active company can be identified by the dashboard.
+- [x] Company access roles and membership isolation are implemented.
 - [ ] Development seed data can be created safely.
 - [ ] Documentation and inventory are current.
 - [ ] No secrets are committed.

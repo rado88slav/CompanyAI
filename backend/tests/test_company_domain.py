@@ -29,6 +29,7 @@ class FakeAdministrator:
 
     def __init__(self) -> None:
         self.id = uuid4()
+        self.is_superuser = True
 
 
 class FakeCompany:

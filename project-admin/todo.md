@@ -41,13 +41,13 @@
 
 ### 3. Company Settings
 
-- [ ] Define the `CompanySetting` model.
-- [ ] Define supported setting categories.
-- [ ] Create a migration for company settings.
-- [ ] Create settings repository and service layers.
-- [ ] Create settings API endpoints.
-- [ ] Ensure every setting belongs to exactly one company.
-- [ ] Add company isolation tests.
+- [x] Define the `CompanySetting` model.
+- [x] Define supported setting categories.
+- [x] Create a migration for company settings.
+- [x] Create settings repository and service layers.
+- [x] Create settings API endpoints.
+- [x] Ensure every setting belongs to exactly one company.
+- [x] Add company isolation tests.
 
 ### 4. Administrator Foundation
 
@@ -118,7 +118,7 @@ Phase 3 is complete when:
 - [ ] At least two test companies can exist.
 - [ ] Companies can be created, read, updated and activated.
 - [ ] A local administrator can authenticate.
-- [ ] Company settings are stored separately.
+- [x] Company settings are stored separately.
 - [ ] Company-owned records are isolated.
 - [ ] Cross-company access tests pass.
 - [ ] Company changes create audit records.

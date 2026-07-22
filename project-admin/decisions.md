@@ -133,3 +133,21 @@ The Company UUID is the permanent canonical identifier.
 A company slug may be changed through the controlled Company update endpoint when the new slug remains unique.
 
 Internal relations must use the Company UUID rather than the mutable slug.
+
+## 017 — Company settings and secrets
+
+Store non-secret company configuration in the `company_settings` table.
+
+Each setting is identified by:
+
+    company_id
+    category
+    key
+
+Setting values use PostgreSQL JSONB so the system can store strings, numbers, booleans, lists and structured objects without creating a new column for every integration option.
+
+The combination of company, category and key must remain unique.
+
+Passwords, API keys, access tokens and other secrets must not be stored in `company_settings`.
+
+Secrets will use a separate encrypted credential storage system in a later phase.

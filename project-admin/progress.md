@@ -4,7 +4,7 @@
 
 **Phase 3 — Company and Administration Core: In Progress**
 
-The Company domain foundation is operational.
+The Company domain foundation and Company Settings module are operational.
 
 Some non-blocking work from Phase 1 and Phase 2 remains in the backlog, including the initial agent container, dashboard container, structured logging and additional system endpoints.
 
@@ -88,11 +88,21 @@ Completed:
 - Alembic migration `0002_companies`;
 - migration validation tests;
 - Company API tests;
-- development company `CompanyTest` stored in PostgreSQL.
+- development company `CompanyTest` stored in PostgreSQL;
+- `CompanySetting` SQLAlchemy model;
+- JSONB setting values;
+- settings grouped by company, category and key;
+- unique company/category/key combinations;
+- Company Settings repository and service;
+- Company Settings API schemas and routes;
+- setting upsert, list, read and delete operations;
+- company ownership validation;
+- cross-company isolation tests;
+- Alembic migration `0003_company_settings`;
+- Company Settings API verified against PostgreSQL.
 
 Remaining:
 
-- company settings;
 - administrator model;
 - local administrator account;
 - authentication;
@@ -107,13 +117,13 @@ Remaining:
 
 Latest backend verification:
 
-    19 passed, 1 warning
+    28 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies (head)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings (head)
 
 ---
 
@@ -128,6 +138,10 @@ Alembic migration chain:
     PATCH /api/v1/companies/{company_id}
     POST  /api/v1/companies/{company_id}/activate
     POST  /api/v1/companies/{company_id}/deactivate
+    PUT    /api/v1/companies/{company_id}/settings/{category}/{key}
+    GET    /api/v1/companies/{company_id}/settings
+    GET    /api/v1/companies/{company_id}/settings/{category}/{key}
+    DELETE /api/v1/companies/{company_id}/settings/{category}/{key}
 
 ---
 
@@ -175,9 +189,11 @@ The real company will later be created as a separate Company Context without cha
 - FastAPI backend: healthy
 - Alembic migrations: operational
 - Company API: operational
+- Company Settings API: operational
 - Company persistence: verified
+- Company Settings persistence: verified
 - Automated tests: passing
-- Git working tree: clean
+- Git repository: operational
 
 ---
 
@@ -185,12 +201,11 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. company settings;
-2. administrator and authentication foundation;
-3. active company selection;
-4. company-owned data isolation;
-5. audit logging;
-6. development seed automation.
+1. administrator and authentication foundation;
+2. active company selection;
+3. company-owned data isolation;
+4. audit logging;
+5. development seed automation.
 
 ---
 

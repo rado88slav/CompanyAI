@@ -22,7 +22,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0002_companies"
+        "0003_company_settings"
     ]
 
 
@@ -54,3 +54,18 @@ def test_company_migration_follows_initial_revision() -> None:
 
     assert revision is not None
     assert revision.down_revision == "0001_initial"
+
+
+def test_company_settings_migration_follows_company_revision() -> None:
+    """Company settings must follow the Company migration."""
+
+    script_directory = ScriptDirectory.from_config(
+        create_alembic_config()
+    )
+
+    revision = script_directory.get_revision(
+        "0003_company_settings"
+    )
+
+    assert revision is not None
+    assert revision.down_revision == "0002_companies"

@@ -60,15 +60,19 @@ Generated automatically.
    Description: Add company update, activation and deactivation operations.
    Status: executable
 
-15. scripts/setup/add-database-migrations.sh
+15. scripts/setup/add-company-settings.sh
+   Description: Add company-owned settings storage, API operations and migration.
+   Status: executable
+
+16. scripts/setup/add-database-migrations.sh
    Description: Add Alembic database migrations and Bash migration tools to the Company AI backend.
    Status: executable
 
-16. scripts/setup/create-backend.sh
+17. scripts/setup/create-backend.sh
    Description: Generate the initial Company AI FastAPI backend structure and Docker configuration.
    Status: executable
 
-17. scripts/setup/create-env.sh
+18. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 

@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "${POSTGRES_HOST_PORT}:${POSTGRES_PORT}"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" -h 127.0.0.1 -p 5432"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    stop_grace_period: 30s
+
+    networks:
+      - company_ai_network
+
+volumes:
+  postgres_data:
+    name: company_ai_postgres_data
+
+networks:
+  company_ai_network:
+    name: company_ai_network
+    driver: bridge

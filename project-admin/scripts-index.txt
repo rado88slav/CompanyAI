@@ -8,15 +8,27 @@ Generated automatically.
    Description: Create the project administration and documentation files.
    Status: executable
 
-2. scripts/maintenance/update-inventory.sh
+2. scripts/docker/start.sh
+   Description: Start the Company AI Docker Compose environment and display service status.
+   Status: executable
+
+3. scripts/docker/status.sh
+   Description: Display the current status of the Company AI Docker Compose services.
+   Status: executable
+
+4. scripts/docker/stop.sh
+   Description: Stop the Company AI Docker Compose services without deleting containers, networks or data.
+   Status: executable
+
+5. scripts/maintenance/update-inventory.sh
    Description: Generate the project inventory and Bash scripts index.
    Status: executable
 
-3. scripts/setup.sh
+6. scripts/setup.sh
    Description: Create the initial project structure and base files.
    Status: executable
 
-4. scripts/setup/create-env.sh
+7. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 

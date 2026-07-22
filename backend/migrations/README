@@ -1,0 +1,23 @@
+Company AI database migrations
+==============================
+
+Alembic manages all PostgreSQL schema changes for the Company AI platform.
+
+Apply all pending migrations:
+
+    ./scripts/database/migrate.sh
+
+Show the currently applied revision:
+
+    ./scripts/database/migrate.sh current
+
+Show migration history:
+
+    ./scripts/database/migrate.sh history
+
+Generate a migration after changing SQLAlchemy models:
+
+    ./scripts/database/create-migration.sh "describe the schema change"
+
+Always inspect an automatically generated migration before applying it.
+Never edit the alembic_version table manually.

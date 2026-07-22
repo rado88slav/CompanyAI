@@ -8,43 +8,55 @@ Generated automatically.
    Description: Create the project administration and documentation files.
    Status: executable
 
-2. scripts/docker/logs.sh
+2. scripts/database/create-migration.sh
+   Description: Generate a new Alembic migration from Company AI SQLAlchemy model changes.
+   Status: executable
+
+3. scripts/database/migrate.sh
+   Description: Apply or inspect Company AI Alembic database migrations through Docker.
+   Status: executable
+
+4. scripts/docker/logs.sh
    Description: Display Company AI Docker Compose logs for all services or a selected service.
    Status: executable
 
-3. scripts/docker/restart.sh
+5. scripts/docker/restart.sh
    Description: Restart all Company AI Docker Compose services safely.
    Status: executable
 
-4. scripts/docker/start.sh
+6. scripts/docker/start.sh
    Description: Start the Company AI Docker Compose environment and display service status.
    Status: executable
 
-5. scripts/docker/status.sh
+7. scripts/docker/status.sh
    Description: Display the current status of the Company AI Docker Compose services.
    Status: executable
 
-6. scripts/docker/stop.sh
+8. scripts/docker/stop.sh
    Description: Stop the Company AI Docker Compose services without deleting containers, networks or data.
    Status: executable
 
-7. scripts/maintenance/update-inventory.sh
+9. scripts/maintenance/update-inventory.sh
    Description: Generate the project inventory and Bash scripts index.
    Status: executable
 
-8. scripts/setup.sh
+10. scripts/setup.sh
    Description: Create the initial project structure and base files.
    Status: executable
 
-9. scripts/setup/add-backend-database.sh
+11. scripts/setup/add-backend-database.sh
    Description: Add SQLAlchemy and PostgreSQL connectivity to the Company AI FastAPI backend.
    Status: executable
 
-10. scripts/setup/create-backend.sh
+12. scripts/setup/add-database-migrations.sh
+   Description: Add Alembic database migrations and Bash migration tools to the Company AI backend.
+   Status: executable
+
+13. scripts/setup/create-backend.sh
    Description: Generate the initial Company AI FastAPI backend structure and Docker configuration.
    Status: executable
 
-11. scripts/setup/create-env.sh
+14. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 

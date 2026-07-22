@@ -57,3 +57,6 @@ __all__ = [
     "MyCompanyMembershipResponse",
     "TokenResponse",
 ]
+from app.schemas.approval import ApprovalRequestCreate, AuthorizationAction, ManualPolicyCreate
+
+__all__ = ["ApprovalRequestCreate", "AuthorizationAction", "ManualPolicyCreate"]

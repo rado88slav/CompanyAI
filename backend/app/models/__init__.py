@@ -27,3 +27,6 @@ __all__ = [
     "CompanySetting",
     "CompanyStatus",
 ]
+from app.models.approval import ApprovalDecision, ApprovalRequest, AuthorizationPolicy, AuthorizationUsage
+
+__all__ = ["ApprovalDecision", "ApprovalRequest", "AuthorizationPolicy", "AuthorizationUsage"]

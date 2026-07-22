@@ -572,7 +572,21 @@ Project progress, decisions, inventory and internal administration.
 
 ---
 
-## 14. Docker Architecture
+## 14. Approval Manager Boundary
+
+Approval requests, immutable decisions, authorization policies and the usage reservation ledger are separate persistence concerns. Human APIs use Bearer authentication, Active Company Context and centralized company permissions. Runtime evaluation and reservation are internal Python services; no internal HTTP router is registered before Agent Identity exists.
+
+Evaluation applies platform risk floors, block and always-require rules before selecting exactly one deterministic allow policy. Reservations lock that policy and persist usage plus audit data atomically. Provider side effects remain outside the database transaction and require future provider idempotency and reconciliation.
+
+Authorization policies reserve `scope_type = any` as a resource-scope wildcard and require its `scope_id` to be null. Runtime actions and approval requests always use concrete scopes. The wildcard does not cross company boundaries: company policies remain filtered by `company_id`, while platform policies remain platform-wide. Exact scope IDs rank above exact scope types, which rank above `any`.
+
+Safety bootstrap idempotence requires a complete match of every security-relevant policy field. Conflicting active policies are never silently widened, narrowed or replaced. The separately gated `--repair-legacy-scope` operation accepts only the exact former bootstrap shape, then revokes and replaces all eligible definitions with corresponding audit events in one transaction. It preserves all historical policies and audit records.
+
+The first approved platform bootstrap ran from a stale backend image and created six legacy `company`/null platform policies. After read-only detection, container rebuild and bootstrap hardening, the user approved the controlled repair. It atomically preserved those six policies as revoked and created six active `any`/null replacements. Independent verification confirmed 12 policies total, 12 create audit events, six revoke audit events, exactly one valid active policy per safety action and no duplicate active bootstrap policies. No policy or historical audit event was deleted and no external action was executed. A further real bootstrap run has not been used to test post-repair idempotence.
+
+Randomized sending cadence is not authorization logic and belongs to the future Campaign Scheduler.
+
+## 15. Docker Architecture
 
 The initial Docker Compose environment will contain:
 
@@ -599,7 +613,7 @@ The same repository and scripts should support:
 
 ---
 
-## 15. Initial Technology Stack
+## 16. Initial Technology Stack
 
 ### Backend
 
@@ -640,7 +654,7 @@ The same repository and scripts should support:
 
 ---
 
-## 16. MVP Boundaries
+## 17. MVP Boundaries
 
 The first MVP will include:
 
@@ -674,7 +688,7 @@ These may be added in later phases.
 
 ---
 
-## 17. Development Principles
+## 18. Development Principles
 
 1. Build the smallest useful version first.
 2. Keep modules replaceable.
@@ -692,7 +706,7 @@ These may be added in later phases.
 
 ---
 
-## 18. Future Evolution
+## 19. Future Evolution
 
 The modular monolith may later evolve by extracting individual modules.
 
@@ -710,7 +724,7 @@ Extraction will happen only when scale, security or independent deployment requi
 
 ---
 
-## 19. Primary System Flow
+## 20. Primary System Flow
 
 ```text
 User
@@ -744,7 +758,7 @@ Result / Webhook / Audit Log
 
 ---
 
-## 20. Final Architectural Rule
+## 21. Final Architectural Rule
 
 The AI model may recommend actions.
 

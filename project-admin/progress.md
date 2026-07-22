@@ -4,7 +4,7 @@
 
 **Phase 3 — Company and Administration Core: In Progress**
 
-The Company domain, Company Settings, administrator authentication, Active Company Context, Audit Logging and Company Memberships and Roles foundations are operational locally.
+The Company domain, Company Settings, administrator authentication, Active Company Context, Audit Logging and Company Memberships and Roles foundations are operational locally. The uncommitted Approval Manager foundation is implemented and automatically verified; migration `0007_approval_manager` is applied locally.
 
 Some non-blocking work from Phase 1 and Phase 2 remains in the backlog, including the initial agent container, dashboard container, structured logging and additional system endpoints.
 
@@ -148,6 +148,38 @@ Completed:
 - active owner membership created for the authenticated CompanyTest superuser;
 - `company_membership.created` audit persistence verified;
 - complete Company Memberships and Roles backend suite verification;
+- four-table Approval Manager and Authorization Policies foundation;
+- deterministic risk catalog, policy evaluation and atomic usage reservation services;
+- authenticated, company-isolated human approval, policy and usage APIs;
+- internal agent HTTP routes intentionally disabled until Agent Identity exists;
+- schema-only migration `0007_approval_manager` applied locally after its identifier correction;
+- first local `0007` application attempt failed on an overlong PostgreSQL identifier and transactional DDL rolled back the complete migration;
+- immediately after that failed attempt, local PostgreSQL remained at `0006_company_memberships`, with no Approval Manager tables or records left behind;
+- the six overlong foreign-key names were corrected before any migration retry;
+- all four Approval Manager tables exist locally; before the first bootstrap run all four contained no records;
+- read-only runtime verification returned HTTP 200 for approval requests, then exposed an HTTP 500 policy-list pagination defect because `limit` and `offset` reached `count_policies`;
+- authorization usage listing contained the same latent pagination defect;
+- service pagination now separates filters from `limit` and `offset` consistently for requests, policies and usages;
+- final authenticated read-only runtime verification returned HTTP 200 for approval requests, authorization policies and authorization usages;
+- each final collection response contained `items: []`, `total: 0`, `limit: 1` and `offset: 0`;
+- all 14 Approval Manager foreign keys are verified with `ON DELETE RESTRICT`;
+- reserved authorization policy scope `any` introduced for safety rules across every concrete resource scope;
+- platform and company bootstrap definitions now use `scope_type: any` with a null `scope_id`;
+- wildcard scope changes only resource matching: company isolation remains enforced by `company_id`;
+- wildcard code was completed before the backend container was rebuilt;
+- the first approved platform bootstrap therefore ran the old container code and created six active platform policies with legacy `company`/null scope plus six matching historical create audit events;
+- read-only verification detected the scope mismatch immediately; no approval requests, decisions or usages were created and no external action was executed;
+- the rebuilt backend now contains the correct `any`/null definitions;
+- ordinary bootstrap verification compares the complete security-relevant definition and refuses every mismatch;
+- controlled `--repair-legacy-scope` support is implemented and tested for only the exact legacy bootstrap shape;
+- the user explicitly approved the controlled platform repair, which completed all six replacements in one transaction;
+- all six legacy `company`/null policies are preserved as revoked, and six new active `any`/null platform policies exist;
+- authorization policy totals are 12 records: 6 active and 6 revoked; approval requests, decisions and usages remain empty;
+- audit totals are 12 `authorization_policy.created` events and 6 `authorization_policy.revoked` events, with historical events preserved;
+- an independent strict invariant check confirmed exactly one valid active safety policy per action, exactly six expected revoked legacy policies, no unexpected or duplicate active bootstrap policies, and all expected audit events;
+- no policy was deleted and no external action was executed;
+- normal bootstrap is expected to be idempotent after repair, but it has not been executed again against the real database;
+- randomized communication scheduling deferred to the Campaign Scheduler;
 
 Remaining:
 
@@ -159,13 +191,13 @@ Remaining:
 
 Latest backend verification:
 
-    103 passed, 1 warning
+    172 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships (head, applied locally)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager (head, applied locally)
 
 ---
 
@@ -191,6 +223,18 @@ Alembic migration chain:
     POST  /api/v1/companies/{company_id}/memberships/{membership_id}/activate
     POST  /api/v1/companies/{company_id}/memberships/{membership_id}/deactivate
     GET   /api/v1/company-memberships/me
+    POST  /api/v1/companies/{company_id}/approval-requests
+    GET   /api/v1/companies/{company_id}/approval-requests
+    GET   /api/v1/companies/{company_id}/approval-requests/{request_id}
+    POST  /api/v1/companies/{company_id}/approval-requests/{request_id}/approve
+    POST  /api/v1/companies/{company_id}/approval-requests/{request_id}/deny
+    POST  /api/v1/companies/{company_id}/approval-requests/{request_id}/cancel
+    GET   /api/v1/companies/{company_id}/authorization-policies
+    POST  /api/v1/companies/{company_id}/authorization-policies
+    GET   /api/v1/companies/{company_id}/authorization-policies/{policy_id}
+    POST  /api/v1/companies/{company_id}/authorization-policies/{policy_id}/revoke
+    GET   /api/v1/companies/{company_id}/authorization-usages
+    GET   /api/v1/companies/{company_id}/authorization-usages/{usage_id}
     PUT    /api/v1/companies/{company_id}/settings/{category}/{key}
     GET    /api/v1/companies/{company_id}/settings
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
@@ -263,6 +307,14 @@ The real company will later be created as a separate Company Context without cha
 - CompanyTest membership: one active owner membership for the authenticated superuser
 - Membership bootstrap: completed successfully
 - Membership audit persistence: `company_membership.created` verified
+- Approval Manager: implemented and automatically verified, uncommitted
+- Approval migration `0007_approval_manager`: applied locally; request, decision and usage tables empty; policy table contains 6 active and 6 revoked records
+- Authorization safety bootstrap: first approved run used the old image and created six legacy-scoped platform policies
+- Authorization safety repair: explicitly approved and completed atomically for all six legacy policies
+- Real authorization data: 12 policies total, 6 active `any`/null and 6 preserved revoked legacy policies; no requests, decisions or usages
+- Authorization audit data: 12 create events and 6 revoke events; historical records preserved
+- Safety invariant: independently verified with exactly one valid active policy per action and no unexpected or duplicate active bootstrap policies
+- Runtime external actions: none executed
 - Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
@@ -275,9 +327,10 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. review the complete uncommitted Company Memberships and Roles work;
-2. create the Git commit after explicit approval;
-3. development seed automation.
+1. review the complete uncommitted Approval Manager work;
+2. review the corrected read-only pagination behavior;
+3. review the independently verified safety-policy repair state;
+4. create the Git commit after explicit approval.
 
 ---
 

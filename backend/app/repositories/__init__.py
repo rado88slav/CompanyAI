@@ -17,3 +17,6 @@ __all__ = [
     "CompanyMembershipRepository",
     "CompanySettingRepository",
 ]
+from app.repositories.approval import ApprovalRepository, AuthorizationRepository
+
+__all__ = ["ApprovalRepository", "AuthorizationRepository"]

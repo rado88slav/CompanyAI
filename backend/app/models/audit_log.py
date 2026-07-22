@@ -46,6 +46,17 @@ class AuditAction(StrEnum):
     COMPANY_MEMBERSHIP_ROLE_CHANGED = "company_membership.role_changed"
     COMPANY_MEMBERSHIP_ACTIVATED = "company_membership.activated"
     COMPANY_MEMBERSHIP_DEACTIVATED = "company_membership.deactivated"
+    APPROVAL_REQUEST_CREATED = "approval_request.created"
+    APPROVAL_REQUEST_CANCELLED = "approval_request.cancelled"
+    APPROVAL_REQUEST_EXPIRED = "approval_request.expired"
+    APPROVAL_REQUEST_APPROVED = "approval_request.approved"
+    APPROVAL_REQUEST_DENIED = "approval_request.denied"
+    AUTHORIZATION_POLICY_CREATED = "authorization_policy.created"
+    AUTHORIZATION_POLICY_REVOKED = "authorization_policy.revoked"
+    AUTHORIZATION_USAGE_RESERVED = "authorization_usage.reserved"
+    AUTHORIZATION_USAGE_SUCCEEDED = "authorization_usage.succeeded"
+    AUTHORIZATION_USAGE_FAILED = "authorization_usage.failed"
+    AUTHORIZATION_USAGE_RELEASED = "authorization_usage.released"
 
 
 class AuditLog(Base):

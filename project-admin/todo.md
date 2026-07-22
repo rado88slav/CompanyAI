@@ -95,6 +95,21 @@
 
 ### 8. Development Seed Data
 
+### 8. Approval Manager and Authorization Policies
+
+- [x] Define approval requests and append-only decisions.
+- [x] Define allow, require-approval and block policies.
+- [x] Define the reservation usage ledger.
+- [x] Add human administrator APIs and company role permissions.
+- [x] Add internal evaluator and atomic reservation services without HTTP exposure.
+- [x] Create schema-only migration `0007_approval_manager`.
+- [x] Apply migration `0007_approval_manager` after approval.
+- [x] Execute the controlled authorization safety legacy-scope repair after separate approval.
+- [x] Verify policy counts, audit counts and strict post-repair invariants independently.
+- [x] Verify the empty Approval Manager schema and read-only collections against local PostgreSQL.
+
+### 9. Development Seed Data
+
 - [ ] Create a repeatable seed script.
 - [ ] Preserve the `CompanyTest` development convention.
 - [ ] Make seed execution idempotent.

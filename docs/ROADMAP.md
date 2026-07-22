@@ -209,6 +209,8 @@ Implement the multi-company foundation before adding business integrations.
 - create initial development seed data;
 - implement one local administrator account.
 
+The Approval Manager foundation has been implemented ahead of its later integration phase. Migration `0007_approval_manager` is applied locally, and authenticated read-only listing is verified for requests, policies and usages. Safety defaults use the reserved `any` policy scope across concrete resource scopes without weakening `company_id` isolation. The first approved platform bootstrap ran before the backend image was rebuilt and created six legacy `company`/null policies plus six matching create audit events. Read-only verification detected the mismatch; the backend was rebuilt and the bootstrap was hardened. The explicitly approved controlled repair then atomically preserved the six legacy policies as revoked and created six active `any`/null replacements. Independent verification confirmed 12 policies, 12 create events, six revoke events and the strict one-active-policy-per-action invariant. Requests, decisions and usages remain empty, and no external runtime action was executed. Internal HTTP routes remain disabled until Agent Identity exists.
+
 ## Initial entities
 
 - Company

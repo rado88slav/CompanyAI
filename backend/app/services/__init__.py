@@ -28,12 +28,16 @@ from app.services.company_membership import (
     CompanyMembershipService,
     get_company_membership_service,
 )
+from app.services.approval_manager import ApprovalManagerService
+from app.services.authorization_evaluator import AuthorizationEvaluatorService
 
 __all__ = [
     "AdministratorEmailConflictError",
     "AdministratorInactiveError",
     "AdministratorNotFoundError",
     "AuthenticationService",
+    "ApprovalManagerService",
+    "AuthorizationEvaluatorService",
     "AuditLogService",
     "CompanyNotFoundError",
     "CompanyService",

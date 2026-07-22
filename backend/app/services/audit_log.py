@@ -62,7 +62,7 @@ class AuditLogService:
         self,
         *,
         company_id: UUID,
-        actor_administrator_id: UUID,
+        actor_administrator_id: UUID | None,
         action: str,
         resource_type: str,
         resource_id: UUID | None,
@@ -76,13 +76,13 @@ class AuditLogService:
             normalized_action = AuditAction(action).value
         except ValueError as exc:
             raise ValueError("Unsupported company audit action.") from exc
-        if resource_type not in {"company", "company_membership"}:
+        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage"}:
             raise ValueError("Unsupported company audit resource_type.")
         _validate_safe_details(details)
         return self._repository.create(
             scope=AuditScope.COMPANY.value,
             company_id=company_id,
-            actor_type=AuditActorType.ADMINISTRATOR.value,
+            actor_type=(AuditActorType.ADMINISTRATOR.value if actor_administrator_id is not None else AuditActorType.SYSTEM.value),
             actor_administrator_id=actor_administrator_id,
             action=normalized_action,
             resource_type=resource_type,
@@ -106,6 +106,15 @@ class AuditLogService:
         )
         total = self._repository.count_for_company(company_id=company_id)
         return events, total
+
+    def append_platform_event(self, *, actor_administrator_id: UUID, action: str, resource_type: str, resource_id: UUID | None, details: dict[str, Any]) -> AuditLog:
+        """Append a controlled platform event without committing."""
+        if action not in {AuditAction.AUTHORIZATION_POLICY_CREATED.value, AuditAction.AUTHORIZATION_POLICY_REVOKED.value}:
+            raise ValueError("Unsupported platform audit action.")
+        if resource_type != "authorization_policy":
+            raise ValueError("Unsupported platform audit resource_type.")
+        _validate_safe_details(details)
+        return self._repository.create(scope=AuditScope.PLATFORM.value, company_id=None, actor_type=AuditActorType.ADMINISTRATOR.value, actor_administrator_id=actor_administrator_id, action=action, resource_type=resource_type, resource_id=resource_id, details=details)
 
 
 def get_audit_log_service(

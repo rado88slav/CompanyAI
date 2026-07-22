@@ -17,8 +17,14 @@ from app.schemas.company_setting import (
     CompanySettingResponse,
     CompanySettingUpsert,
 )
+from app.schemas.company_context import (
+    ActiveCompanyContext,
+    ActiveCompanyContextResponse,
+)
 
 __all__ = [
+    "ActiveCompanyContext",
+    "ActiveCompanyContextResponse",
     "AdministratorCreate",
     "AdministratorResponse",
     "CompanyCreate",

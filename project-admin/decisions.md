@@ -171,3 +171,15 @@ The signing key is supplied through `APP_SECRET_KEY` and must not be committed t
 Health and login endpoints remain public.
 
 Company and Company Settings endpoints require a valid active administrator Bearer token.
+
+## 019 — Active Company Context
+
+Active Company Context is stateless and request-scoped. Clients select it with the `X-Company-ID` HTTP header; it is not stored on the Administrator record.
+
+Only active superusers may select a company context during the MVP. Company memberships and ordinary-administrator company access are deferred to a later authorization task.
+
+Authentication alone does not grant access to every company. Company-owned endpoints must resolve and authorize the selected context before accessing company data.
+
+When a company-owned route also contains `company_id` in its URL, the URL UUID and `X-Company-ID` UUID must match. A mismatch must be rejected before the service performs a read or write.
+
+Service and repository layers must continue to receive `company_id` explicitly and filter company-owned queries by it. Active Company Context must not use process-global or other mutable shared state.

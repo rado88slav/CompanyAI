@@ -61,6 +61,8 @@ project_name="$(basename "$PROJECT_ROOT")"
 
         git -C "$PROJECT_ROOT" \
             ls-files --cached --others --exclude-standard |
+            sed -e '/^project-admin\/\.inventory\./d' \
+                -e '/^project-admin\/\.scripts-index\./d' |
             sort |
             sed 's#^#./#'
     else

@@ -61,13 +61,14 @@
 
 ### 5. Active Company Context
 
-- [ ] Define how the active company is selected.
-- [ ] Reject missing or invalid company context.
-- [ ] Ensure company-owned records contain `company_id`.
-- [ ] Prevent cross-company reads.
-- [ ] Prevent cross-company writes.
-- [ ] Add two-company isolation tests.
-- [ ] Prepare the future dashboard company selector.
+- [x] Define `X-Company-ID` as the stateless company selector.
+- [x] Reject missing or invalid company context.
+- [x] Restrict context selection to active superusers.
+- [x] Ensure company-owned records contain `company_id`.
+- [x] Prevent cross-company reads.
+- [x] Prevent cross-company writes and deletes.
+- [x] Add two-company isolation tests.
+- [x] Prepare the future dashboard company selector.
 
 ### 6. Audit Logging
 
@@ -116,11 +117,11 @@
 Phase 3 is complete when:
 
 - [ ] At least two test companies can exist.
-- [ ] Companies can be created, read, updated and activated.
+- [x] Companies can be created, read, updated and activated.
 - [x] A local administrator can authenticate.
 - [x] Company settings are stored separately.
-- [ ] Company-owned records are isolated.
-- [ ] Cross-company access tests pass.
+- [x] Current company-owned records are isolated.
+- [x] Cross-company access tests pass.
 - [ ] Company changes create audit records.
 - [ ] The active company can be identified by the dashboard.
 - [ ] Development seed data can be created safely.

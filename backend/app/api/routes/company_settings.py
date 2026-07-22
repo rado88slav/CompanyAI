@@ -16,12 +16,16 @@ from fastapi import (
 from app.api.dependencies.authentication import (
     require_current_administrator,
 )
+from app.api.dependencies.company_context import (
+    require_matching_active_company,
+)
 
 from app.schemas.company_setting import (
     CompanySettingListResponse,
     CompanySettingResponse,
     CompanySettingUpsert,
 )
+from app.schemas.company_context import ActiveCompanyContext
 from app.services.company import CompanyNotFoundError
 from app.services.company_setting import (
     CompanySettingNotFoundError,
@@ -83,6 +87,10 @@ def setting_not_found_exception(
 )
 def upsert_company_setting(
     company_id: UUID,
+    _context: Annotated[
+        ActiveCompanyContext,
+        Depends(require_matching_active_company),
+    ],
     category: SettingCategory,
     key: SettingKey,
     setting_data: CompanySettingUpsert,
@@ -113,6 +121,10 @@ def upsert_company_setting(
 )
 def list_company_settings(
     company_id: UUID,
+    _context: Annotated[
+        ActiveCompanyContext,
+        Depends(require_matching_active_company),
+    ],
     service: Annotated[
         CompanySettingService,
         Depends(get_company_setting_service),
@@ -164,6 +176,10 @@ def list_company_settings(
 )
 def get_company_setting(
     company_id: UUID,
+    _context: Annotated[
+        ActiveCompanyContext,
+        Depends(require_matching_active_company),
+    ],
     category: SettingCategory,
     key: SettingKey,
     service: Annotated[
@@ -194,6 +210,10 @@ def get_company_setting(
 )
 def delete_company_setting(
     company_id: UUID,
+    _context: Annotated[
+        ActiveCompanyContext,
+        Depends(require_matching_active_company),
+    ],
     category: SettingCategory,
     key: SettingKey,
     service: Annotated[

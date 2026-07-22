@@ -15,6 +15,7 @@ Generated automatically by:
 .
 ./.env.example
 ./.gitignore
+./AGENTS.md
 ./README.md
 ./agent/.gitkeep
 ./backend/.dockerignore
@@ -24,10 +25,12 @@ Generated automatically by:
 ./backend/app/api/__init__.py
 ./backend/app/api/dependencies/__init__.py
 ./backend/app/api/dependencies/authentication.py
+./backend/app/api/dependencies/company_context.py
 ./backend/app/api/router.py
 ./backend/app/api/routes/__init__.py
 ./backend/app/api/routes/authentication.py
 ./backend/app/api/routes/companies.py
+./backend/app/api/routes/company_context.py
 ./backend/app/api/routes/company_settings.py
 ./backend/app/api/routes/health.py
 ./backend/app/cli/__init__.py
@@ -50,6 +53,7 @@ Generated automatically by:
 ./backend/app/schemas/__init__.py
 ./backend/app/schemas/authentication.py
 ./backend/app/schemas/company.py
+./backend/app/schemas/company_context.py
 ./backend/app/schemas/company_setting.py
 ./backend/app/services/__init__.py
 ./backend/app/services/authentication.py
@@ -67,6 +71,7 @@ Generated automatically by:
 ./backend/requirements.txt
 ./backend/tests/__init__.py
 ./backend/tests/test_authentication.py
+./backend/tests/test_company_context.py
 ./backend/tests/test_company_domain.py
 ./backend/tests/test_company_settings.py
 ./backend/tests/test_database.py
@@ -80,8 +85,6 @@ Generated automatically by:
 ./docs/ARCHITECTURE.md
 ./docs/ROADMAP.md
 ./integrations/.gitkeep
-./project-admin/.inventory.w5O7rx
-./project-admin/.scripts-index.aWoONQ
 ./project-admin/bash-history.txt
 ./project-admin/decisions.md
 ./project-admin/inventory.md
@@ -107,6 +110,7 @@ Generated automatically by:
 ./scripts/maintenance/update-project-status.sh
 ./scripts/setup.sh
 ./scripts/setup/.gitkeep
+./scripts/setup/add-active-company-context.sh
 ./scripts/setup/add-authentication-foundation.sh
 ./scripts/setup/add-backend-database.sh
 ./scripts/setup/add-company-domain.sh

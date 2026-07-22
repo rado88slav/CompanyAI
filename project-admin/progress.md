@@ -4,7 +4,7 @@
 
 **Phase 3 — Company and Administration Core: In Progress**
 
-The Company domain foundation and Company Settings module are operational.
+The Company domain, Company Settings, administrator authentication and Active Company Context foundations are operational.
 
 Some non-blocking work from Phase 1 and Phase 2 remains in the backlog, including the initial agent container, dashboard container, structured logging and additional system endpoints.
 
@@ -116,11 +116,15 @@ Completed:
 - Alembic migration `0004_administrators`;
 - authentication and security tests;
 - Authentication API verified against PostgreSQL.
+- stateless request-scoped Active Company Context through `X-Company-ID`;
+- superuser-only company context selection for the MVP;
+- active company validation and typed request context;
+- company context discovery endpoint;
+- Company Settings path and header context enforcement;
+- cross-company read, write and delete isolation tests.
 
 Remaining:
 
-- active company context;
-- company data isolation;
 - audit log records;
 - repeatable development seed automation.
 
@@ -130,7 +134,7 @@ Remaining:
 
 Latest backend verification:
 
-    39 passed, 1 warning
+    49 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
@@ -147,6 +151,7 @@ Alembic migration chain:
     GET  /api/v1/health/ready
     POST /api/v1/auth/login
     GET  /api/v1/auth/me
+    GET  /api/v1/company-context
     POST /api/v1/companies
     GET  /api/v1/companies
     GET   /api/v1/companies/{company_id}
@@ -158,7 +163,9 @@ Alembic migration chain:
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
     DELETE /api/v1/companies/{company_id}/settings/{category}/{key}
 
-Company and Company Settings routes require a valid administrator Bearer token.
+Company management routes require a valid administrator Bearer token.
+
+The Company Context endpoint and Company Settings routes also require `X-Company-ID`. Only active superusers may select a company context, and Company Settings URL company IDs must match the header context.
 
 ---
 
@@ -208,6 +215,8 @@ The real company will later be created as a separate Company Context without cha
 - Company API: operational
 - Company Settings API: operational
 - Administrator authentication: operational
+- Active Company Context: operational
+- Company Settings context isolation: operational
 - Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
@@ -220,10 +229,8 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. active company selection;
-2. company-owned data isolation;
-3. audit logging;
-4. development seed automation.
+1. audit logging;
+2. development seed automation.
 
 ---
 

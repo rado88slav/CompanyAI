@@ -695,22 +695,16 @@ After this roadmap is approved, the next steps are:
 
 Current phase:
 
-**Phase 0 — Project Foundation**
+**Phase 3 — Company and Administration Core: In Progress**
 
-Completed:
+Completed foundations:
 
-- WSL2 and Ubuntu setup;
-- Docker Desktop integration;
-- Docker Engine verification;
-- VS Code WSL configuration;
-- initial repository structure;
-- project administration files;
-- architecture document;
-- roadmap document.
+- Company management;
+- Company Settings;
+- administrator authentication;
+- stateless Active Company Context.
 
-Remaining in Phase 0:
+Remaining in Phase 3:
 
-- Git initialization;
-- Bash script organization;
-- automated project inventory;
-- first repository commit.
+- audit logging;
+- repeatable development seed automation.

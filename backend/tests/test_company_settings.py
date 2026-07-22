@@ -9,6 +9,9 @@ from fastapi.testclient import TestClient
 from app.api.dependencies.authentication import (
     require_current_administrator,
 )
+from app.api.dependencies.company_context import (
+    require_matching_active_company,
+)
 
 from app.main import app
 from app.schemas.company_setting import CompanySettingUpsert
@@ -191,6 +194,10 @@ def create_client(
     # Authentication behavior is tested separately.
     app.dependency_overrides[
         require_current_administrator
+    ] = lambda: object()
+
+    app.dependency_overrides[
+        require_matching_active_company
     ] = lambda: object()
 
     app.dependency_overrides[

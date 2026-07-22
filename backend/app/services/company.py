@@ -8,12 +8,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
+from app.models.audit_log import AuditAction
 from app.models.company import Company
 from app.repositories.company import CompanyRepository
 from app.schemas.company import (
     CompanyCreate,
     CompanyUpdate,
 )
+from app.repositories.audit_log import AuditLogRepository
+from app.services.audit_log import AuditLogService
 
 
 class CompanyNotFoundError(Exception):
@@ -30,14 +33,18 @@ class CompanyService:
     def __init__(
         self,
         repository: CompanyRepository,
+        audit_service: AuditLogService,
         session: Session,
     ) -> None:
         self._repository = repository
+        self._audit_service = audit_service
         self._session = session
 
     def create_company(
         self,
         company_data: CompanyCreate,
+        *,
+        actor_administrator_id: UUID,
     ) -> Company:
         """Create a new company with a unique slug."""
 
@@ -52,13 +59,29 @@ class CompanyService:
 
         try:
             company = self._repository.create(company_data)
-            self._session.commit()
         except IntegrityError as exc:
             self._session.rollback()
 
             raise CompanySlugConflictError(
                 f"Company slug already exists: {company_data.slug}"
             ) from exc
+        except Exception:
+            self._session.rollback()
+            raise
+
+        try:
+            self._audit_service.append_company_event(
+                company_id=company.id,
+                actor_administrator_id=actor_administrator_id,
+                action=AuditAction.COMPANY_CREATED.value,
+                resource_type="company",
+                resource_id=company.id,
+                details={"name": company.name, "slug": company.slug},
+            )
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
 
         return company
 
@@ -95,6 +118,8 @@ class CompanyService:
         self,
         company_id: UUID,
         company_data: CompanyUpdate,
+        *,
+        actor_administrator_id: UUID,
     ) -> Company:
         """Partially update an existing company."""
 
@@ -116,52 +141,119 @@ class CompanyService:
                     f"Company slug already exists: {company_data.slug}"
                 )
 
+        previous_values = {
+            field_name: getattr(company, field_name)
+            for field_name in company_data.model_fields_set
+        }
+
         try:
             updated_company = self._repository.update(
                 company,
                 company_data,
             )
-            self._session.commit()
         except IntegrityError as exc:
             self._session.rollback()
 
             raise CompanySlugConflictError(
                 "Company slug already exists."
             ) from exc
+        except Exception:
+            self._session.rollback()
+            raise
+
+        changes = {
+            field_name: {
+                "from": previous_values[field_name],
+                "to": getattr(updated_company, field_name),
+            }
+            for field_name in company_data.model_fields_set
+            if previous_values[field_name]
+            != getattr(updated_company, field_name)
+        }
+
+        try:
+            self._audit_service.append_company_event(
+                company_id=updated_company.id,
+                actor_administrator_id=actor_administrator_id,
+                action=AuditAction.COMPANY_UPDATED.value,
+                resource_type="company",
+                resource_id=updated_company.id,
+                details={"changed": bool(changes), "changes": changes},
+            )
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
 
         return updated_company
 
     def activate_company(
         self,
         company_id: UUID,
+        *,
+        actor_administrator_id: UUID,
     ) -> Company:
         """Activate a company and synchronize its status."""
 
         company = self.get_company(company_id)
+        previous_status = company.status
 
-        activated_company = self._repository.set_active(
-            company,
-            is_active=True,
-        )
-
-        self._session.commit()
+        try:
+            activated_company = self._repository.set_active(
+                company,
+                is_active=True,
+            )
+            self._audit_service.append_company_event(
+                company_id=activated_company.id,
+                actor_administrator_id=actor_administrator_id,
+                action=AuditAction.COMPANY_ACTIVATED.value,
+                resource_type="company",
+                resource_id=activated_company.id,
+                details={
+                    "previous_status": previous_status,
+                    "new_status": activated_company.status,
+                    "changed": previous_status != activated_company.status,
+                },
+            )
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
 
         return activated_company
 
     def deactivate_company(
         self,
         company_id: UUID,
+        *,
+        actor_administrator_id: UUID,
     ) -> Company:
         """Deactivate a company and synchronize its status."""
 
         company = self.get_company(company_id)
+        previous_status = company.status
 
-        deactivated_company = self._repository.set_active(
-            company,
-            is_active=False,
-        )
-
-        self._session.commit()
+        try:
+            deactivated_company = self._repository.set_active(
+                company,
+                is_active=False,
+            )
+            self._audit_service.append_company_event(
+                company_id=deactivated_company.id,
+                actor_administrator_id=actor_administrator_id,
+                action=AuditAction.COMPANY_DEACTIVATED.value,
+                resource_type="company",
+                resource_id=deactivated_company.id,
+                details={
+                    "previous_status": previous_status,
+                    "new_status": deactivated_company.status,
+                    "changed": previous_status != deactivated_company.status,
+                },
+            )
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
 
         return deactivated_company
 
@@ -176,5 +268,6 @@ def get_company_service(
 
     return CompanyService(
         repository=CompanyRepository(session),
+        audit_service=AuditLogService(AuditLogRepository(session)),
         session=session,
     )

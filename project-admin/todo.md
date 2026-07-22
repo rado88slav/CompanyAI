@@ -72,13 +72,13 @@
 
 ### 6. Audit Logging
 
-- [ ] Define the `AuditLog` model.
-- [ ] Record company creation.
-- [ ] Record company updates.
-- [ ] Record activation and deactivation.
-- [ ] Record administrator actions.
-- [ ] Create a company activity endpoint.
-- [ ] Add audit log tests.
+- [x] Define the append-only `AuditLog` model.
+- [x] Record company creation.
+- [x] Record company updates.
+- [x] Record activation and deactivation commands.
+- [x] Record administrator actors explicitly.
+- [x] Create a company activity endpoint.
+- [x] Add audit log and transaction rollback tests.
 
 ### 7. Development Seed Data
 
@@ -122,7 +122,7 @@ Phase 3 is complete when:
 - [x] Company settings are stored separately.
 - [x] Current company-owned records are isolated.
 - [x] Cross-company access tests pass.
-- [ ] Company changes create audit records.
+- [x] Company changes create audit records.
 - [ ] The active company can be identified by the dashboard.
 - [ ] Development seed data can be created safely.
 - [ ] Documentation and inventory are current.

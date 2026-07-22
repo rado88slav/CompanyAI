@@ -22,7 +22,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0004_administrators"
+        "0005_audit_logs"
     ]
 
 
@@ -84,3 +84,14 @@ def test_administrator_migration_follows_settings_revision() -> None:
 
     assert revision is not None
     assert revision.down_revision == "0003_company_settings"
+
+
+def test_audit_log_migration_follows_administrator_revision() -> None:
+    """Append-only audit storage must follow administrators."""
+
+    script_directory = ScriptDirectory.from_config(
+        create_alembic_config()
+    )
+    revision = script_directory.get_revision("0005_audit_logs")
+    assert revision is not None
+    assert revision.down_revision == "0004_administrators"

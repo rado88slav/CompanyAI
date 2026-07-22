@@ -6,6 +6,10 @@ from app.schemas.authentication import (
     LoginRequest,
     TokenResponse,
 )
+from app.schemas.audit_log import (
+    AuditLogListResponse,
+    AuditLogResponse,
+)
 from app.schemas.company import (
     CompanyCreate,
     CompanyListResponse,
@@ -27,6 +31,8 @@ __all__ = [
     "ActiveCompanyContextResponse",
     "AdministratorCreate",
     "AdministratorResponse",
+    "AuditLogListResponse",
+    "AuditLogResponse",
     "CompanyCreate",
     "CompanyListResponse",
     "CompanyResponse",

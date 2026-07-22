@@ -183,3 +183,21 @@ Authentication alone does not grant access to every company. Company-owned endpo
 When a company-owned route also contains `company_id` in its URL, the URL UUID and `X-Company-ID` UUID must match. A mismatch must be rejected before the service performs a read or write.
 
 Service and repository layers must continue to receive `company_id` explicitly and filter company-owned queries by it. Active Company Context must not use process-global or other mutable shared state.
+
+## 020 — Audit Logging
+
+Audit logs use an append-only application contract. Audit repositories and APIs do not expose update or delete operations, and audit records do not contain an `updated_at` field.
+
+Company mutations and their audit records use the same request-scoped SQLAlchemy session and are committed exactly once by the Company service. A mutation or audit failure rolls back the complete transaction.
+
+Actions use normalized lowercase dotted names. The initial actions are `company.created`, `company.updated`, `company.activated` and `company.deactivated`.
+
+Audit details contain only explicit non-secret allowlisted JSON objects. Passwords, hashes, tokens, keys, credentials, request headers, unrestricted request payloads and secret setting values must never be stored.
+
+Company activity is isolated through Active Company Context. Because inactive companies cannot be selected as active context, their activity is not viewable through the company activity endpoint in this version.
+
+Migration `0005_audit_logs` creates the audit schema after `0004_administrators` and is applied to the local PostgreSQL database. The real table, constraints, indexes and `ON DELETE RESTRICT` foreign keys were inspected successfully.
+
+No historical audit backfill was performed. The only audit row is the explicitly approved authenticated runtime verification event for `CompanyTest`.
+
+The verification called `POST /api/v1/companies/0138bfbe-80af-4304-ad91-14d1914a9869/activate` and then read `GET /api/v1/companies/0138bfbe-80af-4304-ad91-14d1914a9869/activity`; both returned HTTP 200. `CompanyTest` remained active, so the stored `company.activated` event records company scope, administrator actor, `changed: false`, and `active` as both the previous and new status. Its company and resource IDs match `CompanyTest`, and its actor ID matches the authenticated local administrator. No actual company state was changed.

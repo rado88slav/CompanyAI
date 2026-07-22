@@ -4,7 +4,7 @@
 
 **Phase 3 — Company and Administration Core: In Progress**
 
-The Company domain, Company Settings, administrator authentication and Active Company Context foundations are operational.
+The Company domain, Company Settings, administrator authentication, Active Company Context and Audit Logging foundations are operational.
 
 Some non-blocking work from Phase 1 and Phase 2 remains in the backlog, including the initial agent container, dashboard container, structured logging and additional system endpoints.
 
@@ -122,10 +122,23 @@ Completed:
 - company context discovery endpoint;
 - Company Settings path and header context enforcement;
 - cross-company read, write and delete isolation tests.
+- append-only `AuditLog` model and repository;
+- atomic company mutation and audit persistence;
+- normalized company audit actions and safe JSONB details;
+- company activity endpoint protected by Active Company Context;
+- Alembic migration `0005_audit_logs` applied to local PostgreSQL;
+- audit table, constraints, indexes and `ON DELETE RESTRICT` foreign keys verified against PostgreSQL;
+- no historical audit backfill performed;
+- authenticated Audit Logging API flow verified end-to-end;
+- no-op activation of `CompanyTest` returned HTTP 200 and preserved its active state;
+- company activity retrieval returned HTTP 200;
+- exactly one approved `company.activated` verification event persisted with company scope, administrator actor and `changed: false`;
+- verification event company and resource IDs match `CompanyTest`, and its actor ID matches the authenticated local administrator;
+- audit logging, rollback and activity API tests;
+- complete Audit Logging backend suite verification;
 
 Remaining:
 
-- audit log records;
 - repeatable development seed automation.
 
 ---
@@ -134,13 +147,13 @@ Remaining:
 
 Latest backend verification:
 
-    49 passed, 1 warning
+    76 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators (head)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs (head, applied locally)
 
 ---
 
@@ -158,6 +171,7 @@ Alembic migration chain:
     PATCH /api/v1/companies/{company_id}
     POST  /api/v1/companies/{company_id}/activate
     POST  /api/v1/companies/{company_id}/deactivate
+    GET   /api/v1/companies/{company_id}/activity
     PUT    /api/v1/companies/{company_id}/settings/{category}/{key}
     GET    /api/v1/companies/{company_id}/settings
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
@@ -166,6 +180,8 @@ Alembic migration chain:
 Company management routes require a valid administrator Bearer token.
 
 The Company Context endpoint and Company Settings routes also require `X-Company-ID`. Only active superusers may select a company context, and Company Settings URL company IDs must match the header context.
+
+Company activity requires the same Active Company Context protection. Inactive company activity is not viewable through this endpoint in the current version.
 
 ---
 
@@ -217,6 +233,11 @@ The real company will later be created as a separate Company Context without cha
 - Administrator authentication: operational
 - Active Company Context: operational
 - Company Settings context isolation: operational
+- Audit Logging: operational
+- Audit migration `0005_audit_logs`: applied locally
+- Audit schema persistence: verified against PostgreSQL
+- Audit event persistence and company activity retrieval: verified end-to-end
+- Audit history: one explicitly approved no-op verification event; no historical backfill
 - Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
@@ -229,8 +250,7 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. audit logging;
-2. development seed automation.
+1. development seed automation.
 
 ---
 

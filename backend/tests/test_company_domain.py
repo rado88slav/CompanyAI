@@ -24,6 +24,13 @@ from app.services.company import (
 NOW = datetime.now(timezone.utc)
 
 
+class FakeAdministrator:
+    """Authenticated administrator used by Company API tests."""
+
+    def __init__(self) -> None:
+        self.id = uuid4()
+
+
 class FakeCompany:
     """Simple object compatible with CompanyResponse validation."""
 
@@ -48,11 +55,17 @@ class FakeCompanyService:
 
     def __init__(self) -> None:
         self.companies: list[FakeCompany] = []
+        self.last_actor_administrator_id: UUID | None = None
+        self.authenticated_administrator_id: UUID | None = None
 
     def create_company(
         self,
         company_data: CompanyCreate,
+        *,
+        actor_administrator_id: UUID | None = None,
     ) -> FakeCompany:
+        self.last_actor_administrator_id = actor_administrator_id
+
         for company in self.companies:
             if company.slug == company_data.slug:
                 raise CompanySlugConflictError
@@ -92,7 +105,10 @@ class FakeCompanyService:
         self,
         company_id: UUID,
         company_data: CompanyUpdate,
+        *,
+        actor_administrator_id: UUID | None = None,
     ) -> FakeCompany:
+        self.last_actor_administrator_id = actor_administrator_id
         company = self.get_company(company_id)
 
         if company_data.slug is not None:
@@ -117,7 +133,10 @@ class FakeCompanyService:
     def activate_company(
         self,
         company_id: UUID,
+        *,
+        actor_administrator_id: UUID | None = None,
     ) -> FakeCompany:
+        self.last_actor_administrator_id = actor_administrator_id
         company = self.get_company(company_id)
         company.status = CompanyStatus.ACTIVE
         company.is_active = True
@@ -128,7 +147,10 @@ class FakeCompanyService:
     def deactivate_company(
         self,
         company_id: UUID,
+        *,
+        actor_administrator_id: UUID | None = None,
     ) -> FakeCompany:
+        self.last_actor_administrator_id = actor_administrator_id
         company = self.get_company(company_id)
         company.status = CompanyStatus.INACTIVE
         company.is_active = False
@@ -143,9 +165,11 @@ def create_client(
     """Create a client with the Company service overridden."""
 
     # Authentication behavior is tested separately.
+    administrator = FakeAdministrator()
+    service.authenticated_administrator_id = administrator.id
     app.dependency_overrides[
         require_current_administrator
-    ] = lambda: object()
+    ] = lambda: administrator
 
     app.dependency_overrides[get_company_service] = (
         lambda: service
@@ -185,6 +209,9 @@ def test_create_and_get_company() -> None:
         "example-heating-systems"
     )
     assert get_response.json()["status"] == "active"
+    assert service.last_actor_administrator_id == (
+        service.authenticated_administrator_id
+    )
 
 
 def test_list_companies() -> None:

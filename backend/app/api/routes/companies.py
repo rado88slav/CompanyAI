@@ -14,6 +14,7 @@ from fastapi import (
 from app.api.dependencies.authentication import (
     require_current_administrator,
 )
+from app.models.administrator import Administrator
 
 from app.schemas.company import (
     CompanyCreate,
@@ -65,6 +66,10 @@ def company_slug_conflict_exception(
 )
 def create_company(
     company_data: CompanyCreate,
+    administrator: Annotated[
+        Administrator,
+        Depends(require_current_administrator),
+    ],
     service: Annotated[
         CompanyService,
         Depends(get_company_service),
@@ -73,7 +78,10 @@ def create_company(
     """Create a new Company Context."""
 
     try:
-        company = service.create_company(company_data)
+        company = service.create_company(
+            company_data,
+            actor_administrator_id=administrator.id,
+        )
     except CompanySlugConflictError as exc:
         raise company_slug_conflict_exception(exc) from exc
 
@@ -147,6 +155,10 @@ def get_company(
 def update_company(
     company_id: UUID,
     company_data: CompanyUpdate,
+    administrator: Annotated[
+        Administrator,
+        Depends(require_current_administrator),
+    ],
     service: Annotated[
         CompanyService,
         Depends(get_company_service),
@@ -158,6 +170,7 @@ def update_company(
         company = service.update_company(
             company_id,
             company_data,
+            actor_administrator_id=administrator.id,
         )
     except CompanyNotFoundError as exc:
         raise company_not_found_exception(exc) from exc
@@ -174,6 +187,10 @@ def update_company(
 )
 def activate_company(
     company_id: UUID,
+    administrator: Annotated[
+        Administrator,
+        Depends(require_current_administrator),
+    ],
     service: Annotated[
         CompanyService,
         Depends(get_company_service),
@@ -182,7 +199,10 @@ def activate_company(
     """Activate a Company Context."""
 
     try:
-        company = service.activate_company(company_id)
+        company = service.activate_company(
+            company_id,
+            actor_administrator_id=administrator.id,
+        )
     except CompanyNotFoundError as exc:
         raise company_not_found_exception(exc) from exc
 
@@ -196,6 +216,10 @@ def activate_company(
 )
 def deactivate_company(
     company_id: UUID,
+    administrator: Annotated[
+        Administrator,
+        Depends(require_current_administrator),
+    ],
     service: Annotated[
         CompanyService,
         Depends(get_company_service),
@@ -204,7 +228,10 @@ def deactivate_company(
     """Deactivate a Company Context."""
 
     try:
-        company = service.deactivate_company(company_id)
+        company = service.deactivate_company(
+            company_id,
+            actor_administrator_id=administrator.id,
+        )
     except CompanyNotFoundError as exc:
         raise company_not_found_exception(exc) from exc
 

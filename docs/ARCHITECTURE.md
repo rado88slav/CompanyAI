@@ -584,6 +584,8 @@ Safety bootstrap idempotence requires a complete match of every security-relevan
 
 The first approved platform bootstrap ran from a stale backend image and created six legacy `company`/null platform policies. After read-only detection, container rebuild and bootstrap hardening, the user approved the controlled repair. It atomically preserved those six policies as revoked and created six active `any`/null replacements. Independent verification confirmed 12 policies total, 12 create audit events, six revoke audit events, exactly one valid active policy per safety action and no duplicate active bootstrap policies. No policy or historical audit event was deleted and no external action was executed. A further real bootstrap run has not been used to test post-repair idempotence.
 
+The Company Memberships and Roles foundation is recorded in commit `d311521 Add company memberships and roles`. Approval Manager and Authorization Policies is recorded in commit `da9386c Add approval manager and authorization policies`, which was pushed to `origin/main`. Local `main`, `origin/main` and `origin/HEAD` were verified at `da9386c` with a clean working tree immediately after the push. Later documentation synchronization is tracked as a separate working-tree change until reviewed and committed.
+
 Randomized sending cadence is not authorization logic and belongs to the future Campaign Scheduler.
 
 ## 15. Docker Architecture

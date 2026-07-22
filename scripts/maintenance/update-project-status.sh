@@ -20,7 +20,9 @@ cat > "${ADMIN_DIR}/progress.md" <<'EOF'
 
 **Phase 3 — Company and Administration Core: In Progress**
 
-The Company domain, Company Settings, administrator authentication, Active Company Context, Audit Logging and Company Memberships and Roles foundations are operational locally. The uncommitted Approval Manager foundation is implemented and automatically verified; migration `0007_approval_manager` is applied locally.
+The Company domain, Company Settings, administrator authentication, Active Company Context, Audit Logging, Company Memberships and Roles, and Approval Manager foundations are operational locally. Company Memberships and Roles was committed as `d311521 Add company memberships and roles`. Approval Manager and Authorization Policies was committed as `da9386c Add approval manager and authorization policies` and pushed successfully to `origin/main`; local `main`, `origin/main` and `origin/HEAD` were verified at `da9386c` immediately after the push.
+
+The working tree was clean immediately after that push. This subsequent project-status synchronization is a new documentation-only working-tree change pending its own review and commit.
 
 Some non-blocking work from Phase 1 and Phase 2 remains in the backlog, including the initial agent container, dashboard container, structured logging and additional system endpoints.
 
@@ -195,6 +197,11 @@ Completed:
 - an independent strict invariant check confirmed exactly one valid active safety policy per action, exactly six expected revoked legacy policies, no unexpected or duplicate active bootstrap policies, and all expected audit events;
 - no policy was deleted and no external action was executed;
 - normal bootstrap is expected to be idempotent after repair, but it has not been executed again against the real database;
+- Company Memberships and Roles committed as `d311521 Add company memberships and roles`;
+- Approval Manager and Authorization Policies committed as `da9386c Add approval manager and authorization policies`;
+- commit `da9386c` pushed successfully to `origin/main`;
+- local `main`, `origin/main` and `origin/HEAD` verified at `da9386c`, with a clean working tree immediately after the push;
+- this later documentation synchronization remains a separate uncommitted change pending review;
 - randomized communication scheduling deferred to the Campaign Scheduler;
 
 Remaining:
@@ -323,7 +330,7 @@ The real company will later be created as a separate Company Context without cha
 - CompanyTest membership: one active owner membership for the authenticated superuser
 - Membership bootstrap: completed successfully
 - Membership audit persistence: `company_membership.created` verified
-- Approval Manager: implemented and automatically verified, uncommitted
+- Approval Manager: implemented, automatically verified and committed as `da9386c Add approval manager and authorization policies`
 - Approval migration `0007_approval_manager`: applied locally; request, decision and usage tables empty; policy table contains 6 active and 6 revoked records
 - Authorization safety bootstrap: first approved run used the old image and created six legacy-scoped platform policies
 - Authorization safety repair: explicitly approved and completed atomically for all six legacy policies
@@ -335,7 +342,10 @@ The real company will later be created as a separate Company Context without cha
 - Company persistence: verified
 - Company Settings persistence: verified
 - Automated tests: passing
-- Git repository: operational
+- Company Memberships Git commit: `d311521 Add company memberships and roles`
+- Approval Manager Git commit: `da9386c Add approval manager and authorization policies`
+- Remote synchronization: `da9386c` pushed to `origin/main`; local `main`, `origin/main` and `origin/HEAD` verified at that commit
+- Post-push state: working tree was clean; the current documentation synchronization is a new uncommitted change
 
 ---
 
@@ -343,10 +353,9 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. review the complete uncommitted Approval Manager work;
-2. review the corrected read-only pagination behavior;
-3. review the independently verified safety-policy repair state;
-4. create the Git commit after explicit approval.
+1. review this post-commit project-status synchronization;
+2. commit and push the documentation synchronization only after explicit approval;
+3. continue with the next separately approved project task.
 
 ---
 
@@ -774,7 +783,7 @@ Future company creation atomically inserts the Company, an active owner membersh
 
 Migration `0006_company_memberships` is schema-only and follows `0005_audit_logs`. It is applied locally, and the membership table, constraints, indexes and foreign keys are verified against PostgreSQL. No historical membership backfill was performed.
 
-The explicit idempotent bootstrap completed successfully for CompanyTest. The authenticated platform superuser has one active owner membership, and the corresponding `company_membership.created` audit persistence is verified. The implementation remains uncommitted pending review.
+The explicit idempotent bootstrap completed successfully for CompanyTest. The authenticated platform superuser has one active owner membership, and the corresponding `company_membership.created` audit persistence is verified. The Company Memberships and Roles foundation was committed as `d311521 Add company memberships and roles`.
 
 ## 022 — Approval Manager and Authorization Policies
 
@@ -786,7 +795,7 @@ Usage reservation locks the selected policy with `SELECT ... FOR UPDATE`, rechec
 
 Only authenticated human administrator APIs are registered. Internal runtime evaluation and reservation are Python services only; internal HTTP routes remain disabled until Agent Identity and agent authentication exist. Randomized sending cadence belongs to the future Campaign Scheduler, which may operate only within these maximum authorization boundaries.
 
-Migration `0007_approval_manager` is schema-only, follows `0006_company_memberships`, and is applied locally. The request, decision and usage tables are empty. The authorization policy table contains 12 records: six active wildcard platform safety policies and six preserved revoked legacy policies. No runtime external actions were executed. This implementation remains uncommitted pending review.
+Migration `0007_approval_manager` is schema-only, follows `0006_company_memberships`, and is applied locally. The request, decision and usage tables are empty. The authorization policy table contains 12 records: six active wildcard platform safety policies and six preserved revoked legacy policies. No runtime external actions were executed. Approval Manager and Authorization Policies was committed as `da9386c Add approval manager and authorization policies` and pushed successfully to `origin/main`.
 
 The first local application attempt exposed six foreign-key names longer than PostgreSQL's 63-byte identifier limit. PostgreSQL transactional DDL rolled back the complete attempt, so the database remained at `0006_company_memberships` and none of the four Approval Manager tables or records remained after that failed attempt. The identifiers were shortened before retry.
 
@@ -800,7 +809,9 @@ The wildcard code was complete, but the backend container had not yet been rebui
 
 Bootstrap idempotence now requires an exact match across the complete security-relevant policy definition. Every mismatch is refused by default. The explicit `--repair-legacy-scope` path may revoke and replace only the exact historical bootstrap shape, writes revoke and create audit events, and commits all six changes atomically. After implementation and isolated testing, the user explicitly approved the real platform repair. It completed successfully in one transaction: six legacy policies were revoked and preserved, six new active `any`/null policies were created, and six revoke plus six additional create audit events were appended.
 
-Independent read-only verification confirmed 12 policies total, split into six active and six revoked, with zero approval requests, decisions and usages. Audit totals are 12 `authorization_policy.created` events and six `authorization_policy.revoked` events. Each active policy has exactly one create event; each revoked legacy policy retains its historical create event and has exactly one revoke event. The strict invariant check found exactly one valid active policy for every safety action, exactly six expected revoked legacy policies, no unexpected or duplicate active bootstrap policies, and all expected audit records. No policy was deleted, historical records were preserved, and no external action was executed. Normal bootstrap is expected to be idempotent after repair, but no additional real bootstrap run has been performed. The implementation remains uncommitted.
+Independent read-only verification confirmed 12 policies total, split into six active and six revoked, with zero approval requests, decisions and usages. Audit totals are 12 `authorization_policy.created` events and six `authorization_policy.revoked` events. Each active policy has exactly one create event; each revoked legacy policy retains its historical create event and has exactly one revoke event. The strict invariant check found exactly one valid active policy for every safety action, exactly six expected revoked legacy policies, no unexpected or duplicate active bootstrap policies, and all expected audit records. No policy was deleted, historical records were preserved, and no external action was executed. Normal bootstrap is expected to be idempotent after repair, but no additional real bootstrap run has been performed.
+
+After commit `da9386c` was pushed, local `main`, `origin/main` and `origin/HEAD` were all verified at `da9386c`, and the working tree was clean. This later documentation synchronization is not part of that commit and remains a new working-tree change pending its own review and commit.
 EOF
 
 printf '%s\n' "Project administration documents updated."

@@ -4,7 +4,9 @@
 
 **Phase 3 — Company and Administration Core: In Progress**
 
-The Company domain, Company Settings, administrator authentication, Active Company Context, Audit Logging and Company Memberships and Roles foundations are operational locally. The uncommitted Approval Manager foundation is implemented and automatically verified; migration `0007_approval_manager` is applied locally.
+The Company domain, Company Settings, administrator authentication, Active Company Context, Audit Logging, Company Memberships and Roles, and Approval Manager foundations are operational locally. Company Memberships and Roles was committed as `d311521 Add company memberships and roles`. Approval Manager and Authorization Policies was committed as `da9386c Add approval manager and authorization policies` and pushed successfully to `origin/main`; local `main`, `origin/main` and `origin/HEAD` were verified at `da9386c` immediately after the push.
+
+The working tree was clean immediately after that push. This subsequent project-status synchronization is a new documentation-only working-tree change pending its own review and commit.
 
 Some non-blocking work from Phase 1 and Phase 2 remains in the backlog, including the initial agent container, dashboard container, structured logging and additional system endpoints.
 
@@ -179,6 +181,11 @@ Completed:
 - an independent strict invariant check confirmed exactly one valid active safety policy per action, exactly six expected revoked legacy policies, no unexpected or duplicate active bootstrap policies, and all expected audit events;
 - no policy was deleted and no external action was executed;
 - normal bootstrap is expected to be idempotent after repair, but it has not been executed again against the real database;
+- Company Memberships and Roles committed as `d311521 Add company memberships and roles`;
+- Approval Manager and Authorization Policies committed as `da9386c Add approval manager and authorization policies`;
+- commit `da9386c` pushed successfully to `origin/main`;
+- local `main`, `origin/main` and `origin/HEAD` verified at `da9386c`, with a clean working tree immediately after the push;
+- this later documentation synchronization remains a separate uncommitted change pending review;
 - randomized communication scheduling deferred to the Campaign Scheduler;
 
 Remaining:
@@ -307,7 +314,7 @@ The real company will later be created as a separate Company Context without cha
 - CompanyTest membership: one active owner membership for the authenticated superuser
 - Membership bootstrap: completed successfully
 - Membership audit persistence: `company_membership.created` verified
-- Approval Manager: implemented and automatically verified, uncommitted
+- Approval Manager: implemented, automatically verified and committed as `da9386c Add approval manager and authorization policies`
 - Approval migration `0007_approval_manager`: applied locally; request, decision and usage tables empty; policy table contains 6 active and 6 revoked records
 - Authorization safety bootstrap: first approved run used the old image and created six legacy-scoped platform policies
 - Authorization safety repair: explicitly approved and completed atomically for all six legacy policies
@@ -319,7 +326,10 @@ The real company will later be created as a separate Company Context without cha
 - Company persistence: verified
 - Company Settings persistence: verified
 - Automated tests: passing
-- Git repository: operational
+- Company Memberships Git commit: `d311521 Add company memberships and roles`
+- Approval Manager Git commit: `da9386c Add approval manager and authorization policies`
+- Remote synchronization: `da9386c` pushed to `origin/main`; local `main`, `origin/main` and `origin/HEAD` verified at that commit
+- Post-push state: working tree was clean; the current documentation synchronization is a new uncommitted change
 
 ---
 
@@ -327,10 +337,9 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. review the complete uncommitted Approval Manager work;
-2. review the corrected read-only pagination behavior;
-3. review the independently verified safety-policy repair state;
-4. create the Git commit after explicit approval.
+1. review this post-commit project-status synchronization;
+2. commit and push the documentation synchronization only after explicit approval;
+3. continue with the next separately approved project task.
 
 ---
 

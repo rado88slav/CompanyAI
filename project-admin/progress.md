@@ -171,7 +171,7 @@ The real company will later be created as a separate Company Context without cha
 - Company API: operational
 - Company persistence: verified
 - Automated tests: passing
-- Git working tree: Company domain changes pending commit
+- Git working tree: clean
 
 ---
 

@@ -25,8 +25,8 @@
 - [x] Verify list and read-by-ID endpoints.
 - [x] Update project administration documents.
 - [x] Update project inventory.
-- [ ] Review staged files for secrets.
-- [ ] Commit the Company domain foundation.
+- [x] Review staged files for secrets.
+- [x] Commit the Company domain foundation.
 
 ### 2. Company Management
 

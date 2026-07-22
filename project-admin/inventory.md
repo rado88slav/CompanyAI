@@ -26,8 +26,8 @@ Generated automatically by:
 ./docs/ARCHITECTURE.md
 ./docs/ROADMAP.md
 ./integrations/.gitkeep
-./project-admin/.inventory.XcNbnh
-./project-admin/.scripts-index.Gxwyik
+./project-admin/.inventory.7TCuP8
+./project-admin/.scripts-index.Vw1gn8
 ./project-admin/bash-history.txt
 ./project-admin/decisions.md
 ./project-admin/inventory.md
@@ -39,6 +39,7 @@ Generated automatically by:
 ./scripts/deploy/.gitkeep
 ./scripts/dev/.gitkeep
 ./scripts/docker/.gitkeep
+./scripts/docker/restart.sh
 ./scripts/docker/start.sh
 ./scripts/docker/status.sh
 ./scripts/docker/stop.sh

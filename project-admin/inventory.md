@@ -18,7 +18,6 @@ Generated automatically by:
 ./README.md
 ./agent/.gitkeep
 ./backend/.dockerignore
-./backend/.gitkeep
 ./backend/Dockerfile
 ./backend/app/__init__.py
 ./backend/app/api/__init__.py
@@ -28,6 +27,7 @@ Generated automatically by:
 ./backend/app/core/__init__.py
 ./backend/app/core/config.py
 ./backend/app/db/__init__.py
+./backend/app/db/session.py
 ./backend/app/main.py
 ./backend/app/models/__init__.py
 ./backend/app/schemas/__init__.py
@@ -36,6 +36,7 @@ Generated automatically by:
 ./backend/requirements-dev.txt
 ./backend/requirements.txt
 ./backend/tests/__init__.py
+./backend/tests/test_database.py
 ./backend/tests/test_health.py
 ./config/.gitkeep
 ./dashboard/.gitkeep
@@ -45,8 +46,8 @@ Generated automatically by:
 ./docs/ARCHITECTURE.md
 ./docs/ROADMAP.md
 ./integrations/.gitkeep
-./project-admin/.inventory.LB7jjU
-./project-admin/.scripts-index.TOABiw
+./project-admin/.inventory.5qGo8H
+./project-admin/.scripts-index.B7h3bR
 ./project-admin/bash-history.txt
 ./project-admin/decisions.md
 ./project-admin/inventory.md
@@ -68,6 +69,7 @@ Generated automatically by:
 ./scripts/maintenance/update-inventory.sh
 ./scripts/setup.sh
 ./scripts/setup/.gitkeep
+./scripts/setup/add-backend-database.sh
 ./scripts/setup/create-backend.sh
 ./scripts/setup/create-env.sh
 ./scripts/utils/.gitkeep

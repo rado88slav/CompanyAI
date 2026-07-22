@@ -36,11 +36,15 @@ Generated automatically.
    Description: Create the initial project structure and base files.
    Status: executable
 
-9. scripts/setup/create-backend.sh
+9. scripts/setup/add-backend-database.sh
+   Description: Add SQLAlchemy and PostgreSQL connectivity to the Company AI FastAPI backend.
+   Status: executable
+
+10. scripts/setup/create-backend.sh
    Description: Generate the initial Company AI FastAPI backend structure and Docker configuration.
    Status: executable
 
-10. scripts/setup/create-env.sh
+11. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 

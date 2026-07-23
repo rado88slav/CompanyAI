@@ -91,7 +91,7 @@ class AuthorizationEvaluatorService:
         action = request.action
         return existing.company_id == action.company_id and existing.authorization_policy_id == request.policy_id and existing.execution_id == request.execution_id and existing.actor_type == action.actor_type and existing.actor_administrator_id == action.actor_administrator_id and existing.actor_agent_id == action.actor_agent_id and existing.action_type == action.action_type and existing.quantity == action.quantity and existing.reserved_budget_amount == action.budget_amount
 
-    def reserve(self, request: ReservationCreate) -> AuthorizationUsage:
+    def reserve(self, request: ReservationCreate, *, commit: bool = True) -> AuthorizationUsage:
         existing = self._repository.get_usage_by_reservation(reservation_key=request.reservation_key)
         if existing is not None:
             if not self._compatible(existing, request): raise ReservationConflictError
@@ -109,12 +109,14 @@ class AuthorizationEvaluatorService:
         if policy.budget_currency != request.action.budget_currency: raise AuthorizationDeniedError("budget_currency_mismatch")
         try:
             item = self._repository.create_usage(company_id=request.action.company_id, authorization_policy_id=policy.id, reservation_key=request.reservation_key, execution_id=request.execution_id, actor_type=request.action.actor_type, actor_administrator_id=request.action.actor_administrator_id, actor_agent_id=request.action.actor_agent_id, action_type=request.action.action_type, tool_identifier=request.action.tool_identifier, campaign_id=request.action.campaign_id, batch_id=request.action.batch_id, target_resource_type=request.action.target_resource_type, target_resource_id=request.action.target_resource_id, followup_index=request.action.followup_index, quantity=request.action.quantity, reserved_budget_amount=request.action.budget_amount, budget_currency=request.action.budget_currency, status="reserved", scheduled_for=request.action.scheduled_for, reserved_at=now, reservation_expires_at=request.reservation_expires_at)
-            self._audit.append_company_event(company_id=item.company_id, actor_administrator_id=request.action.actor_administrator_id, action=AuditAction.AUTHORIZATION_USAGE_RESERVED.value, resource_type="authorization_usage", resource_id=item.id, details={"policy_id": str(policy.id), "quantity": item.quantity, "actor_type": request.action.actor_type})
-            self._session.commit(); return item
+            self._audit.append_company_event(company_id=item.company_id, actor_administrator_id=request.action.actor_administrator_id, actor_agent_id=request.action.actor_agent_id, action=AuditAction.AUTHORIZATION_USAGE_RESERVED.value, resource_type="authorization_usage", resource_id=item.id, details={"policy_id": str(policy.id), "quantity": item.quantity, "actor_type": request.action.actor_type})
+            if commit:
+                self._session.commit()
+            return item
         except Exception:
             self._session.rollback(); raise
 
-    def transition(self, *, company_id: UUID, usage_id: UUID, status: str, actor_administrator_id: UUID, failure_code: str | None = None) -> AuthorizationUsage:
+    def transition(self, *, company_id: UUID, usage_id: UUID, status: str, actor_administrator_id: UUID | None, actor_agent_id: UUID | None = None, failure_code: str | None = None, commit: bool = True) -> AuthorizationUsage:
         item = self._repository.get_usage(company_id=company_id, usage_id=usage_id)
         if item is None: raise AuthorizationDeniedError("usage_not_found")
         if item.status != "reserved" or status not in {"succeeded", "failed", "released"}: raise UsageTransitionError
@@ -124,7 +126,9 @@ class AuthorizationEvaluatorService:
                 policy = self._repository.get_policy(company_id=company_id, policy_id=item.authorization_policy_id, include_platform=True, for_update=True)
                 if policy and policy.authorization_mode == "approve_single_action": self._repository.consume_policy(policy)
             action = {"succeeded": AuditAction.AUTHORIZATION_USAGE_SUCCEEDED, "failed": AuditAction.AUTHORIZATION_USAGE_FAILED, "released": AuditAction.AUTHORIZATION_USAGE_RELEASED}[status]
-            self._audit.append_company_event(company_id=company_id, actor_administrator_id=actor_administrator_id, action=action.value, resource_type="authorization_usage", resource_id=item.id, details={"failure_code": failure_code} if failure_code else {})
-            self._session.commit(); return item
+            self._audit.append_company_event(company_id=company_id, actor_administrator_id=actor_administrator_id, actor_agent_id=actor_agent_id, action=action.value, resource_type="authorization_usage", resource_id=item.id, details={"failure_code": failure_code} if failure_code else {})
+            if commit:
+                self._session.commit()
+            return item
         except Exception:
             self._session.rollback(); raise

@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, Uuid, func, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric, String, UniqueConstraint, Uuid, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -214,6 +214,7 @@ class AuthorizationUsage(Base):
     __tablename__ = "authorization_usages"
     __table_args__ = (
         UniqueConstraint("reservation_key", name="uq_authorization_usages_reservation_key"),
+        ForeignKeyConstraint(["company_id", "execution_id"], ["provider_executions.company_id", "provider_executions.id"], name="fk_authorization_usages_provider_execution", ondelete="RESTRICT"),
         CheckConstraint("(actor_type='administrator' AND actor_administrator_id IS NOT NULL AND actor_agent_id IS NULL) OR (actor_type='agent' AND actor_agent_id IS NOT NULL AND actor_administrator_id IS NULL) OR (actor_type='system' AND actor_administrator_id IS NULL AND actor_agent_id IS NULL)", name="ck_authorization_usages_actor"),
         CheckConstraint("quantity>0 AND reserved_budget_amount>=0", name="ck_authorization_usages_amounts"),
         CheckConstraint("(reserved_budget_amount=0 AND budget_currency IS NULL) OR (reserved_budget_amount>0 AND budget_currency IS NOT NULL)", name="ck_authorization_usages_budget_currency"),

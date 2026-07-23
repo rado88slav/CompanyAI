@@ -195,11 +195,11 @@ Completed:
 - administrator agent-management APIs and internal credential exchange/identity endpoints;
 - Approval Manager agent actor foreign keys and trusted authenticated-identity action helper;
 - schema-only migration `0008_agent_identity` created after `0007_approval_manager` and applied locally;
-- real PostgreSQL is at `0008_agent_identity`; the three agent tables exist and contain zero rows;
+- immediately after Agent Identity verification, real PostgreSQL was at `0008_agent_identity`; the three agent tables existed and contained zero rows;
 - backend Compose propagates all six Agent Authentication settings by placeholder; rebuilt runtime verification confirms invalid agent JWT responses return HTTP 401;
 - Agent Identity and Internal Agent Authentication committed as `201268b Add agent identity and internal authentication`;
 - secure Tool Registry metadata, company availability and historical agent grants are implemented without execution behavior;
-- migration `0009_tool_registry` follows `0008_agent_identity` and is applied locally; real PostgreSQL is at `0009_tool_registry` and all three Tool Registry tables contain zero rows;
+- migration `0009_tool_registry` follows `0008_agent_identity` and is applied locally; immediately after Tool Registry verification, real PostgreSQL was at `0009_tool_registry` and all three Tool Registry tables contained zero rows;
 - rebuilt backend is healthy, readiness confirms database reachability, OpenAPI exposes 55 paths including all 14 Tool Registry paths, and invalid agent JWT access to `/api/v1/internal/tools` returns HTTP 401;
 - trusted runtime descriptors are registered only by Python code; database rows never contain import paths, commands or executable payloads;
 - randomized communication scheduling deferred to the Campaign Scheduler;
@@ -214,13 +214,13 @@ Remaining:
 
 Latest backend verification:
 
-    252 passed, 1 warning
+    292 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity -> 0009_tool_registry -> 0010_provider_connections (head, applied locally/current real revision)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity -> 0009_tool_registry -> 0010_provider_connections -> 0011_provider_execution (head, applied to the real development database)
 
 ---
 
@@ -371,19 +371,23 @@ The real company will later be created as a separate Company Context without cha
 - Safety invariant: independently verified with exactly one valid active policy per action and no unexpected or duplicate active bootstrap policies
 - Runtime external actions: none executed
 - Agent Identity: committed as `201268b Add agent identity and internal authentication`
-- Agent migration `0008_agent_identity`: applied locally; real database is at `0008_agent_identity`
+- Agent migration `0008_agent_identity`: applied locally; the database was at this revision when Agent Identity was verified
 - Real agent data: `agents`, `agent_credentials` and `agent_permissions` each contain zero rows
 - Internal agent authentication: Compose propagation and rebuilt runtime verification are complete; invalid raw credentials and invalid agent JWTs return HTTP 401
 - Tool Registry: implemented and automatically verified, uncommitted
 - Provider Connections: implemented and runtime-verified; eight trusted descriptors, metadata-only APIs and AES-256-GCM credential storage foundation are present
-- Provider Connections migration `0010_provider_connections`: applied locally; real database revision is `0010_provider_connections` and both provider tables contain zero rows
+- Provider Connections migration `0010_provider_connections`: applied locally; the database was at this revision when both empty provider tables were verified
 - Provider Connections runtime: healthy backend, database readiness reachable, 65 OpenAPI paths with 10 Provider Connections paths, authenticated company-scoped listing returns HTTP 200, and no external calls or plaintext retrieval API exist
 - Provider Connections validation: complete backend suite, focused tests, compilation, security scan and deterministic generator verification passed; generated_matches_current=yes and whitespace validation passed
+- Provider Execution: dry-run-only foundation implemented with Approval Manager evaluator decisions, atomic authorization usage reservation/consumption, administrator and agent approval-backed execution, exact Tool Registry grants for agents, and complete lifecycle audit actions
+- Provider Execution migration and schema: `0011_provider_execution` is applied to the real development database at head; PostgreSQL constraints and indexes are verified, and `provider_executions` and `provider_execution_attempts` each contain zero rows
+- Provider Execution runtime: rebuilt backend is healthy and database-ready; authenticated registry returns exactly 22 operations across 8 providers, company-scoped listing returns an empty `50/0` page, and OpenAPI exposes 74 total paths including 9 Provider Execution paths
+- Provider Execution safety: no real connection, credential, approval, execution or attempt was created; no external provider operation ran; live mode remains fail-closed
 - Credential key safety: rotate `CREDENTIAL_ENCRYPTION_KEY` under separate explicit approval while provider credential tables still contain zero rows and before the first real credential is stored
-- Tool Registry migration `0009_tool_registry`: applied locally; real database is at `0009_tool_registry`
+- Tool Registry migration `0009_tool_registry`: applied locally; the database was at this revision when Tool Registry was verified
 - Tool Registry schema: all three tables exist; `tool_definitions = 0`, `company_tools = 0`, `agent_tool_grants = 0`
 - Tool Registry runtime: backend healthy, readiness database reachable, OpenAPI 55 paths with all 14 Tool Registry paths, invalid internal agent JWT returns HTTP 401
-- Provider Connections code is implemented and runtime-verified with eight trusted in-process descriptors, company-scoped connection metadata, encrypted credential history, metadata-only APIs and no provider execution.
+- Provider Connections code is implemented and runtime-verified with eight trusted in-process descriptors, company-scoped connection metadata and encrypted credential history. Provider Execution is available only as the separately authorized dry-run foundation; no live provider execution exists.
 - Migration `0010_provider_connections` is applied locally; both provider tables exist and contain zero rows. No live external provider integrations are configured and no provider APIs are called.
 - Credential payloads use the newly pinned `cryptography` AES-256-GCM boundary with identity-bound associated data. The current real key was not read or used.
 - The backend image was rebuilt successfully and the healthy runtime was verified with 65 OpenAPI paths and 10 Provider Connections paths.

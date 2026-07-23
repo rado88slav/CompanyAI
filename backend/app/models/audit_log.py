@@ -86,6 +86,13 @@ class AuditAction(StrEnum):
     PROVIDER_CREDENTIAL_CREATED = "provider_credential.created"
     PROVIDER_CREDENTIAL_ROTATED = "provider_credential.rotated"
     PROVIDER_CREDENTIAL_REVOKED = "provider_credential.revoked"
+    PROVIDER_EXECUTION_REQUESTED = "provider_execution.requested"
+    PROVIDER_EXECUTION_AUTHORIZED = "provider_execution.authorized"
+    PROVIDER_EXECUTION_DENIED = "provider_execution.denied"
+    PROVIDER_EXECUTION_STARTED = "provider_execution.started"
+    PROVIDER_EXECUTION_SUCCEEDED = "provider_execution.succeeded"
+    PROVIDER_EXECUTION_FAILED = "provider_execution.failed"
+    PROVIDER_EXECUTION_CANCELLED = "provider_execution.cancelled"
 
 
 class AuditLog(Base):

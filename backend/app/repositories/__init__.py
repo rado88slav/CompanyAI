@@ -26,3 +26,5 @@ from app.repositories.tool_registry import ToolRegistryRepository
 from app.repositories.provider_connection import ProviderConnectionRepository
 
 __all__ += ["ToolRegistryRepository", "ProviderConnectionRepository"]
+from app.repositories.provider_execution import ProviderExecutionRepository
+__all__ += ["ProviderExecutionRepository"]

@@ -156,7 +156,7 @@ Provider Connections now supplies the metadata and encrypted-credential foundati
 
 Company connection metadata and encrypted credential versions are isolated by explicit company identifiers and composite foreign keys. Credentials use AES-256-GCM with associated data binding the company, connection, credential, provider key and encryption version. Public APIs expose metadata only; plaintext decryption is reserved for a narrow trusted in-process resolver and is not connected to provider execution.
 
-Migration `0010_provider_connections` is applied locally after `0009_tool_registry`. The provider tables exist and contain zero rows. The healthy backend exposes 65 OpenAPI paths, including 10 Provider Connections paths; external provider calls, OAuth flows, connectivity checks and Provider Execution remain future work. Before the first real credential is stored, the encryption key must be rotated under separate explicit approval.
+Migration `0010_provider_connections` is applied locally after `0009_tool_registry`. The provider tables exist and contain zero rows. Provider Execution now supplies a separately authorized dry-run foundation, while live external calls, OAuth flows and connectivity checks remain future work. Before the first real credential is stored, the encryption key must be rotated under separate explicit approval.
 
 Before the first real provider credential is stored, the credential encryption key must be rotated under separate explicit approval while the credential tables still contain zero rows. Key values must never be documented.
 
@@ -602,7 +602,7 @@ Agents are company-owned machine identities, never administrators. Machine crede
 
 Every agent JWT request revalidates the active company, agent status, agent `auth_version`, credential ownership, status and expiry from PostgreSQL. Exact permission keys remain database-authoritative and immediately revocable; no permission wildcard or provider capability is introduced here. Agent, credential and permission mutations preserve history and share one transaction with their audit events. Credential rotation lineage is enforced by a composite database relationship, so a rotated credential can reference only a predecessor owned by the same company and agent.
 
-Migration `0008_agent_identity` creates the three agent tables, adds agent audit actors and connects Approval Manager's deferred agent identifiers with `ON DELETE RESTRICT` foreign keys. It is applied locally; `agents`, `agent_credentials` and `agent_permissions` each contain zero rows. Backend Compose passes the dedicated credential pepper and agent JWT settings only through environment placeholders. The rebuilt backend confirms invalid agent JWT responses return HTTP 401. Agent Runtime, Retell/Twilio and provider integrations remain future modules. Retell agents will be external voice executors managed by Company AI rather than replacements for internal Agent Identity.
+Migration `0008_agent_identity` creates the three agent tables, adds agent audit actors and connects Approval Manager's deferred agent identifiers with `ON DELETE RESTRICT` foreign keys. It is applied locally; at that foundation's verification point `agents`, `agent_credentials` and `agent_permissions` each contained zero rows. Backend Compose passes the dedicated credential pepper and agent JWT settings only through environment placeholders. The rebuilt backend verification confirmed invalid agent JWT responses returned HTTP 401. Retell agents remain external voice executors managed by Company AI rather than replacements for internal Agent Identity.
 
 ## 16. Tool Registry Boundary
 
@@ -612,7 +612,7 @@ The Tool Registry stores global tool metadata, company availability and historic
 
 A separate trusted in-process descriptor registry may receive callable references directly from application code. Database access and trusted runtime registration are both required for future execution, but this foundation exposes no execution endpoint, dynamic import, provider call, shell command or external side effect. Approval Manager action keys are derived as `tool.execute.<persisted-tool-key>` from authenticated agent identity.
 
-Static migration `0009_tool_registry` follows `0008_agent_identity` and is applied locally. The real database is at `0009_tool_registry`; `tool_definitions`, `company_tools` and `agent_tool_grants` exist and each contains zero rows. The rebuilt backend is healthy, readiness confirms database reachability, OpenAPI exposes 55 paths including all 14 Tool Registry paths, and invalid agent JWT access to `/api/v1/internal/tools` returns HTTP 401. Tool execution remains intentionally absent.
+Static migration `0009_tool_registry` follows `0008_agent_identity` and is applied locally. At that foundation's verification point the real database was at `0009_tool_registry`; `tool_definitions`, `company_tools` and `agent_tool_grants` existed and each contained zero rows. The rebuilt backend was healthy, readiness confirmed database reachability, OpenAPI exposed 55 paths including all 14 Tool Registry paths, and invalid agent JWT access to `/api/v1/internal/tools` returned HTTP 401.
 
 ## 17. Docker Architecture
 
@@ -799,3 +799,6 @@ The agent must operate through:
 - permission rules;
 - human approvals;
 - complete audit logging.
+Provider Execution is a dry-run-only foundation. It uses trusted operation descriptors, company-scoped execution and attempt history, explicit lifecycle states, sanitized payloads and fail-closed live adapters. Approval-required execution reuses the existing Authorization Evaluator and Authorization Usage ledger: the authenticated administrator or agent, exact operation/tool identifier, company scope and provider connection must match an active allow policy, and reservation occurs before an attempt starts. Agents additionally require an exact active Tool Registry grant. Authorization usage finalization, execution state, attempt history and audit events are committed atomically.
+
+Migration `0011_provider_execution` is applied to the real development database at head. PostgreSQL verification confirmed both execution tables and their restrictive foreign keys, checks, uniqueness constraints and indexes; both tables contain zero rows. The rebuilt backend is healthy and database-ready. Authenticated checks return 22 operations across 8 providers and an empty company-scoped execution page, while OpenAPI exposes 74 total paths including 9 Provider Execution paths. No real provider credential, approval, execution or attempt was created, and no external provider call was made.

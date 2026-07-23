@@ -62,6 +62,7 @@ class AuditLogService:
         *,
         company_id: UUID,
         actor_administrator_id: UUID | None,
+        actor_agent_id: UUID | None = None,
         action: str,
         resource_type: str,
         resource_id: UUID | None,
@@ -75,15 +76,22 @@ class AuditLogService:
             normalized_action = AuditAction(action).value
         except ValueError as exc:
             raise ValueError("Unsupported company audit action.") from exc
-        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_credential", "agent_permission", "company_tool", "agent_tool_grant", "provider_connection", "provider_credential"}:
+        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_credential", "agent_permission", "company_tool", "agent_tool_grant", "provider_connection", "provider_credential", "provider_execution"}:
             raise ValueError("Unsupported company audit resource_type.")
         _validate_safe_details(details)
+        if actor_administrator_id is not None and actor_agent_id is not None:
+            raise ValueError("A company audit event must have at most one actor.")
+        actor_type = AuditActorType.SYSTEM.value
+        if actor_administrator_id is not None:
+            actor_type = AuditActorType.ADMINISTRATOR.value
+        elif actor_agent_id is not None:
+            actor_type = AuditActorType.AGENT.value
         return self._repository.create(
             scope=AuditScope.COMPANY.value,
             company_id=company_id,
-            actor_type=(AuditActorType.ADMINISTRATOR.value if actor_administrator_id is not None else AuditActorType.SYSTEM.value),
+            actor_type=actor_type,
             actor_administrator_id=actor_administrator_id,
-            actor_agent_id=None,
+            actor_agent_id=actor_agent_id,
             action=normalized_action,
             resource_type=resource_type,
             resource_id=resource_id,

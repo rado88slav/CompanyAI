@@ -151,7 +151,10 @@
 - [x] Apply migration `0010_provider_connections` after explicit approval.
 - [ ] Verify the empty schema against PostgreSQL.
 - [ ] Rotate the credential encryption key under separate explicit approval before storing the first real provider credential.
-- [ ] Implement Provider Execution in a future module.
+- [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
+- [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.
+- [x] Verify the empty Provider Execution schema, authenticated registry and company-scoped listing against the rebuilt backend.
+- [ ] Review and commit the Provider Execution foundation after explicit approval.
 
 ### 11. Development Seed Data
 

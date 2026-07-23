@@ -69,3 +69,5 @@ from app.schemas.tool_registry import EffectiveToolResponse, ToolDefinitionCreat
 from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionResponse, ProviderCredentialCreate, ProviderCredentialResponse, ProviderDescriptorResponse
 
 __all__ += ["EffectiveToolResponse", "ToolDefinitionCreate", "ToolDefinitionResponse", "ToolDefinitionUpdate", "ProviderConnectionCreate", "ProviderConnectionResponse", "ProviderCredentialCreate", "ProviderCredentialResponse", "ProviderDescriptorResponse"]
+from app.schemas.provider_execution import ProviderExecutionCreate, ProviderExecutionListResponse, ProviderExecutionResponse, ProviderOperationResponse
+__all__ += ["ProviderExecutionCreate", "ProviderExecutionListResponse", "ProviderExecutionResponse", "ProviderOperationResponse"]

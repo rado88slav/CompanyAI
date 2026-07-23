@@ -20,7 +20,7 @@ The initial MVP must provide:
 - activity and audit history;
 - portable installation through Docker and Bash scripts.
 
-Current Provider Connections foundation status: trusted descriptors, company-scoped metadata, encrypted credential history and metadata-only APIs are implemented and runtime-verified. Migration `0010_provider_connections` is applied locally; the provider tables contain zero rows. The healthy backend exposes 65 OpenAPI paths, including 10 Provider Connections paths. Provider Execution, live onboarding and external provider communication are intentionally deferred. Encryption-key rotation remains a separately approved prerequisite before the first real credential is stored.
+Current provider foundation status: Provider Connections and the dry-run-only Provider Execution foundation are implemented and runtime-verified. Migration `0011_provider_execution` is applied at head; both execution tables contain zero rows. The healthy backend exposes 74 OpenAPI paths, including 9 Provider Execution paths, and the authenticated registry contains 22 operations across 8 providers. Live onboarding and external provider communication remain deferred. Encryption-key rotation remains a separately approved prerequisite before the first real credential is stored.
 
 ---
 
@@ -215,9 +215,9 @@ The Company Memberships and Roles foundation was committed as `d311521 Add compa
 
 This subsequent documentation synchronization is a separate uncommitted working-tree change pending review.
 
-The Agent Identity and Internal Agent Authentication foundation is committed as `201268b Add agent identity and internal authentication`. It introduces company-owned agents, one-time HMAC-protected machine credentials, short-lived separately signed agent JWTs, exact revocable permissions, lifecycle and audit management, administrator APIs and internal authentication endpoints. Static migration `0008_agent_identity` follows `0007` and is applied locally; the real database is at `0008`, and all three agent tables contain zero rows. Backend Compose propagates all six Agent Authentication settings through tracked placeholders. Agent Runtime and provider integrations remain outside that foundation.
+The Agent Identity and Internal Agent Authentication foundation is committed as `201268b Add agent identity and internal authentication`. It introduces company-owned agents, one-time HMAC-protected machine credentials, short-lived separately signed agent JWTs, exact revocable permissions, lifecycle and audit management, administrator APIs and internal authentication endpoints. Static migration `0008_agent_identity` follows `0007` and is applied locally; at that foundation's verification point the real database was at `0008`, and all three agent tables contained zero rows. Backend Compose propagates all six Agent Authentication settings through tracked placeholders. Agent Runtime and provider integrations remain outside that foundation.
 
-The Tool Registry foundation is implemented as an uncommitted change awaiting explicit commit approval. It adds a non-executable global catalog, company enablement, authoritative historical agent grants, exact derived Approval Manager actions and a trusted in-process descriptor registry. Migration `0009_tool_registry` follows `0008` and is applied locally; the real database is at `0009`, and all three Tool Registry tables contain zero rows. The rebuilt backend is healthy, readiness is verified, OpenAPI exposes 55 paths including all 14 Tool Registry paths, and invalid agent JWT access returns HTTP 401. Tool execution, providers and external executors remain intentionally outside this scope.
+The Tool Registry foundation adds a non-executable global catalog, company enablement, authoritative historical agent grants, exact derived Approval Manager actions and a trusted in-process descriptor registry. Migration `0009_tool_registry` follows `0008` and is applied locally; at that foundation's verification point the real database was at `0009`, and all three Tool Registry tables contained zero rows. The rebuilt backend was healthy, readiness was verified, OpenAPI exposed 55 paths including all 14 Tool Registry paths, and invalid agent JWT access returned HTTP 401.
 
 ## Initial entities
 
@@ -718,3 +718,4 @@ Remaining in Phase 3:
 
 - audit logging;
 - repeatable development seed automation.
+Provider Execution's dry-run architecture, persistence and Approval Manager integration are implemented and runtime-verified. Approval-required operations use evaluator decisions and atomic usage reservations; agent execution also requires an exact Tool Registry grant. Migration `0011_provider_execution` is applied to the real development database at head, and both execution tables remain empty. Live adapters, real provider onboarding and external calls remain deferred pending explicit approval.

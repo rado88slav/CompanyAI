@@ -40,5 +40,7 @@ from app.models.approval import ApprovalDecision, ApprovalRequest, Authorization
 __all__ = ["ApprovalDecision", "ApprovalRequest", "AuthorizationPolicy", "AuthorizationUsage"]
 from app.models.tool_registry import AgentToolGrant, AgentToolGrantStatus, CompanyTool, CompanyToolStatus, ToolDefinition, ToolExecutionMode, ToolRiskLevel, ToolStatus
 from app.models.provider_connection import ProviderConnection, ProviderConnectionStatus, ProviderCredential, ProviderCredentialStatus
+from app.models.provider_execution import ProviderExecution, ProviderExecutionAttempt
 
 __all__ += ["AgentToolGrant", "AgentToolGrantStatus", "CompanyTool", "CompanyToolStatus", "ToolDefinition", "ToolExecutionMode", "ToolRiskLevel", "ToolStatus", "ProviderConnection", "ProviderConnectionStatus", "ProviderCredential", "ProviderCredentialStatus"]
+__all__ += ["ProviderExecution", "ProviderExecutionAttempt"]

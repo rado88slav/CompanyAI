@@ -30,7 +30,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0010_provider_connections"
+        "0011_provider_execution"
     ]
 
 
@@ -364,7 +364,19 @@ def test_approval_manager_static_snapshot_matches_orm(monkeypatch) -> None:
         migration_constraints = {item.name for item in migration_table.constraints if isinstance(item, named_types) and item.name}
         assert migration_constraints == orm_constraints
 
-        orm_fks = {(tuple(item.parent.name for item in constraint.elements), tuple(item.target_fullname for item in constraint.elements), constraint.ondelete) for constraint in orm_table.foreign_key_constraints if not any(item.target_fullname == "agents.id" for item in constraint.elements)}
+        orm_fks = {
+            (
+                tuple(item.parent.name for item in constraint.elements),
+                tuple(item.target_fullname for item in constraint.elements),
+                constraint.ondelete,
+            )
+            for constraint in orm_table.foreign_key_constraints
+            if not any(
+                item.target_fullname == "agents.id"
+                or item.target_fullname.startswith("provider_executions.")
+                for item in constraint.elements
+            )
+        }
         migration_fks = {(tuple(item.parent.name for item in constraint.elements), tuple(item.target_fullname for item in constraint.elements), constraint.ondelete) for constraint in migration_table.foreign_key_constraints}
         assert migration_fks == orm_fks
 

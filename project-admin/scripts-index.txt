@@ -112,15 +112,19 @@ Generated automatically.
    Description: Add the complete Provider Connections foundation.
    Status: executable
 
-28. scripts/setup/add-tool-registry.sh
+28. scripts/setup/add-provider-execution.sh
+   Description: Add the Provider Execution foundation.
+   Status: executable
+
+29. scripts/setup/add-tool-registry.sh
    Description: Add the secure Tool Registry foundation.
    Status: executable
 
-29. scripts/setup/create-backend.sh
+30. scripts/setup/create-backend.sh
    Description: Generate the initial Company AI FastAPI backend structure and Docker configuration.
    Status: executable
 
-30. scripts/setup/create-env.sh
+31. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 

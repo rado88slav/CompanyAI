@@ -64,4 +64,7 @@ __all__ = [
     "ProviderConnectionService",
     "ResolvedProviderCredential",
     "get_provider_connection_service",
+    "ProviderExecutionService",
+    "get_provider_execution_service",
 ]
+from app.services.provider_execution import ProviderExecutionService, get_provider_execution_service

@@ -16,6 +16,7 @@ from app.api.routes.company_settings import (
     router as company_settings_router,
 )
 from app.api.routes.health import router as health_router
+from app.api.routes.tool_registry import router as tool_registry_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -28,3 +29,4 @@ api_router.include_router(company_activity_router)
 api_router.include_router(company_context_router)
 api_router.include_router(company_memberships_router)
 api_router.include_router(company_settings_router)
+api_router.include_router(tool_registry_router)

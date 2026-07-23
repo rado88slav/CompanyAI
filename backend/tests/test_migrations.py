@@ -10,6 +10,7 @@ from sqlalchemy import CheckConstraint, ForeignKeyConstraint, UniqueConstraint
 
 from app.models.approval import ApprovalDecision, ApprovalRequest, AuthorizationPolicy, AuthorizationUsage
 from app.models.agent import Agent, AgentCredential, AgentPermission
+from app.models.tool_registry import AgentToolGrant, CompanyTool, ToolDefinition
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,7 +29,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0008_agent_identity"
+        "0009_tool_registry"
     ]
 
 
@@ -121,6 +122,42 @@ def test_approval_manager_migration_follows_membership_revision() -> None:
 def test_agent_identity_migration_follows_approval_manager() -> None:
     revision = ScriptDirectory.from_config(create_alembic_config()).get_revision("0008_agent_identity")
     assert revision is not None and revision.down_revision == "0007_approval_manager"
+
+
+def test_tool_registry_migration_follows_agent_identity() -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision("0009_tool_registry")
+    assert revision is not None and revision.down_revision == "0008_agent_identity"
+
+
+def test_tool_registry_migration_is_static_complete_and_identifier_safe() -> None:
+    source = (BACKEND_ROOT / "migrations/versions/0009_create_tool_registry.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+    assert not any(module == "app" or module.startswith("app.") for module in imports)
+    assert "op.get_bind" not in source and "__table__" not in source
+    for name in {"tool_definitions", "company_tools", "agent_tool_grants", "uq_tool_definitions_key", "uq_company_tools_company_tool", "fk_agent_tool_grants_company_agent", "fk_agent_tool_grants_company_tool", "uq_agent_tool_grants_active"}:
+        assert f'"{name}"' in source
+    names = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            for keyword in node.keywords:
+                if keyword.arg == "name" and isinstance(keyword.value, ast.Constant):
+                    names.append(keyword.value.value)
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "create_index" and isinstance(node.args[0], ast.Constant):
+                names.append(node.args[0].value)
+    assert names and all(len(name.encode()) <= 63 for name in names)
+    assert source.index('op.drop_table("agent_tool_grants")') < source.index('op.drop_table("company_tools")') < source.index('op.drop_table("tool_definitions")')
+
+
+def test_tool_registry_static_snapshot_matches_orm_constraints() -> None:
+    source = (BACKEND_ROOT / "migrations/versions/0009_create_tool_registry.py").read_text(encoding="utf-8")
+    for model in (ToolDefinition, CompanyTool, AgentToolGrant):
+        for constraint in model.__table__.constraints:
+            if constraint.name:
+                assert f'"{constraint.name}"' in source
+        for index in model.__table__.indexes:
+            assert f'"{index.name}"' in source
+        assert all(fk.ondelete == "RESTRICT" for fk in model.__table__.foreign_key_constraints)
 
 
 def test_agent_identity_migration_is_static_complete_and_identifier_safe() -> None:

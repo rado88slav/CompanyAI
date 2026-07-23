@@ -22,3 +22,6 @@ __all__ = [
 from app.repositories.approval import ApprovalRepository, AuthorizationRepository
 
 __all__ = ["ApprovalRepository", "AuthorizationRepository"]
+from app.repositories.tool_registry import ToolRegistryRepository
+
+__all__ += ["ToolRegistryRepository"]

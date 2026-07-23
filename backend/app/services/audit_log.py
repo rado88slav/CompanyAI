@@ -75,7 +75,7 @@ class AuditLogService:
             normalized_action = AuditAction(action).value
         except ValueError as exc:
             raise ValueError("Unsupported company audit action.") from exc
-        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_credential", "agent_permission"}:
+        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_credential", "agent_permission", "company_tool", "agent_tool_grant"}:
             raise ValueError("Unsupported company audit resource_type.")
         _validate_safe_details(details)
         return self._repository.create(
@@ -109,9 +109,9 @@ class AuditLogService:
 
     def append_platform_event(self, *, actor_administrator_id: UUID, action: str, resource_type: str, resource_id: UUID | None, details: dict[str, Any]) -> AuditLog:
         """Append a controlled platform event without committing."""
-        if action not in {AuditAction.AUTHORIZATION_POLICY_CREATED.value, AuditAction.AUTHORIZATION_POLICY_REVOKED.value}:
+        if action not in {AuditAction.AUTHORIZATION_POLICY_CREATED.value, AuditAction.AUTHORIZATION_POLICY_REVOKED.value, AuditAction.TOOL_DEFINITION_CREATED.value, AuditAction.TOOL_DEFINITION_UPDATED.value, AuditAction.TOOL_DEFINITION_ACTIVATED.value, AuditAction.TOOL_DEFINITION_DEACTIVATED.value, AuditAction.TOOL_DEFINITION_DEPRECATED.value}:
             raise ValueError("Unsupported platform audit action.")
-        if resource_type != "authorization_policy":
+        if resource_type not in {"authorization_policy", "tool_definition"}:
             raise ValueError("Unsupported platform audit resource_type.")
         _validate_safe_details(details)
         return self._repository.create(scope=AuditScope.PLATFORM.value, company_id=None, actor_type=AuditActorType.ADMINISTRATOR.value, actor_administrator_id=actor_administrator_id, action=action, resource_type=resource_type, resource_id=resource_id, details=details)

@@ -125,7 +125,22 @@
 - [x] Verify the empty Agent Identity schema against real PostgreSQL without exposing secrets.
 - [ ] Recreate the backend container and re-verify invalid agent JWT handling after explicit approval.
 
-### 10. Development Seed Data
+### 10. Tool Registry
+
+- [x] Add a global non-executable tool catalog.
+- [x] Add company tool enablement and immediate disable semantics.
+- [x] Add authoritative historical agent tool grants.
+- [x] Add exact tool-key and recursive schema safety validation.
+- [x] Add trusted in-process runtime descriptor registry.
+- [x] Add administrator and authenticated-agent APIs without execution endpoints.
+- [x] Derive exact Approval Manager actions from authenticated agents and persisted tools.
+- [x] Audit every successful Tool Registry mutation.
+- [x] Create schema-only migration `0009_tool_registry`.
+- [x] Apply migration `0009_tool_registry` after explicit approval.
+- [x] Verify the empty Tool Registry schema against real PostgreSQL.
+- [x] Verify rebuilt backend health, readiness, all 14 Tool Registry paths and invalid-agent-JWT HTTP 401 behavior.
+
+### 11. Development Seed Data
 
 - [ ] Create a repeatable seed script.
 - [ ] Preserve the `CompanyTest` development convention.

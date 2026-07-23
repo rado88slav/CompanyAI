@@ -31,6 +31,7 @@ from app.services.company_membership import (
 )
 from app.services.approval_manager import ApprovalManagerService
 from app.services.authorization_evaluator import AuthorizationEvaluatorService
+from app.services.tool_registry import EffectiveTool, ToolRegistryService, get_tool_registry_service
 
 __all__ = [
     "AdministratorEmailConflictError",
@@ -56,4 +57,7 @@ __all__ = [
     "get_company_service",
     "get_company_membership_service",
     "get_company_setting_service",
+    "EffectiveTool",
+    "ToolRegistryService",
+    "get_tool_registry_service",
 ]

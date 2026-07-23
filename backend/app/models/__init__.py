@@ -38,3 +38,6 @@ __all__ = [
 from app.models.approval import ApprovalDecision, ApprovalRequest, AuthorizationPolicy, AuthorizationUsage
 
 __all__ = ["ApprovalDecision", "ApprovalRequest", "AuthorizationPolicy", "AuthorizationUsage"]
+from app.models.tool_registry import AgentToolGrant, AgentToolGrantStatus, CompanyTool, CompanyToolStatus, ToolDefinition, ToolExecutionMode, ToolRiskLevel, ToolStatus
+
+__all__ += ["AgentToolGrant", "AgentToolGrantStatus", "CompanyTool", "CompanyToolStatus", "ToolDefinition", "ToolExecutionMode", "ToolRiskLevel", "ToolStatus"]

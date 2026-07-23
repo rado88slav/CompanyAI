@@ -40,3 +40,5 @@ require_authorization_policies_manage = require_company_permission(CompanyPermis
 require_authorization_usage_read = require_company_permission(CompanyPermission.AUTHORIZATION_USAGE_READ)
 require_agents_read = require_company_permission(CompanyPermission.AGENTS_READ)
 require_agents_manage = require_company_permission(CompanyPermission.AGENTS_MANAGE)
+require_tools_read = require_company_permission(CompanyPermission.TOOLS_READ)
+require_tools_manage = require_company_permission(CompanyPermission.TOOLS_MANAGE)

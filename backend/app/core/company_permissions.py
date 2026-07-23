@@ -19,13 +19,15 @@ class CompanyPermission(StrEnum):
     AUTHORIZATION_USAGE_READ = "authorization_usage.read"
     AGENTS_READ = "agents.read"
     AGENTS_MANAGE = "agents.manage"
+    TOOLS_READ = "tools.read"
+    TOOLS_MANAGE = "tools.manage"
 
 
 ROLE_PERMISSIONS: dict[str, frozenset[CompanyPermission]] = {
     CompanyRole.OWNER.value: frozenset(CompanyPermission),
-    CompanyRole.ADMIN.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.SETTINGS_WRITE, CompanyPermission.ACTIVITY_READ, CompanyPermission.MEMBERSHIPS_READ, CompanyPermission.MEMBERSHIPS_MANAGE, CompanyPermission.APPROVALS_REQUEST, CompanyPermission.APPROVALS_READ, CompanyPermission.APPROVALS_DECIDE, CompanyPermission.AUTHORIZATION_POLICIES_READ, CompanyPermission.AUTHORIZATION_POLICIES_MANAGE, CompanyPermission.AUTHORIZATION_USAGE_READ, CompanyPermission.AGENTS_READ, CompanyPermission.AGENTS_MANAGE}),
-    CompanyRole.OPERATOR.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.ACTIVITY_READ, CompanyPermission.APPROVALS_REQUEST, CompanyPermission.APPROVALS_READ, CompanyPermission.AGENTS_READ}),
-    CompanyRole.VIEWER.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.ACTIVITY_READ, CompanyPermission.AGENTS_READ}),
+    CompanyRole.ADMIN.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.SETTINGS_WRITE, CompanyPermission.ACTIVITY_READ, CompanyPermission.MEMBERSHIPS_READ, CompanyPermission.MEMBERSHIPS_MANAGE, CompanyPermission.APPROVALS_REQUEST, CompanyPermission.APPROVALS_READ, CompanyPermission.APPROVALS_DECIDE, CompanyPermission.AUTHORIZATION_POLICIES_READ, CompanyPermission.AUTHORIZATION_POLICIES_MANAGE, CompanyPermission.AUTHORIZATION_USAGE_READ, CompanyPermission.AGENTS_READ, CompanyPermission.AGENTS_MANAGE, CompanyPermission.TOOLS_READ, CompanyPermission.TOOLS_MANAGE}),
+    CompanyRole.OPERATOR.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.ACTIVITY_READ, CompanyPermission.APPROVALS_REQUEST, CompanyPermission.APPROVALS_READ, CompanyPermission.AGENTS_READ, CompanyPermission.TOOLS_READ}),
+    CompanyRole.VIEWER.value: frozenset({CompanyPermission.SETTINGS_READ, CompanyPermission.ACTIVITY_READ, CompanyPermission.AGENTS_READ, CompanyPermission.TOOLS_READ}),
 }
 
 

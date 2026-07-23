@@ -212,8 +212,12 @@ Completed:
 - Approval Manager agent actor foreign keys and trusted authenticated-identity action helper;
 - schema-only migration `0008_agent_identity` created after `0007_approval_manager` and applied locally;
 - real PostgreSQL is at `0008_agent_identity`; the three agent tables exist and contain zero rows;
-- backend Compose now propagates all six Agent Authentication settings by placeholder; container recreation and invalid-JWT runtime re-verification remain pending;
-- Agent Identity implementation is uncommitted pending review;
+- backend Compose propagates all six Agent Authentication settings by placeholder; rebuilt runtime verification confirms invalid agent JWT responses return HTTP 401;
+- Agent Identity and Internal Agent Authentication committed as `201268b Add agent identity and internal authentication`;
+- secure Tool Registry metadata, company availability and historical agent grants are implemented without execution behavior;
+- migration `0009_tool_registry` follows `0008_agent_identity` and is applied locally; real PostgreSQL is at `0009_tool_registry` and all three Tool Registry tables contain zero rows;
+- rebuilt backend is healthy, readiness confirms database reachability, OpenAPI exposes 55 paths including all 14 Tool Registry paths, and invalid agent JWT access to `/api/v1/internal/tools` returns HTTP 401;
+- trusted runtime descriptors are registered only by Python code; database rows never contain import paths, commands or executable payloads;
 - randomized communication scheduling deferred to the Campaign Scheduler;
 
 Remaining:
@@ -226,13 +230,13 @@ Remaining:
 
 Latest backend verification:
 
-    208 passed, 1 warning
+    252 passed, 1 warning
 
 The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity (head, applied locally)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity -> 0009_tool_registry (head, applied locally/current real revision)
 
 ---
 
@@ -286,6 +290,22 @@ Alembic migration chain:
     POST  /api/v1/companies/{company_id}/agents/{agent_id}/permissions/{permission_id}/revoke
     POST  /api/v1/internal/agent-auth/token
     GET   /api/v1/internal/agent-auth/me
+    POST  /api/v1/tools
+    GET   /api/v1/tools
+    GET   /api/v1/tools/{tool_id}
+    PATCH /api/v1/tools/{tool_id}
+    POST  /api/v1/tools/{tool_id}/activate
+    POST  /api/v1/tools/{tool_id}/deactivate
+    POST  /api/v1/tools/{tool_id}/deprecate
+    GET   /api/v1/companies/{company_id}/tools
+    GET   /api/v1/companies/{company_id}/tools/{tool_id}
+    POST  /api/v1/companies/{company_id}/tools/{tool_id}/enable
+    POST  /api/v1/companies/{company_id}/tools/{tool_id}/disable
+    GET   /api/v1/companies/{company_id}/agents/{agent_id}/tools
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/tools/{tool_id}/grant
+    POST  /api/v1/companies/{company_id}/agents/{agent_id}/tool-grants/{grant_id}/revoke
+    GET   /api/v1/internal/tools
+    GET   /api/v1/internal/tools/{tool_key}
     PUT    /api/v1/companies/{company_id}/settings/{category}/{key}
     GET    /api/v1/companies/{company_id}/settings
     GET    /api/v1/companies/{company_id}/settings/{category}/{key}
@@ -366,10 +386,15 @@ The real company will later be created as a separate Company Context without cha
 - Authorization audit data: 12 create events and 6 revoke events; historical records preserved
 - Safety invariant: independently verified with exactly one valid active policy per action and no unexpected or duplicate active bootstrap policies
 - Runtime external actions: none executed
-- Agent Identity: implemented and automatically verified, uncommitted
+- Agent Identity: committed as `201268b Add agent identity and internal authentication`
 - Agent migration `0008_agent_identity`: applied locally; real database is at `0008_agent_identity`
 - Real agent data: `agents`, `agent_credentials` and `agent_permissions` each contain zero rows
-- Internal agent authentication: invalid raw credentials return 401; Compose propagation is corrected, while invalid-JWT runtime re-verification awaits an explicitly permitted container recreation
+- Internal agent authentication: Compose propagation and rebuilt runtime verification are complete; invalid raw credentials and invalid agent JWTs return HTTP 401
+- Tool Registry: implemented and automatically verified, uncommitted
+- Tool Registry migration `0009_tool_registry`: applied locally; real database is at `0009_tool_registry`
+- Tool Registry schema: all three tables exist; `tool_definitions = 0`, `company_tools = 0`, `agent_tool_grants = 0`
+- Tool Registry runtime: backend healthy, readiness database reachable, OpenAPI 55 paths with all 14 Tool Registry paths, invalid internal agent JWT returns HTTP 401
+- Tool execution and provider calls: intentionally not implemented
 - Bearer-protected administration routes: operational
 - Company persistence: verified
 - Company Settings persistence: verified
@@ -385,10 +410,9 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. review the uncommitted Agent Identity implementation and the applied `0008_agent_identity` schema;
-2. apply migration `0008` only after separate explicit approval;
-3. perform real PostgreSQL and runtime verification only after separate approval;
-4. commit and push only after explicit approval.
+1. await explicit approval for the uncommitted Tool Registry implementation commit;
+2. continue with Tool Execution and Agent Runtime only as a separately approved task;
+3. commit and push only after explicit approval.
 
 ---
 
@@ -525,7 +549,22 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [x] Verify the empty Agent Identity schema against real PostgreSQL without exposing secrets.
 - [ ] Recreate the backend container and re-verify invalid agent JWT handling after explicit approval.
 
-### 10. Development Seed Data
+### 10. Tool Registry
+
+- [x] Add a global non-executable tool catalog.
+- [x] Add company tool enablement and immediate disable semantics.
+- [x] Add authoritative historical agent tool grants.
+- [x] Add exact tool-key and recursive schema safety validation.
+- [x] Add trusted in-process runtime descriptor registry.
+- [x] Add administrator and authenticated-agent APIs without execution endpoints.
+- [x] Derive exact Approval Manager actions from authenticated agents and persisted tools.
+- [x] Audit every successful Tool Registry mutation.
+- [x] Create schema-only migration `0009_tool_registry`.
+- [x] Apply migration `0009_tool_registry` after explicit approval.
+- [x] Verify the empty Tool Registry schema against real PostgreSQL.
+- [x] Verify rebuilt backend health, readiness, all 14 Tool Registry paths and invalid-agent-JWT HTTP 401 behavior.
+
+### 11. Development Seed Data
 
 - [ ] Create a repeatable seed script.
 - [ ] Preserve the `CompanyTest` development convention.
@@ -871,7 +910,17 @@ Machine credentials use the versioned `cai_agent_v1_<public_id>.<secret>` shape.
 
 Permissions are exact normalized keys with preserved revoked history and no wildcard semantics. Agents, credentials and permissions are isolated by explicit `company_id`; credentials and permissions use composite company/agent foreign keys, and credential rotation lineage is database-constrained to the same company and agent. Agent revocation permanently revokes the identity, active credentials and active permissions in one transaction. Security-sensitive mutations and their audit events commit atomically.
 
-Migration `0008_agent_identity` creates `agents`, `agent_credentials` and `agent_permissions`, extends audit actors with agent identity, and adds the three deferred Approval Manager agent foreign keys. It is a static schema-only migration after `0007_approval_manager` and is applied locally. The real database is at `0008`; all three agent tables contain zero rows. Backend Compose propagates the six Agent Authentication variables through tracked placeholders, without storing their values. Invalid raw credentials return 401; invalid-agent-JWT runtime re-verification remains pending until an explicitly permitted backend container recreation. Retell agents remain future external voice executors; Tool Registry, Agent Runtime and external provider integrations are not implemented here. The implementation is uncommitted pending review.
+Migration `0008_agent_identity` creates `agents`, `agent_credentials` and `agent_permissions`, extends audit actors with agent identity, and adds the three deferred Approval Manager agent foreign keys. It is a static schema-only migration after `0007_approval_manager` and is applied locally. Backend Compose propagates the six Agent Authentication variables through tracked placeholders without storing their values; rebuilt runtime verification confirms invalid raw credentials and invalid agent JWTs return HTTP 401. No real agents, credentials or permissions exist. Retell agents remain future external voice executors; Agent Runtime and external provider integrations are not implemented here. The foundation is committed as `201268b Add agent identity and internal authentication`.
+
+## 024 — Tool Registry
+
+Tool definitions are global metadata and authorization configuration, never executable payloads. Database fields reject secret-bearing and executable/import/shell keys recursively. Exact normalized tool keys are immutable identifiers, high and critical risks require approval, and no hard-delete or execution endpoint exists.
+
+Company availability and agent grants are separate company-scoped records. `agent_tool_grants` is the sole authoritative source for agent-to-tool access and does not mutate `agent_permissions`. Composite foreign keys bind every grant to both its company-owned agent and the same company's tool availability record. Effective access requires active tool metadata, enabled company availability, an active historical grant and a currently authenticated active agent. Disabling or revoking any layer takes effect on the next query.
+
+Runtime descriptors exist only in a trusted in-process registry populated directly by application code. Exact lookup and duplicate rejection are deterministic; no dynamic import, `eval`, `exec`, provider call or shell execution exists. Future Approval Manager input derives `tool.execute.<tool-key>` from persisted metadata and the authenticated agent identity, never caller-supplied actor or action values.
+
+Migration `0009_tool_registry` statically creates `tool_definitions`, `company_tools` and `agent_tool_grants` after `0008_agent_identity` and is applied locally. The real database is at `0009_tool_registry`; all three tables exist and each contains zero rows. The rebuilt backend is healthy, readiness confirms database reachability, OpenAPI contains 55 paths including all 14 Tool Registry paths, and an invalid agent JWT against `/api/v1/internal/tools` returns HTTP 401. Tool execution remains a future Agent Runtime responsibility. The implementation remains uncommitted pending explicit commit approval.
 EOF
 
 printf '%s\n' "Project administration documents updated."

@@ -65,3 +65,6 @@ __all__ = [
 from app.schemas.approval import ApprovalRequestCreate, AuthorizationAction, ManualPolicyCreate
 
 __all__ = ["ApprovalRequestCreate", "AuthorizationAction", "ManualPolicyCreate"]
+from app.schemas.tool_registry import EffectiveToolResponse, ToolDefinitionCreate, ToolDefinitionResponse, ToolDefinitionUpdate
+
+__all__ += ["EffectiveToolResponse", "ToolDefinitionCreate", "ToolDefinitionResponse", "ToolDefinitionUpdate"]

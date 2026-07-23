@@ -594,9 +594,19 @@ Agents are company-owned machine identities, never administrators. Machine crede
 
 Every agent JWT request revalidates the active company, agent status, agent `auth_version`, credential ownership, status and expiry from PostgreSQL. Exact permission keys remain database-authoritative and immediately revocable; no permission wildcard or provider capability is introduced here. Agent, credential and permission mutations preserve history and share one transaction with their audit events. Credential rotation lineage is enforced by a composite database relationship, so a rotated credential can reference only a predecessor owned by the same company and agent.
 
-Migration `0008_agent_identity` creates the three agent tables, adds agent audit actors and connects Approval Manager's deferred agent identifiers with `ON DELETE RESTRICT` foreign keys. It is applied locally and the real database is at `0008_agent_identity`; `agents`, `agent_credentials` and `agent_permissions` each contain zero rows. Backend Compose passes the dedicated credential pepper and agent JWT settings only through environment placeholders. Runtime invalid-JWT re-verification awaits an explicitly permitted backend container recreation after that propagation correction. Tool Registry, Agent Runtime, Retell/Twilio and provider integrations remain future modules. Retell agents will be external voice executors managed by Company AI rather than replacements for internal Agent Identity.
+Migration `0008_agent_identity` creates the three agent tables, adds agent audit actors and connects Approval Manager's deferred agent identifiers with `ON DELETE RESTRICT` foreign keys. It is applied locally; `agents`, `agent_credentials` and `agent_permissions` each contain zero rows. Backend Compose passes the dedicated credential pepper and agent JWT settings only through environment placeholders. The rebuilt backend confirms invalid agent JWT responses return HTTP 401. Agent Runtime, Retell/Twilio and provider integrations remain future modules. Retell agents will be external voice executors managed by Company AI rather than replacements for internal Agent Identity.
 
-## 16. Docker Architecture
+## 16. Tool Registry Boundary
+
+The Tool Registry stores global tool metadata, company availability and historical agent grants. Database rows never contain Python import paths, handlers, source code, commands, credentials or executable payloads. Tool keys are exact lowercase dotted identifiers, and high or critical risk definitions always require approval.
+
+`agent_tool_grants` is authoritative for agent-to-tool access and remains independent from `agent_permissions`. Composite foreign keys bind grants to the same company-owned agent and company tool record. Effective access is recalculated from current tool, company-tool, grant, company, agent and credential state, so disablement and revocation are immediate without deleting history.
+
+A separate trusted in-process descriptor registry may receive callable references directly from application code. Database access and trusted runtime registration are both required for future execution, but this foundation exposes no execution endpoint, dynamic import, provider call, shell command or external side effect. Approval Manager action keys are derived as `tool.execute.<persisted-tool-key>` from authenticated agent identity.
+
+Static migration `0009_tool_registry` follows `0008_agent_identity` and is applied locally. The real database is at `0009_tool_registry`; `tool_definitions`, `company_tools` and `agent_tool_grants` exist and each contains zero rows. The rebuilt backend is healthy, readiness confirms database reachability, OpenAPI exposes 55 paths including all 14 Tool Registry paths, and invalid agent JWT access to `/api/v1/internal/tools` returns HTTP 401. Tool execution remains intentionally absent.
+
+## 17. Docker Architecture
 
 The initial Docker Compose environment will contain:
 

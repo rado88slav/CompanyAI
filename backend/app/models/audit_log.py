@@ -69,6 +69,15 @@ class AuditAction(StrEnum):
     AGENT_AUTHENTICATED = "agent.authenticated"
     AGENT_PERMISSION_GRANTED = "agent_permission.granted"
     AGENT_PERMISSION_REVOKED = "agent_permission.revoked"
+    TOOL_DEFINITION_CREATED = "tool_definition.created"
+    TOOL_DEFINITION_UPDATED = "tool_definition.updated"
+    TOOL_DEFINITION_ACTIVATED = "tool_definition.activated"
+    TOOL_DEFINITION_DEACTIVATED = "tool_definition.deactivated"
+    TOOL_DEFINITION_DEPRECATED = "tool_definition.deprecated"
+    COMPANY_TOOL_ENABLED = "company_tool.enabled"
+    COMPANY_TOOL_DISABLED = "company_tool.disabled"
+    AGENT_TOOL_GRANTED = "agent_tool.granted"
+    AGENT_TOOL_REVOKED = "agent_tool.revoked"
 
 
 class AuditLog(Base):

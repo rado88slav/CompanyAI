@@ -72,6 +72,7 @@ class Settings:
     debug: bool
 
     app_secret_key: str
+    credential_encryption_key: str
     access_token_expire_minutes: int
     agent_credential_pepper: str
     agent_jwt_secret: str
@@ -118,6 +119,7 @@ def get_settings() -> Settings:
         ),
         debug=_read_boolean("BACKEND_DEBUG", default=False),
         app_secret_key=getenv("APP_SECRET_KEY", ""),
+        credential_encryption_key=getenv("CREDENTIAL_ENCRYPTION_KEY", ""),
         access_token_expire_minutes=_read_positive_integer(
             "ACCESS_TOKEN_EXPIRE_MINUTES",
             default=60,

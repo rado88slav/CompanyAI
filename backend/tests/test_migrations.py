@@ -11,6 +11,7 @@ from sqlalchemy import CheckConstraint, ForeignKeyConstraint, UniqueConstraint
 from app.models.approval import ApprovalDecision, ApprovalRequest, AuthorizationPolicy, AuthorizationUsage
 from app.models.agent import Agent, AgentCredential, AgentPermission
 from app.models.tool_registry import AgentToolGrant, CompanyTool, ToolDefinition
+from app.models.provider_connection import ProviderConnection, ProviderCredential
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,7 +30,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0009_tool_registry"
+        "0010_provider_connections"
     ]
 
 
@@ -127,6 +128,26 @@ def test_agent_identity_migration_follows_approval_manager() -> None:
 def test_tool_registry_migration_follows_agent_identity() -> None:
     revision = ScriptDirectory.from_config(create_alembic_config()).get_revision("0009_tool_registry")
     assert revision is not None and revision.down_revision == "0008_agent_identity"
+
+
+def test_provider_connections_migration_follows_tool_registry() -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision("0010_provider_connections")
+    assert revision is not None and revision.down_revision == "0009_tool_registry"
+
+
+def test_provider_connections_migration_static_parity_and_identifier_safety() -> None:
+    source = (BACKEND_ROOT / "migrations/versions/0010_create_provider_connections.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+    assert not any(module == "app" or module.startswith("app.") for module in imports)
+    assert "op.get_bind" not in source and "__table__" not in source
+    for model in (ProviderConnection, ProviderCredential):
+        for constraint in model.__table__.constraints:
+            if constraint.name: assert constraint.name in source
+        for index in model.__table__.indexes: assert index.name in source
+    names = [node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and isinstance(node.value,str) and node.value.startswith(("ck_","fk_","ix_","uq_"))]
+    assert names and all(len(name.encode()) <= 63 for name in names)
+    assert source.index('op.drop_table("provider_credentials")') < source.index('op.drop_table("provider_connections")')
 
 
 def test_tool_registry_migration_is_static_complete_and_identifier_safe() -> None:

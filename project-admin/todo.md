@@ -140,6 +140,19 @@
 - [x] Verify the empty Tool Registry schema against real PostgreSQL.
 - [x] Verify rebuilt backend health, readiness, all 14 Tool Registry paths and invalid-agent-JWT HTTP 401 behavior.
 
+### 11. Provider Connections
+
+- [x] Add eight immutable trusted provider descriptors in application code.
+- [x] Add company-isolated connection metadata and encrypted credential history models.
+- [x] Add metadata-only catalog, connection and credential lifecycle APIs.
+- [x] Add atomic audit logging and owner/admin mutation versus operator/viewer read RBAC.
+- [x] Create schema-only migration `0010_provider_connections`.
+- [ ] Rebuild the backend image with the pinned `cryptography` dependency and run the complete suite after explicit approval.
+- [x] Apply migration `0010_provider_connections` after explicit approval.
+- [ ] Verify the empty schema against PostgreSQL.
+- [ ] Rotate the credential encryption key under separate explicit approval before storing the first real provider credential.
+- [ ] Implement Provider Execution in a future module.
+
 ### 11. Development Seed Data
 
 - [ ] Create a repeatable seed script.

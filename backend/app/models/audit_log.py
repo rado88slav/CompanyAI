@@ -78,6 +78,14 @@ class AuditAction(StrEnum):
     COMPANY_TOOL_DISABLED = "company_tool.disabled"
     AGENT_TOOL_GRANTED = "agent_tool.granted"
     AGENT_TOOL_REVOKED = "agent_tool.revoked"
+    PROVIDER_CONNECTION_CREATED = "provider_connection.created"
+    PROVIDER_CONNECTION_UPDATED = "provider_connection.updated"
+    PROVIDER_CONNECTION_ACTIVATED = "provider_connection.activated"
+    PROVIDER_CONNECTION_DEACTIVATED = "provider_connection.deactivated"
+    PROVIDER_CONNECTION_REVOKED = "provider_connection.revoked"
+    PROVIDER_CREDENTIAL_CREATED = "provider_credential.created"
+    PROVIDER_CREDENTIAL_ROTATED = "provider_credential.rotated"
+    PROVIDER_CREDENTIAL_REVOKED = "provider_credential.revoked"
 
 
 class AuditLog(Base):

@@ -20,6 +20,8 @@ The initial MVP must provide:
 - activity and audit history;
 - portable installation through Docker and Bash scripts.
 
+Current Provider Connections foundation status: trusted descriptors, company-scoped metadata, encrypted credential history and metadata-only APIs are implemented and runtime-verified. Migration `0010_provider_connections` is applied locally; the provider tables contain zero rows. The healthy backend exposes 65 OpenAPI paths, including 10 Provider Connections paths. Provider Execution, live onboarding and external provider communication are intentionally deferred. Encryption-key rotation remains a separately approved prerequisite before the first real credential is stored.
+
 ---
 
 ## 2. Development Rules

@@ -220,7 +220,7 @@ The warning is a non-blocking Starlette `TestClient` deprecation warning.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity -> 0009_tool_registry (head, applied locally/current real revision)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity -> 0009_tool_registry -> 0010_provider_connections (head, applied locally/current real revision)
 
 ---
 
@@ -375,9 +375,20 @@ The real company will later be created as a separate Company Context without cha
 - Real agent data: `agents`, `agent_credentials` and `agent_permissions` each contain zero rows
 - Internal agent authentication: Compose propagation and rebuilt runtime verification are complete; invalid raw credentials and invalid agent JWTs return HTTP 401
 - Tool Registry: implemented and automatically verified, uncommitted
+- Provider Connections: implemented and runtime-verified; eight trusted descriptors, metadata-only APIs and AES-256-GCM credential storage foundation are present
+- Provider Connections migration `0010_provider_connections`: applied locally; real database revision is `0010_provider_connections` and both provider tables contain zero rows
+- Provider Connections runtime: healthy backend, database readiness reachable, 65 OpenAPI paths with 10 Provider Connections paths, authenticated company-scoped listing returns HTTP 200, and no external calls or plaintext retrieval API exist
+- Provider Connections validation: complete backend suite, focused tests, compilation, security scan and deterministic generator verification passed; generated_matches_current=yes and whitespace validation passed
+- Credential key safety: rotate `CREDENTIAL_ENCRYPTION_KEY` under separate explicit approval while provider credential tables still contain zero rows and before the first real credential is stored
 - Tool Registry migration `0009_tool_registry`: applied locally; real database is at `0009_tool_registry`
 - Tool Registry schema: all three tables exist; `tool_definitions = 0`, `company_tools = 0`, `agent_tool_grants = 0`
 - Tool Registry runtime: backend healthy, readiness database reachable, OpenAPI 55 paths with all 14 Tool Registry paths, invalid internal agent JWT returns HTTP 401
+- Provider Connections code is implemented and runtime-verified with eight trusted in-process descriptors, company-scoped connection metadata, encrypted credential history, metadata-only APIs and no provider execution.
+- Migration `0010_provider_connections` is applied locally; both provider tables exist and contain zero rows. No live external provider integrations are configured and no provider APIs are called.
+- Credential payloads use the newly pinned `cryptography` AES-256-GCM boundary with identity-bound associated data. The current real key was not read or used.
+- The backend image was rebuilt successfully and the healthy runtime was verified with 65 OpenAPI paths and 10 Provider Connections paths.
+- Before the first real provider credential is stored, `CREDENTIAL_ENCRYPTION_KEY` must be rotated under separate explicit approval while the credential table still contains zero rows.
+- No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
 - Tool execution and provider calls: intentionally not implemented
 - Bearer-protected administration routes: operational
 - Company persistence: verified
@@ -394,7 +405,9 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. await explicit approval for the uncommitted Tool Registry implementation commit;
+1. review the uncommitted but runtime-verified Provider Connections foundation; migration `0010_provider_connections` is applied locally;
+2. under separate explicit approval, rebuild the backend image with the pinned cryptography dependency and run the complete suite;
+3. under separate explicit approval before first real credential storage, rotate the credential encryption key while the credential table is empty;
 2. continue with Tool Execution and Agent Runtime only as a separately approved task;
 3. commit and push only after explicit approval.
 

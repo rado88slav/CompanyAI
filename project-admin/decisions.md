@@ -265,3 +265,15 @@ Company availability and agent grants are separate company-scoped records. `agen
 Runtime descriptors exist only in a trusted in-process registry populated directly by application code. Exact lookup and duplicate rejection are deterministic; no dynamic import, `eval`, `exec`, provider call or shell execution exists. Future Approval Manager input derives `tool.execute.<tool-key>` from persisted metadata and the authenticated agent identity, never caller-supplied actor or action values.
 
 Migration `0009_tool_registry` statically creates `tool_definitions`, `company_tools` and `agent_tool_grants` after `0008_agent_identity` and is applied locally. The real database is at `0009_tool_registry`; all three tables exist and each contains zero rows. The rebuilt backend is healthy, readiness confirms database reachability, OpenAPI contains 55 paths including all 14 Tool Registry paths, and an invalid agent JWT against `/api/v1/internal/tools` returns HTTP 401. Tool execution remains a future Agent Runtime responsibility. The implementation remains uncommitted pending explicit commit approval.
+
+## 025 — Provider Connections and encrypted credentials
+
+Provider types are immutable trusted Python descriptors, not database-defined implementations. Exact normalized keys select only descriptor metadata; the database stores no import paths, modules, source, commands or callable references. Provider Execution and external adapter calls remain future work.
+
+`provider_connections` holds company-scoped safe metadata. `provider_credentials` holds append-only encrypted credential versions with company-safe composite foreign keys, one-active-version enforcement and same-connection rotation lineage. No API exposes ciphertext, nonce or plaintext. Connection and credential mutations are audited and committed atomically.
+
+Credential bundles use AES-256-GCM from the pinned `cryptography` dependency. Canonical JSON is authenticated with associated data binding company, connection, credential, provider key and encryption version. Configuration accepts only descriptor-allowed fields and recursively rejects secret-bearing and executable fields. Decryption is available only through a narrow trusted in-process resolver.
+
+Migration `0010_provider_connections` follows `0009_tool_registry` and is applied locally; the real database revision is `0010_provider_connections`. The `provider_connections` and `provider_credentials` tables exist and contain zero rows. The real `.env` and encryption key were not read or modified. Before the first real credential is stored, `CREDENTIAL_ENCRYPTION_KEY` must be rotated under separate explicit approval while the credential tables are still empty; no key value may be documented.
+
+The backend image was rebuilt successfully and is healthy. Readiness confirms database reachability; OpenAPI contains 65 paths including 10 Provider Connections paths, and authenticated company-scoped listing returns HTTP 200 with zero connections. No live external provider integrations are configured and no provider APIs are called.

@@ -152,6 +152,14 @@ Examples:
 
 The core platform must not depend directly on a specific provider.
 
+Provider Connections now supplies the metadata and encrypted-credential foundation for this layer. Eight built-in provider descriptors are registered only by trusted Python code. Database records cannot name executable implementations, imports, modules, callables or commands.
+
+Company connection metadata and encrypted credential versions are isolated by explicit company identifiers and composite foreign keys. Credentials use AES-256-GCM with associated data binding the company, connection, credential, provider key and encryption version. Public APIs expose metadata only; plaintext decryption is reserved for a narrow trusted in-process resolver and is not connected to provider execution.
+
+Migration `0010_provider_connections` is applied locally after `0009_tool_registry`. The provider tables exist and contain zero rows. The healthy backend exposes 65 OpenAPI paths, including 10 Provider Connections paths; external provider calls, OAuth flows, connectivity checks and Provider Execution remain future work. Before the first real credential is stored, the encryption key must be rotated under separate explicit approval.
+
+Before the first real provider credential is stored, the credential encryption key must be rotated under separate explicit approval while the credential tables still contain zero rows. Key values must never be documented.
+
 ### Tool Registry
 
 The Tool Registry defines every action the agent may perform.

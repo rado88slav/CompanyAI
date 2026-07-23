@@ -108,15 +108,19 @@ Generated automatically.
    Description: Add Alembic database migrations and Bash migration tools to the Company AI backend.
    Status: executable
 
-27. scripts/setup/add-tool-registry.sh
+27. scripts/setup/add-provider-connections.sh
+   Description: Add the complete Provider Connections foundation.
+   Status: executable
+
+28. scripts/setup/add-tool-registry.sh
    Description: Add the secure Tool Registry foundation.
    Status: executable
 
-28. scripts/setup/create-backend.sh
+29. scripts/setup/create-backend.sh
    Description: Generate the initial Company AI FastAPI backend structure and Docker configuration.
    Status: executable
 
-29. scripts/setup/create-env.sh
+30. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 

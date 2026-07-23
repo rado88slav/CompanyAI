@@ -40,6 +40,7 @@ Generated automatically by:
 ./backend/app/api/routes/company_memberships.py
 ./backend/app/api/routes/company_settings.py
 ./backend/app/api/routes/health.py
+./backend/app/api/routes/provider_connections.py
 ./backend/app/api/routes/tool_registry.py
 ./backend/app/cli/__init__.py
 ./backend/app/cli/bootstrap_authorization_safety.py
@@ -50,6 +51,8 @@ Generated automatically by:
 ./backend/app/core/authorization.py
 ./backend/app/core/company_permissions.py
 ./backend/app/core/config.py
+./backend/app/core/credential_encryption.py
+./backend/app/core/provider_connections.py
 ./backend/app/core/security.py
 ./backend/app/core/tool_registry.py
 ./backend/app/db/__init__.py
@@ -64,6 +67,7 @@ Generated automatically by:
 ./backend/app/models/company.py
 ./backend/app/models/company_membership.py
 ./backend/app/models/company_setting.py
+./backend/app/models/provider_connection.py
 ./backend/app/models/tool_registry.py
 ./backend/app/repositories/__init__.py
 ./backend/app/repositories/administrator.py
@@ -73,6 +77,7 @@ Generated automatically by:
 ./backend/app/repositories/company.py
 ./backend/app/repositories/company_membership.py
 ./backend/app/repositories/company_setting.py
+./backend/app/repositories/provider_connection.py
 ./backend/app/repositories/tool_registry.py
 ./backend/app/schemas/__init__.py
 ./backend/app/schemas/agent.py
@@ -83,6 +88,7 @@ Generated automatically by:
 ./backend/app/schemas/company_context.py
 ./backend/app/schemas/company_membership.py
 ./backend/app/schemas/company_setting.py
+./backend/app/schemas/provider_connection.py
 ./backend/app/schemas/tool_registry.py
 ./backend/app/services/__init__.py
 ./backend/app/services/agent_identity.py
@@ -93,6 +99,7 @@ Generated automatically by:
 ./backend/app/services/company.py
 ./backend/app/services/company_membership.py
 ./backend/app/services/company_setting.py
+./backend/app/services/provider_connection.py
 ./backend/app/services/tool_registry.py
 ./backend/migrations/README
 ./backend/migrations/env.py
@@ -106,6 +113,7 @@ Generated automatically by:
 ./backend/migrations/versions/0007_create_approval_manager.py
 ./backend/migrations/versions/0008_create_agent_identity.py
 ./backend/migrations/versions/0009_create_tool_registry.py
+./backend/migrations/versions/0010_create_provider_connections.py
 ./backend/pytest.ini
 ./backend/requirements-dev.txt
 ./backend/requirements.txt
@@ -122,6 +130,7 @@ Generated automatically by:
 ./backend/tests/test_database.py
 ./backend/tests/test_health.py
 ./backend/tests/test_migrations.py
+./backend/tests/test_provider_connections.py
 ./backend/tests/test_tool_registry.py
 ./config/.gitkeep
 ./dashboard/.gitkeep
@@ -170,6 +179,7 @@ Generated automatically by:
 ./scripts/setup/add-company-memberships.sh
 ./scripts/setup/add-company-settings.sh
 ./scripts/setup/add-database-migrations.sh
+./scripts/setup/add-provider-connections.sh
 ./scripts/setup/add-tool-registry.sh
 ./scripts/setup/create-backend.sh
 ./scripts/setup/create-env.sh

@@ -66,5 +66,6 @@ from app.schemas.approval import ApprovalRequestCreate, AuthorizationAction, Man
 
 __all__ = ["ApprovalRequestCreate", "AuthorizationAction", "ManualPolicyCreate"]
 from app.schemas.tool_registry import EffectiveToolResponse, ToolDefinitionCreate, ToolDefinitionResponse, ToolDefinitionUpdate
+from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionResponse, ProviderCredentialCreate, ProviderCredentialResponse, ProviderDescriptorResponse
 
-__all__ += ["EffectiveToolResponse", "ToolDefinitionCreate", "ToolDefinitionResponse", "ToolDefinitionUpdate"]
+__all__ += ["EffectiveToolResponse", "ToolDefinitionCreate", "ToolDefinitionResponse", "ToolDefinitionUpdate", "ProviderConnectionCreate", "ProviderConnectionResponse", "ProviderCredentialCreate", "ProviderCredentialResponse", "ProviderDescriptorResponse"]

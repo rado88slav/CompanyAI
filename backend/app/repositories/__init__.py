@@ -23,5 +23,6 @@ from app.repositories.approval import ApprovalRepository, AuthorizationRepositor
 
 __all__ = ["ApprovalRepository", "AuthorizationRepository"]
 from app.repositories.tool_registry import ToolRegistryRepository
+from app.repositories.provider_connection import ProviderConnectionRepository
 
-__all__ += ["ToolRegistryRepository"]
+__all__ += ["ToolRegistryRepository", "ProviderConnectionRepository"]

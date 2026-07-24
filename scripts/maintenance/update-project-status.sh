@@ -400,6 +400,8 @@ The real company will later be created as a separate Company Context without cha
 - Provider Execution runtime: rebuilt backend is healthy and database-ready; authenticated registry returns exactly 22 operations across 8 providers, company-scoped listing returns an empty `50/0` page, and OpenAPI exposes 74 total paths including 9 Provider Execution paths
 - Provider Execution safety: no real connection, credential, approval, execution or attempt was created; no external provider operation ran; live mode remains fail-closed
 - Development credential key: `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows; the force-recreated backend uses the rotated key and passed health and database-readiness checks
+- Development secret rotation: after a local terminal exposure, all affected application secrets and `POSTGRES_PASSWORD` were rotated without displaying replacements; `agent_credentials` and `provider_credentials` were empty beforehand, and backend health plus database readiness were verified afterward without application-row changes
+- Credential key startup validation: application creation fails fast before FastAPI startup for missing, empty, malformed or wrong-length configuration; accepted values are exactly 64 hexadecimal ASCII characters or 44-character padded Base64/Base64url decoding to exactly 32 bytes
 - Tool Registry migration `0009_tool_registry`: applied locally; the database was at this revision when Tool Registry was verified
 - Tool Registry schema: all three tables exist; `tool_definitions = 0`, `company_tools = 0`, `agent_tool_grants = 0`
 - Tool Registry runtime: backend healthy, readiness database reachable, OpenAPI 55 paths with all 14 Tool Registry paths, invalid internal agent JWT returns HTTP 401
@@ -409,7 +411,7 @@ The real company will later be created as a separate Company Context without cha
 - The backend image was rebuilt successfully and the healthy runtime was verified with 65 OpenAPI paths and 10 Provider Connections paths.
 - The safe development rotation is complete. No real credentials or provider executions were created, and no external provider operation ran.
 - Production secret management and key provisioning remain future work.
-- Fail-fast startup validation for a missing or invalid encryption key remains a separate security task.
+- Startup configuration failures use one deterministic sanitized error and never include key, hash, ciphertext, nonce or payload material.
 - A key ID/keyring and re-encryption workflow are still required for future rotation when credentials exist.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -430,10 +432,9 @@ The real company will later be created as a separate Company Context without cha
 Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. add fail-fast startup validation for a missing or invalid credential encryption key as a separate security task;
-3. design production secret provisioning and a key ID/keyring plus re-encryption workflow before production use or any future rotation with stored credentials;
-4. continue with Tool Execution and Agent Runtime only as a separately approved task;
-5. commit and push only after explicit approval.
+2. design production secret provisioning and a key ID/keyring plus re-encryption workflow before production use or any future rotation with stored credentials;
+3. continue with Tool Execution and Agent Runtime only as a separately approved task;
+4. commit and push only after explicit approval.
 
 ---
 
@@ -596,10 +597,10 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [x] Apply migration `0010_provider_connections` after explicit approval.
 - [x] Verify the empty schema against PostgreSQL.
 - [x] Safely rotate the development credential encryption key while `provider_credentials` is empty and verify the force-recreated backend health and readiness.
-- [ ] Add fail-fast startup validation for a missing or invalid credential encryption key.
+- [x] Add fail-fast startup validation for a missing, empty, malformed or wrong-length credential encryption key.
 - [ ] Define production secret management and production key provisioning.
 - [ ] Add a key ID/keyring and re-encryption workflow for future rotation when credentials exist.
-- [ ] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
+- [x] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
 - [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
 - [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.
 - [x] Verify the empty Provider Execution schema, authenticated registry and company-scoped listing against the rebuilt backend.
@@ -975,7 +976,11 @@ Migration `0010_provider_connections` follows `0009_tool_registry` and is applie
 
 The backend container was force-recreated without an image rebuild and was verified to use the current local key, which decodes to exactly 32 bytes. `GET /api/v1/health` returns HTTP 200 with `status=ok`, and `GET /api/v1/health/ready` returns HTTP 200 with `database=reachable`. No database rows were modified, no real provider credentials were created, and no real provider execution or external provider call occurred.
 
-Production secret management and production key provisioning remain future work. Missing or invalid encryption keys still need fail-fast startup validation. Future rotation after credentials exist requires a key ID/keyring and a controlled re-encryption workflow. `scripts/setup/create-env.sh --force` is not a key-rotation mechanism because it replaces the entire `.env` file.
+After a subsequent local terminal exposure, `APP_SECRET_KEY`, `AGENT_JWT_SECRET`, `AGENT_CREDENTIAL_PEPPER`, `CREDENTIAL_ENCRYPTION_KEY` and `POSTGRES_PASSWORD` were rotated without displaying replacement values or hashes. Read-only checks before rotation confirmed that both `agent_credentials` and `provider_credentials` contained zero rows. The four application secrets were replaced atomically only in the local `.env`, whose permissions remained `600`, while the PostgreSQL role and local password were updated consistently. The backend was force-recreated without an image rebuild; health and database readiness returned HTTP 200 afterward. No application table rows were modified, and no credential, approval or execution was created. The local `.env` remains outside Git, and no secret value belongs in documentation.
+
+Application creation now calls the same trusted key decoder used by credential encryption before constructing FastAPI. Startup fails for a missing, empty, malformed or wrong-length key, so health and readiness cannot succeed with invalid configuration. Accepted values are exactly 64 hexadecimal ASCII characters or exactly 44-character padded Base64/Base64url that decodes to exactly 32 bytes. Failures use one deterministic sanitized message and never include the key, its hash, ciphertext, nonce or secret payload material.
+
+Production secret management and production key provisioning remain future work. Future rotation after credentials exist requires a key ID/keyring and a controlled re-encryption workflow. `scripts/setup/create-env.sh --force` is not a key-rotation mechanism because it replaces the entire `.env` file.
 
 ## 026 — Provider Execution and Approval Manager integration
 

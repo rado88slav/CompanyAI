@@ -158,7 +158,9 @@ Company connection metadata and encrypted credential versions are isolated by ex
 
 Migration `0010_provider_connections` is applied locally after `0009_tool_registry`. The provider tables exist and contain zero rows. Provider Execution now supplies a separately authorized dry-run foundation, while live external calls, OAuth flows and connectivity checks remain future work.
 
-The development `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows. The backend container was force-recreated without rebuilding its image, uses the rotated key, and passed health and database-readiness checks. The key remains local, is not stored in Git and must never be documented. Production secret management and key provisioning, fail-fast startup validation for a missing or invalid key, and a key ID/keyring plus re-encryption workflow for rotation after credentials exist remain future security work. `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
+The development `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows. The backend container was force-recreated without rebuilding its image, uses the rotated key, and passed health and database-readiness checks. Application creation now fails before FastAPI startup when the key is missing, empty, malformed or does not decode to exactly 32 bytes. Accepted formats are exactly 64 hexadecimal ASCII characters or exactly 44-character padded Base64/Base64url. The key remains local and must never appear in Git, documentation, logs or configuration errors. Production secret management and key provisioning, and a key ID/keyring plus re-encryption workflow for rotation after credentials exist, remain future security work. `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
+
+After a local development terminal exposure, `APP_SECRET_KEY`, `AGENT_JWT_SECRET`, `AGENT_CREDENTIAL_PEPPER`, `CREDENTIAL_ENCRYPTION_KEY` and `POSTGRES_PASSWORD` were rotated without displaying their replacements. Both credential tables were empty beforehand. The local environment file and PostgreSQL role password were updated consistently, and backend health plus database readiness were verified afterward without modifying application rows. Secret values do not belong in Git or documentation; production secret management remains open.
 
 ### Tool Registry
 
@@ -507,7 +509,9 @@ The master encryption key will be provided through an environment variable.
 
 The `.env` file must remain local and excluded from Git.
 
-The local development key is securely configured and rotated. Production deployments still require dedicated secret management and key provisioning. Startup must later fail fast when the encryption key is missing or invalid, and future rotation with stored credentials requires a key ID/keyring and re-encryption workflow.
+The local development key is securely configured and rotated. Backend application creation validates it before FastAPI can report healthy or ready. Validation accepts only exactly 64 hexadecimal ASCII characters or exactly 44-character padded Base64/Base64url that decodes to exactly 32 bytes; failures use a deterministic sanitized error.
+
+Production deployments still require dedicated secret management and key provisioning. Future rotation with stored credentials requires a key ID/keyring and re-encryption workflow.
 
 Do not use `scripts/setup/create-env.sh --force` for key-only rotation because it replaces the entire `.env` file.
 

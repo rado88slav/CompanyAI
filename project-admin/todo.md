@@ -151,10 +151,10 @@
 - [x] Apply migration `0010_provider_connections` after explicit approval.
 - [x] Verify the empty schema against PostgreSQL.
 - [x] Safely rotate the development credential encryption key while `provider_credentials` is empty and verify the force-recreated backend health and readiness.
-- [ ] Add fail-fast startup validation for a missing or invalid credential encryption key.
+- [x] Add fail-fast startup validation for a missing, empty, malformed or wrong-length credential encryption key.
 - [ ] Define production secret management and production key provisioning.
 - [ ] Add a key ID/keyring and re-encryption workflow for future rotation when credentials exist.
-- [ ] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
+- [x] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
 - [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
 - [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.
 - [x] Verify the empty Provider Execution schema, authenticated registry and company-scoped listing against the rebuilt backend.

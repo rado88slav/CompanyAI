@@ -139,6 +139,7 @@ Generated automatically by:
 ./backend/tests/test_migrations.py
 ./backend/tests/test_provider_connections.py
 ./backend/tests/test_provider_execution.py
+./backend/tests/test_startup_configuration.py
 ./backend/tests/test_tool_registry.py
 ./config/.gitkeep
 ./dashboard/.gitkeep

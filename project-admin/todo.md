@@ -155,9 +155,10 @@
 - [ ] Define production secret management and production key provisioning.
 - [x] Integrate the existing keyring into Provider Credential model/repository/service behavior under the transitional one-key `legacy` runtime contract.
 - [x] Replace the repository runtime contract with active key ID plus validated keyring JSON and reject standalone legacy configuration.
-- [ ] Atomically provision the new local development keyring settings after explicit approval.
-- [ ] Rebuild and recreate the backend, then verify health and runtime behavior after separate explicit approval.
+- [x] Atomically provision the new local development keyring settings after explicit approval while preserving the existing cryptographic key.
+- [x] Rebuild and recreate the backend, then verify the one-key `legacy` runtime keyring, health, readiness and database connectivity.
 - [ ] Add production multi-key environment provisioning and a controlled re-encryption workflow before rotating stored credentials.
+- [ ] Define old-key retirement, key escrow and backup-retention procedures.
 - [x] Create and validate schema-only expand migration `0012_credential_keyring_expand` without credential backfill or runtime configuration changes.
 - [x] Apply migration `0012_credential_keyring_expand` after explicit approval and verify its columns, constraints and ordered index while `provider_credentials` remains empty.
 - [x] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.

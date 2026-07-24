@@ -386,7 +386,9 @@ The real company will later be created as a separate Company Context without cha
 - Provider Execution safety: no real connection, credential, approval, execution or attempt was created; no external provider operation ran; live mode remains fail-closed
 - Development credential key: `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows; the force-recreated backend uses the rotated key and passed health and database-readiness checks
 - Development secret rotation: after a local terminal exposure, all affected application secrets and `POSTGRES_PASSWORD` were rotated without displaying replacements; `agent_credentials` and `provider_credentials` were empty beforehand, and backend health plus database readiness were verified afterward without application-row changes
-- Credential key startup validation: application creation fails fast before FastAPI startup for missing, empty, malformed or wrong-length configuration; accepted values are exactly 64 hexadecimal ASCII characters or 44-character padded Base64/Base64url decoding to exactly 32 bytes
+- Credential keyring startup validation: application creation validates the active ID and complete keyring before FastAPI startup; every encoded key must decode to exactly 32 bytes, standalone or mixed legacy configuration is rejected, and failures are sanitized
+- Development runtime keyring cutover: local provisioning was atomically converted to active-ID plus secret-keyring configuration while preserving the existing cryptographic key; standalone `CREDENTIAL_ENCRYPTION_KEY` is absent, active ID is `legacy`, and the validated runtime keyring contains one key
+- Development runtime keyring verification: rebuilt and force-recreated backend is healthy and database-ready; configured and runtime active IDs match, and no database rows, credentials, approvals or executions were created
 - Tool Registry migration `0009_tool_registry`: applied locally; the database was at this revision when Tool Registry was verified
 - Tool Registry schema: all three tables exist; `tool_definitions = 0`, `company_tools = 0`, `agent_tool_grants = 0`
 - Tool Registry runtime: backend healthy, readiness database reachable, OpenAPI 55 paths with all 14 Tool Registry paths, invalid internal agent JWT returns HTTP 401
@@ -399,7 +401,7 @@ The real company will later be created as a separate Company Context without cha
 - Startup configuration failures use one deterministic sanitized error and never include key, hash, ciphertext, nonce or payload material.
 - Repository runtime keyring support is implemented: `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON are validated once before FastAPI creation and shared with Provider Connections; standalone or mixed legacy configuration is rejected.
 - New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
-- Local secret provisioning and the running backend have not been cut over. Migration `0012_credential_keyring_expand` remains database head; production provisioning, contract migration `0013` and controlled re-encryption remain open.
+- Local secret provisioning and the running backend are cut over to the new keyring contract. Migration `0012_credential_keyring_expand` remains database head and `encryption_key_id` remains nullable during expand; production secret-manager provisioning, contract migration `0013`, controlled re-encryption, old-key retirement/escrow and backup-retention procedures remain open.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -420,7 +422,7 @@ The real company will later be created as a separate Company Context without cha
 Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. request separate approval for atomic local keyring provisioning, backend image rebuild, backend container recreation, and health/runtime verification;
+2. design production secret-manager provisioning, controlled re-encryption, old-key retirement/escrow and backup-retention procedures before production use;
 3. continue with Tool Execution and Agent Runtime only as a separately approved task;
 4. commit and push only after explicit approval.
 

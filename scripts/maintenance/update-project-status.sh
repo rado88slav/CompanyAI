@@ -402,7 +402,9 @@ The real company will later be created as a separate Company Context without cha
 - Provider Execution safety: no real connection, credential, approval, execution or attempt was created; no external provider operation ran; live mode remains fail-closed
 - Development credential key: `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows; the force-recreated backend uses the rotated key and passed health and database-readiness checks
 - Development secret rotation: after a local terminal exposure, all affected application secrets and `POSTGRES_PASSWORD` were rotated without displaying replacements; `agent_credentials` and `provider_credentials` were empty beforehand, and backend health plus database readiness were verified afterward without application-row changes
-- Credential key startup validation: application creation fails fast before FastAPI startup for missing, empty, malformed or wrong-length configuration; accepted values are exactly 64 hexadecimal ASCII characters or 44-character padded Base64/Base64url decoding to exactly 32 bytes
+- Credential keyring startup validation: application creation validates the active ID and complete keyring before FastAPI startup; every encoded key must decode to exactly 32 bytes, standalone or mixed legacy configuration is rejected, and failures are sanitized
+- Development runtime keyring cutover: local provisioning was atomically converted to active-ID plus secret-keyring configuration while preserving the existing cryptographic key; standalone `CREDENTIAL_ENCRYPTION_KEY` is absent, active ID is `legacy`, and the validated runtime keyring contains one key
+- Development runtime keyring verification: rebuilt and force-recreated backend is healthy and database-ready; configured and runtime active IDs match, and no database rows, credentials, approvals or executions were created
 - Tool Registry migration `0009_tool_registry`: applied locally; the database was at this revision when Tool Registry was verified
 - Tool Registry schema: all three tables exist; `tool_definitions = 0`, `company_tools = 0`, `agent_tool_grants = 0`
 - Tool Registry runtime: backend healthy, readiness database reachable, OpenAPI 55 paths with all 14 Tool Registry paths, invalid internal agent JWT returns HTTP 401
@@ -415,7 +417,7 @@ The real company will later be created as a separate Company Context without cha
 - Startup configuration failures use one deterministic sanitized error and never include key, hash, ciphertext, nonce or payload material.
 - Repository runtime keyring support is implemented: `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON are validated once before FastAPI creation and shared with Provider Connections; standalone or mixed legacy configuration is rejected.
 - New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
-- Local secret provisioning and the running backend have not been cut over. Migration `0012_credential_keyring_expand` remains database head; production provisioning, contract migration `0013` and controlled re-encryption remain open.
+- Local secret provisioning and the running backend are cut over to the new keyring contract. Migration `0012_credential_keyring_expand` remains database head and `encryption_key_id` remains nullable during expand; production secret-manager provisioning, contract migration `0013`, controlled re-encryption, old-key retirement/escrow and backup-retention procedures remain open.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -436,7 +438,7 @@ The real company will later be created as a separate Company Context without cha
 Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. request separate approval for atomic local keyring provisioning, backend image rebuild, backend container recreation, and health/runtime verification;
+2. design production secret-manager provisioning, controlled re-encryption, old-key retirement/escrow and backup-retention procedures before production use;
 3. continue with Tool Execution and Agent Runtime only as a separately approved task;
 4. commit and push only after explicit approval.
 
@@ -605,9 +607,10 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [ ] Define production secret management and production key provisioning.
 - [x] Integrate the existing keyring into Provider Credential model/repository/service behavior under the transitional one-key `legacy` runtime contract.
 - [x] Replace the repository runtime contract with active key ID plus validated keyring JSON and reject standalone legacy configuration.
-- [ ] Atomically provision the new local development keyring settings after explicit approval.
-- [ ] Rebuild and recreate the backend, then verify health and runtime behavior after separate explicit approval.
+- [x] Atomically provision the new local development keyring settings after explicit approval while preserving the existing cryptographic key.
+- [x] Rebuild and recreate the backend, then verify the one-key `legacy` runtime keyring, health, readiness and database connectivity.
 - [ ] Add production multi-key environment provisioning and a controlled re-encryption workflow before rotating stored credentials.
+- [ ] Define old-key retirement, key escrow and backup-retention procedures.
 - [x] Create and validate schema-only expand migration `0012_credential_keyring_expand` without credential backfill or runtime configuration changes.
 - [x] Apply migration `0012_credential_keyring_expand` after explicit approval and verify its columns, constraints and ordered index while `provider_credentials` remains empty.
 - [x] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
@@ -988,7 +991,7 @@ The backend container was force-recreated without an image rebuild and was verif
 
 After a subsequent local terminal exposure, `APP_SECRET_KEY`, `AGENT_JWT_SECRET`, `AGENT_CREDENTIAL_PEPPER`, `CREDENTIAL_ENCRYPTION_KEY` and `POSTGRES_PASSWORD` were rotated without displaying replacement values or hashes. Read-only checks before rotation confirmed that both `agent_credentials` and `provider_credentials` contained zero rows. The four application secrets were replaced atomically only in the local `.env`, whose permissions remained `600`, while the PostgreSQL role and local password were updated consistently. The backend was force-recreated without an image rebuild; health and database readiness returned HTTP 200 afterward. No application table rows were modified, and no credential, approval or execution was created. The local `.env` remains outside Git, and no secret value belongs in documentation.
 
-Application creation now calls the same trusted key decoder used by credential encryption before constructing FastAPI. Startup fails for a missing, empty, malformed or wrong-length key, so health and readiness cannot succeed with invalid configuration. Accepted values are exactly 64 hexadecimal ASCII characters or exactly 44-character padded Base64/Base64url that decodes to exactly 32 bytes. Failures use one deterministic sanitized message and never include the key, its hash, ciphertext, nonce or secret payload material.
+Application creation validates the active key ID and complete immutable keyring before constructing FastAPI, so health and readiness cannot succeed with missing, empty, malformed, duplicate or ambiguous configuration. Every encoded key is processed by the same trusted decoder used by credential encryption and must be exactly 64 hexadecimal ASCII characters or exactly 44-character padded Base64/Base64url decoding to exactly 32 bytes. Standalone or mixed legacy configuration is rejected. Failures use one deterministic sanitized message and never include keyring JSON, key material, hashes, ciphertext, nonce or secret payload material.
 
 Production secret management and production key provisioning remain future work. Future rotation after credentials exist requires a key ID/keyring and a controlled re-encryption workflow. `scripts/setup/create-env.sh --force` is not a key-rotation mechanism because it replaces the entire `.env` file.
 
@@ -1000,7 +1003,11 @@ New credentials and business rotations use encryption version 2, store the confi
 
 Historical version-1 rows retain their original AAD. NULL key IDs are readable only when the configured keyring contains the explicit `legacy` entry; the active key is never guessed. Stored v1/v2 key IDs are resolved through the keyring, and missing, malformed or unknown IDs fail closed. Reads do not mutate historical rows.
 
-Repository support is implemented, but the real local `.env` and currently running backend have not been cut over. Atomic local secret provisioning, image rebuild, container recreation and health/runtime verification require separate approval. Migration `0012_credential_keyring_expand` remains database head; migration `0013` has not been created or applied. Production keyring provisioning and controlled re-encryption remain future work. No real credential was created during Stage 4.
+The real local development runtime cutover is complete. The local environment file was atomically converted from standalone `CREDENTIAL_ENCRYPTION_KEY` to `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` while preserving the existing cryptographic key, other entries and permissions `600`. The standalone variable is no longer active. Secret values and hashes were not displayed.
+
+The backend image was rebuilt and the backend container was force-recreated without database changes. Runtime verification confirmed active ID `legacy`, one configured key, a validated immutable keyring, matching configured/runtime active IDs, HTTP 200 health with `status=ok`, and HTTP 200 readiness with reachable database connectivity. No database row, credential, approval or execution was created or modified.
+
+Migration `0012_credential_keyring_expand` remains database head and `encryption_key_id` intentionally remains nullable during the expand phase. Migration `0013` has not been created or applied. Production secret-manager/keyring provisioning, controlled re-encryption tooling, old-key retirement and escrow policy, and backup-retention procedures remain future work.
 
 ## 026 — Provider Execution and Approval Manager integration
 

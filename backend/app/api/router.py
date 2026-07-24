@@ -15,6 +15,7 @@ from app.api.routes.company_memberships import router as company_memberships_rou
 from app.api.routes.company_settings import (
     router as company_settings_router,
 )
+from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.health import router as health_router
 from app.api.routes.tool_registry import router as tool_registry_router
 from app.api.routes.provider_connections import router as provider_connections_router
@@ -31,6 +32,7 @@ api_router.include_router(company_activity_router)
 api_router.include_router(company_context_router)
 api_router.include_router(company_memberships_router)
 api_router.include_router(company_settings_router)
+api_router.include_router(dashboard_router)
 api_router.include_router(tool_registry_router)
 api_router.include_router(provider_connections_router)
 api_router.include_router(provider_execution_router)

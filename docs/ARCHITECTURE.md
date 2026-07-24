@@ -54,7 +54,11 @@ The system contains the following main components:
 
 ### Dashboard
 
-The dashboard is the human control center.
+The dashboard is the human control center. Dashboard Stage 1 now provides a
+desktop-first React, TypeScript and Vite application under `frontend/`, with
+React Router navigation, a responsive accessible shell and a real read-only
+Overview page. Agent, provider, email, calls, approvals, audit and settings
+routes are explicit future-module placeholders and make no operational claims.
 
 It allows the user to:
 
@@ -166,7 +170,16 @@ Historical version-1 rows retain their original AAD. NULL key IDs are readable o
 
 The real local development runtime cutover is complete. The environment file was converted atomically while preserving its other entries and `600` permissions, the backend image was rebuilt, and the backend container was force-recreated without database changes. Runtime validation confirmed a one-key keyring whose configured and active IDs both equal `legacy`; health and database readiness return HTTP 200 with reachable database connectivity. No database row, credential, approval or execution was created or modified.
 
-Migration `0013_credential_keyring_contract` is applied and verified in the real development database. Its fail-closed NULL precondition passed because `provider_credentials` contained zero rows, and the migration then made `encryption_key_id` mandatory without backfill, decryption or re-encryption. The backend image rebuild and container recreation with migration 0013 are complete, and the runtime keyring cutover remains healthy and active. Mandatory credential-keyring backend work blocking initial dashboard development is complete, but dashboard implementation has not started automatically. Production secret-manager/keyring provisioning, controlled re-encryption tooling, old-key retirement and key escrow policy, and backup-retention procedures remain future security and operational work. `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
+Migration `0013_credential_keyring_contract` is applied and verified in the real development database. Its fail-closed NULL precondition passed because `provider_credentials` contained zero rows, and the migration then made `encryption_key_id` mandatory without backfill, decryption or re-encryption. The backend image rebuild and container recreation with migration 0013 are complete, and the runtime keyring cutover remains healthy and active. Mandatory credential-keyring backend work blocking initial dashboard development is complete, and the first read-only dashboard foundation is implemented. Production secret-manager/keyring provisioning, controlled re-encryption tooling, old-key retirement and key escrow policy, and backup-retention procedures remain future security and operational work. `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
+
+The authenticated company-scoped Dashboard Summary API is available at
+`GET /api/v1/companies/{company_id}/dashboard/summary`. It requires the
+existing activity, provider, approval and provider-execution read permissions.
+One aggregate statement returns company counts and one bounded query returns
+the five newest audit events ordered by creation time and ID. Explicit response
+schemas exclude audit details, credential identifiers and material, encrypted
+payloads, nonces, key IDs, keyring metadata, hashes and tokens. The endpoint
+performs no writes, credential decryption, provider execution or external call.
 
 After a local development terminal exposure, `APP_SECRET_KEY`, `AGENT_JWT_SECRET`, `AGENT_CREDENTIAL_PEPPER`, `CREDENTIAL_ENCRYPTION_KEY` and `POSTGRES_PASSWORD` were rotated without displaying their replacements. Both credential tables were empty beforehand. The local environment file and PostgreSQL role password were updated consistently, and backend health plus database readiness were verified afterward without modifying application rows. Secret values do not belong in Git or documentation; production secret management remains open.
 
@@ -534,7 +547,7 @@ company-ai/
 ├── agent/
 ├── backend/
 ├── config/
-├── dashboard/
+├── frontend/
 ├── database/
 ├── docker/
 ├── docs/
@@ -556,9 +569,9 @@ Local agent runtime, planning, tools and task execution.
 
 FastAPI application, business logic and API endpoints.
 
-### `dashboard/`
+### `frontend/`
 
-Web dashboard source code.
+React, TypeScript and Vite dashboard source code.
 
 ### `integrations/`
 

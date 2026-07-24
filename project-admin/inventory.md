@@ -39,6 +39,7 @@ Generated automatically by:
 ./backend/app/api/routes/company_context.py
 ./backend/app/api/routes/company_memberships.py
 ./backend/app/api/routes/company_settings.py
+./backend/app/api/routes/dashboard.py
 ./backend/app/api/routes/health.py
 ./backend/app/api/routes/provider_connections.py
 ./backend/app/api/routes/provider_execution.py
@@ -80,6 +81,7 @@ Generated automatically by:
 ./backend/app/repositories/company.py
 ./backend/app/repositories/company_membership.py
 ./backend/app/repositories/company_setting.py
+./backend/app/repositories/dashboard.py
 ./backend/app/repositories/provider_connection.py
 ./backend/app/repositories/provider_execution.py
 ./backend/app/repositories/tool_registry.py
@@ -92,6 +94,7 @@ Generated automatically by:
 ./backend/app/schemas/company_context.py
 ./backend/app/schemas/company_membership.py
 ./backend/app/schemas/company_setting.py
+./backend/app/schemas/dashboard.py
 ./backend/app/schemas/provider_connection.py
 ./backend/app/schemas/provider_execution.py
 ./backend/app/schemas/tool_registry.py
@@ -104,6 +107,7 @@ Generated automatically by:
 ./backend/app/services/company.py
 ./backend/app/services/company_membership.py
 ./backend/app/services/company_setting.py
+./backend/app/services/dashboard.py
 ./backend/app/services/provider_connection.py
 ./backend/app/services/provider_execution.py
 ./backend/app/services/tool_registry.py
@@ -137,6 +141,7 @@ Generated automatically by:
 ./backend/tests/test_company_memberships.py
 ./backend/tests/test_company_settings.py
 ./backend/tests/test_credential_keyring.py
+./backend/tests/test_dashboard.py
 ./backend/tests/test_database.py
 ./backend/tests/test_health.py
 ./backend/tests/test_migrations.py
@@ -151,6 +156,26 @@ Generated automatically by:
 ./docker/.gitkeep
 ./docs/ARCHITECTURE.md
 ./docs/ROADMAP.md
+./frontend/index.html
+./frontend/package-lock.json
+./frontend/package.json
+./frontend/src/App.tsx
+./frontend/src/api/dashboard.ts
+./frontend/src/components/MetricCard.tsx
+./frontend/src/components/StatusBadge.tsx
+./frontend/src/layouts/AppLayout.tsx
+./frontend/src/main.tsx
+./frontend/src/pages/OverviewPage.tsx
+./frontend/src/pages/PlaceholderPage.tsx
+./frontend/src/routes/AppRoutes.tsx
+./frontend/src/styles/global.css
+./frontend/src/test/App.test.tsx
+./frontend/src/test/setup.ts
+./frontend/src/types/dashboard.ts
+./frontend/tsconfig.app.json
+./frontend/tsconfig.json
+./frontend/tsconfig.node.json
+./frontend/vite.config.ts
 ./integrations/.gitkeep
 ./project-admin/bash-history.txt
 ./project-admin/decisions.md

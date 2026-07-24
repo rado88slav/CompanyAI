@@ -419,7 +419,8 @@ The real company will later be created as a separate Company Context without cha
 - New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
 - Local secret provisioning and the running backend are cut over to the keyring contract. The backend image rebuild and container recreation with migration 0013 are complete, and runtime keyring health remains verified.
 - Repository and real database heads are `0013_credential_keyring_contract`. Its fail-closed NULL precondition passed because `provider_credentials` contained zero rows; verified `encryption_key_id` is `VARCHAR(64) NOT NULL`, with no backfill or re-encryption.
-- Mandatory credential-keyring backend work blocking initial dashboard development is complete. Production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention remain open; dashboard work has not started automatically.
+- Mandatory credential-keyring backend work blocking initial dashboard development is complete. Dashboard Stage 1 now provides the tested React/TypeScript/Vite shell, read-only Overview and authenticated company-scoped summary API; future modules remain placeholders. Production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention remain open.
+- Dashboard Summary uses one aggregate count statement plus one bounded deterministic recent-audit query, existing read permissions and explicit safe schemas. It performs no writes, credential decryption, provider execution or external call.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -441,8 +442,9 @@ Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
 2. design production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention procedures before production use;
-3. begin dashboard work only as a separately approved phase;
-4. commit and push only after explicit approval.
+3. define Dashboard Stage 2 company/authentication UX and richer read-only module views before implementation;
+4. add dashboard deployment/container integration only after separate explicit approval;
+5. commit and push only after explicit approval.
 
 ---
 
@@ -637,6 +639,11 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 
 - [ ] Create the initial agent container.
 - [ ] Create the initial dashboard container.
+- [x] Implement Dashboard Stage 1 with React, TypeScript, Vite and React Router.
+- [x] Add the authenticated read-only company Dashboard Summary API and tested Overview.
+- [x] Add polished placeholder routes without fake metrics or operational claims.
+- [ ] Add dashboard company-selection and authentication UX.
+- [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.
 - [ ] Create `scripts/docker/reset-dev.sh`.
@@ -1013,7 +1020,7 @@ The backend image was rebuilt and the backend container was force-recreated with
 
 Migration `0013_credential_keyring_contract` is the repository and real development database head. Its fail-closed NULL-reference precondition passed because `provider_credentials` contained zero rows, after which `provider_credentials.encryption_key_id` was verified as `VARCHAR(64) NOT NULL`. No key ID was guessed or backfilled, no payload was decrypted or re-encrypted, and no credential, approval or execution was created.
 
-The backend image rebuild and container recreation with migration 0013 are complete, and the runtime keyring cutover remains healthy and active. Mandatory credential-keyring backend work blocking initial dashboard development is complete, but dashboard work has not started automatically. Controlled re-encryption tooling remains future work for environments with historical credentials. Production secret-manager/keyring provisioning, old-key retirement and key escrow policy, and backup-retention procedures remain open.
+The backend image rebuild and container recreation with migration 0013 are complete, and the runtime keyring cutover remains healthy and active. Mandatory credential-keyring backend work blocking initial dashboard development is complete, and Dashboard Stage 1 is now implemented as a read-only foundation. Controlled re-encryption tooling remains future work for environments with historical credentials. Production secret-manager/keyring provisioning, old-key retirement and key escrow policy, and backup-retention procedures remain open.
 
 ## 026 — Provider Execution and Approval Manager integration
 
@@ -1022,6 +1029,14 @@ Provider Execution uses the existing Authorization Evaluator and Authorization U
 Agent execution requires both an exact active Tool Registry grant and an independently valid Approval Manager authorization. Administrator and agent identities are derived from authenticated request context. Authorization policy lineage is stored through a restrictive foreign key, authorization usage is linked to the same-company execution, and audit events preserve the real administrator or agent actor without payloads or secrets.
 
 Migration `0011_provider_execution` follows `0010_provider_connections` and is an applied predecessor of current database head `0013_credential_keyring_contract`. PostgreSQL verification confirmed the two execution tables, their restrictive foreign keys, checks, uniqueness constraints and indexes; both tables contain zero rows. The rebuilt backend is healthy and database-ready. Authenticated runtime checks return exactly 22 operations across 8 providers and an empty company-scoped execution page; OpenAPI contains 74 paths, including 9 Provider Execution paths. The implementation remains dry-run-only, live adapters fail closed, and no real provider credential, approval, execution, attempt or external provider call was created during verification.
+
+## 027 — Dashboard Stage 1 read-only foundation
+
+The first dashboard foundation uses React, TypeScript, Vite and React Router under `frontend/`. Dependencies remain intentionally small: there is no UI framework, state-management framework, charting library, remote font or external image. The desktop-first shell has responsive navigation and accessible focus states. Overview uses manual refresh with explicit loading, error, retry and empty states; all other Stage 1 routes are honest placeholders without fabricated data.
+
+`GET /api/v1/companies/{company_id}/dashboard/summary` is an authenticated read-only endpoint using the existing active-company context and activity, provider, approval and provider-execution read permissions. One aggregate statement returns company-scoped counts, and one bounded deterministic query returns at most five recent audit events. Explicit schemas expose only service status, readiness, environment, application version, seven counts and the safe audit fields `id`, `actor_type`, `action`, `resource_type`, `resource_id` and `created_at`.
+
+The API never serializes ORM objects directly and excludes audit details, credential identifiers and material, encrypted payloads, nonces, key IDs, keyring metadata, hashes and tokens. It performs no writes, credential decryption, provider execution or external call. Stage 1 adds no migration or Docker Compose change. Live email/call integrations, provider mutations, credential forms, approval actions and execution controls remain out of scope. Dashboard Stage 2 should add explicit company-selection and authentication UX plus richer read-only module views before any operational controls.
 EOF
 
 printf '%s\n' "Project administration documents updated."

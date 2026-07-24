@@ -20,7 +20,7 @@ The initial MVP must provide:
 - activity and audit history;
 - portable installation through Docker and Bash scripts.
 
-Current provider foundation status: Provider Connections and the dry-run-only Provider Execution foundation are implemented and runtime-verified. The immutable keyring core and runtime support exist, and the real local keyring cutover is complete with active ID `legacy`. The repository and real development database heads are both `0013_credential_keyring_contract`; its fail-closed NULL precondition passed while `provider_credentials` was empty, and the verified `encryption_key_id` contract is `VARCHAR(64) NOT NULL`. No backfill or re-encryption occurred, and no real credential, approval or execution was created. The backend image rebuild and container recreation are complete. Mandatory credential-keyring backend work blocking initial dashboard development is complete, but dashboard work has not started automatically. Production secret-manager provisioning, controlled re-encryption tooling, old-key retirement/key escrow and backup-retention remain open.
+Current provider foundation status: Provider Connections and the dry-run-only Provider Execution foundation are implemented and runtime-verified. The immutable keyring core and runtime support exist, and the real local keyring cutover is complete with active ID `legacy`. The repository and real development database heads are both `0013_credential_keyring_contract`; its fail-closed NULL precondition passed while `provider_credentials` was empty, and the verified `encryption_key_id` contract is `VARCHAR(64) NOT NULL`. No backfill or re-encryption occurred, and no real credential, approval or execution was created. The backend image rebuild and container recreation are complete. Mandatory credential-keyring backend work blocking initial dashboard development is complete. Dashboard Stage 1 now provides a tested React, TypeScript and Vite shell, read-only Overview and authenticated company-scoped summary API; future module routes are placeholders only. Production secret-manager provisioning, controlled re-encryption tooling, old-key retirement/key escrow and backup-retention remain open.
 
 ---
 
@@ -246,6 +246,15 @@ The Tool Registry foundation adds a non-executable global catalog, company enabl
 ---
 
 # Phase 4 — Dashboard Foundation
+
+Stage 1 is implemented without deployment or container changes. The
+`frontend/` application provides the shell, responsive navigation, manual
+Overview refresh, typed runtime response validation and loading, error and
+empty states. The read-only Dashboard Summary API supplies only safe service
+metadata, company-scoped counts and a bounded recent audit subset. No email or
+call integration, provider mutation, credential form, approval action or
+execution control is present. Company selection UX, authentication UX,
+production delivery and richer module views remain later dashboard work.
 
 ## Goal
 

@@ -403,7 +403,8 @@ The real company will later be created as a separate Company Context without cha
 - New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
 - Local secret provisioning and the running backend are cut over to the keyring contract. The backend image rebuild and container recreation with migration 0013 are complete, and runtime keyring health remains verified.
 - Repository and real database heads are `0013_credential_keyring_contract`. Its fail-closed NULL precondition passed because `provider_credentials` contained zero rows; verified `encryption_key_id` is `VARCHAR(64) NOT NULL`, with no backfill or re-encryption.
-- Mandatory credential-keyring backend work blocking initial dashboard development is complete. Production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention remain open; dashboard work has not started automatically.
+- Mandatory credential-keyring backend work blocking initial dashboard development is complete. Dashboard Stage 1 now provides the tested React/TypeScript/Vite shell, read-only Overview and authenticated company-scoped summary API; future modules remain placeholders. Production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention remain open.
+- Dashboard Summary uses one aggregate count statement plus one bounded deterministic recent-audit query, existing read permissions and explicit safe schemas. It performs no writes, credential decryption, provider execution or external call.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -425,8 +426,9 @@ Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
 2. design production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention procedures before production use;
-3. begin dashboard work only as a separately approved phase;
-4. commit and push only after explicit approval.
+3. define Dashboard Stage 2 company/authentication UX and richer read-only module views before implementation;
+4. add dashboard deployment/container integration only after separate explicit approval;
+5. commit and push only after explicit approval.
 
 ---
 

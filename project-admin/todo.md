@@ -183,6 +183,11 @@
 
 - [ ] Create the initial agent container.
 - [ ] Create the initial dashboard container.
+- [x] Implement Dashboard Stage 1 with React, TypeScript, Vite and React Router.
+- [x] Add the authenticated read-only company Dashboard Summary API and tested Overview.
+- [x] Add polished placeholder routes without fake metrics or operational claims.
+- [ ] Add dashboard company-selection and authentication UX.
+- [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.
 - [ ] Create `scripts/docker/reset-dev.sh`.

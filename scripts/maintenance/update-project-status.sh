@@ -399,15 +399,19 @@ The real company will later be created as a separate Company Context without cha
 - Provider Execution migration and schema: `0011_provider_execution` is applied to the real development database at head; PostgreSQL constraints and indexes are verified, and `provider_executions` and `provider_execution_attempts` each contain zero rows
 - Provider Execution runtime: rebuilt backend is healthy and database-ready; authenticated registry returns exactly 22 operations across 8 providers, company-scoped listing returns an empty `50/0` page, and OpenAPI exposes 74 total paths including 9 Provider Execution paths
 - Provider Execution safety: no real connection, credential, approval, execution or attempt was created; no external provider operation ran; live mode remains fail-closed
-- Credential key safety: rotate `CREDENTIAL_ENCRYPTION_KEY` under separate explicit approval while provider credential tables still contain zero rows and before the first real credential is stored
+- Development credential key: `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows; the force-recreated backend uses the rotated key and passed health and database-readiness checks
 - Tool Registry migration `0009_tool_registry`: applied locally; the database was at this revision when Tool Registry was verified
 - Tool Registry schema: all three tables exist; `tool_definitions = 0`, `company_tools = 0`, `agent_tool_grants = 0`
 - Tool Registry runtime: backend healthy, readiness database reachable, OpenAPI 55 paths with all 14 Tool Registry paths, invalid internal agent JWT returns HTTP 401
 - Provider Connections code is implemented and runtime-verified with eight trusted in-process descriptors, company-scoped connection metadata and encrypted credential history. Provider Execution is available only as the separately authorized dry-run foundation; no live provider execution exists.
 - Migration `0010_provider_connections` is applied locally; both provider tables exist and contain zero rows. No live external provider integrations are configured and no provider APIs are called.
-- Credential payloads use the newly pinned `cryptography` AES-256-GCM boundary with identity-bound associated data. The current real key was not read or used.
+- Credential payloads use the pinned `cryptography` AES-256-GCM boundary with identity-bound associated data. The development key is securely configured locally; its value is not stored in Git or documented.
 - The backend image was rebuilt successfully and the healthy runtime was verified with 65 OpenAPI paths and 10 Provider Connections paths.
-- Before the first real provider credential is stored, `CREDENTIAL_ENCRYPTION_KEY` must be rotated under separate explicit approval while the credential table still contains zero rows.
+- The safe development rotation is complete. No real credentials or provider executions were created, and no external provider operation ran.
+- Production secret management and key provisioning remain future work.
+- Fail-fast startup validation for a missing or invalid encryption key remains a separate security task.
+- A key ID/keyring and re-encryption workflow are still required for future rotation when credentials exist.
+- `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
 - Tool execution and provider calls: intentionally not implemented
 - Bearer-protected administration routes: operational
@@ -425,17 +429,17 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. review the uncommitted but runtime-verified Provider Connections foundation; migration `0010_provider_connections` is applied locally;
-2. under separate explicit approval, rebuild the backend image with the pinned cryptography dependency and run the complete suite;
-3. under separate explicit approval before first real credential storage, rotate the credential encryption key while the credential table is empty;
-2. continue with Tool Execution and Agent Runtime only as a separately approved task;
-3. commit and push only after explicit approval.
+1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
+2. add fail-fast startup validation for a missing or invalid credential encryption key as a separate security task;
+3. design production secret provisioning and a key ID/keyring plus re-encryption workflow before production use or any future rotation with stored credentials;
+4. continue with Tool Execution and Agent Runtime only as a separately approved task;
+5. commit and push only after explicit approval.
 
 ---
 
 ## Last Updated
 
-2026-07-22
+2026-07-24
 EOF
 
 cat > "${ADMIN_DIR}/todo.md" <<'EOF'
@@ -588,10 +592,14 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [x] Add metadata-only catalog, connection and credential lifecycle APIs.
 - [x] Add atomic audit logging and owner/admin mutation versus operator/viewer read RBAC.
 - [x] Create schema-only migration `0010_provider_connections`.
-- [ ] Rebuild the backend image with the pinned `cryptography` dependency and run the complete suite after explicit approval.
+- [x] Rebuild the backend image with the pinned `cryptography` dependency and run the complete suite after explicit approval.
 - [x] Apply migration `0010_provider_connections` after explicit approval.
-- [ ] Verify the empty schema against PostgreSQL.
-- [ ] Rotate the credential encryption key under separate explicit approval before storing the first real provider credential.
+- [x] Verify the empty schema against PostgreSQL.
+- [x] Safely rotate the development credential encryption key while `provider_credentials` is empty and verify the force-recreated backend health and readiness.
+- [ ] Add fail-fast startup validation for a missing or invalid credential encryption key.
+- [ ] Define production secret management and production key provisioning.
+- [ ] Add a key ID/keyring and re-encryption workflow for future rotation when credentials exist.
+- [ ] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
 - [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
 - [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.
 - [x] Verify the empty Provider Execution schema, authenticated registry and company-scoped listing against the rebuilt backend.
@@ -963,9 +971,11 @@ Provider types are immutable trusted Python descriptors, not database-defined im
 
 Credential bundles use AES-256-GCM from the pinned `cryptography` dependency. Canonical JSON is authenticated with associated data binding company, connection, credential, provider key and encryption version. Configuration accepts only descriptor-allowed fields and recursively rejects secret-bearing and executable fields. Decryption is available only through a narrow trusted in-process resolver.
 
-Migration `0010_provider_connections` follows `0009_tool_registry` and is applied locally. At the Provider Connections verification point, the real database revision was `0010_provider_connections`; the `provider_connections` and `provider_credentials` tables existed and contained zero rows. The real `.env` and encryption key were not read or modified. Before the first real credential is stored, `CREDENTIAL_ENCRYPTION_KEY` must be rotated under separate explicit approval while the credential tables are still empty; no key value may be documented.
+Migration `0010_provider_connections` follows `0009_tool_registry` and is applied locally. Before development key rotation, a read-only count confirmed that `provider_credentials` contained zero rows, so rotation could not orphan encrypted data. `CREDENTIAL_ENCRYPTION_KEY` was then replaced atomically only in the local `.env` with a cryptographically random 32-byte padded Base64url value; the remaining `.env` entries were preserved and its permissions remained `600`. The key value and its hash were not displayed and must never be documented or stored in Git.
 
-The backend image was rebuilt successfully and is healthy. Readiness confirms database reachability; OpenAPI contains 65 paths including 10 Provider Connections paths, and authenticated company-scoped listing returns HTTP 200 with zero connections. No live external provider integrations are configured and no provider APIs are called.
+The backend container was force-recreated without an image rebuild and was verified to use the current local key, which decodes to exactly 32 bytes. `GET /api/v1/health` returns HTTP 200 with `status=ok`, and `GET /api/v1/health/ready` returns HTTP 200 with `database=reachable`. No database rows were modified, no real provider credentials were created, and no real provider execution or external provider call occurred.
+
+Production secret management and production key provisioning remain future work. Missing or invalid encryption keys still need fail-fast startup validation. Future rotation after credentials exist requires a key ID/keyring and a controlled re-encryption workflow. `scripts/setup/create-env.sh --force` is not a key-rotation mechanism because it replaces the entire `.env` file.
 
 ## 026 — Provider Execution and Approval Manager integration
 

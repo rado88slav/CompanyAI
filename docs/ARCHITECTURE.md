@@ -156,9 +156,9 @@ Provider Connections now supplies the metadata and encrypted-credential foundati
 
 Company connection metadata and encrypted credential versions are isolated by explicit company identifiers and composite foreign keys. Credentials use AES-256-GCM with associated data binding the company, connection, credential, provider key and encryption version. Public APIs expose metadata only; plaintext decryption is reserved for a narrow trusted in-process resolver and is not connected to provider execution.
 
-Migration `0010_provider_connections` is applied locally after `0009_tool_registry`. The provider tables exist and contain zero rows. Provider Execution now supplies a separately authorized dry-run foundation, while live external calls, OAuth flows and connectivity checks remain future work. Before the first real credential is stored, the encryption key must be rotated under separate explicit approval.
+Migration `0010_provider_connections` is applied locally after `0009_tool_registry`. The provider tables exist and contain zero rows. Provider Execution now supplies a separately authorized dry-run foundation, while live external calls, OAuth flows and connectivity checks remain future work.
 
-Before the first real provider credential is stored, the credential encryption key must be rotated under separate explicit approval while the credential tables still contain zero rows. Key values must never be documented.
+The development `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows. The backend container was force-recreated without rebuilding its image, uses the rotated key, and passed health and database-readiness checks. The key remains local, is not stored in Git and must never be documented. Production secret management and key provisioning, fail-fast startup validation for a missing or invalid key, and a key ID/keyring plus re-encryption workflow for rotation after credentials exist remain future security work. `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 
 ### Tool Registry
 
@@ -507,7 +507,9 @@ The master encryption key will be provided through an environment variable.
 
 The `.env` file must remain local and excluded from Git.
 
-Future deployments may use an external secret manager.
+The local development key is securely configured and rotated. Production deployments still require dedicated secret management and key provisioning. Startup must later fail fast when the encryption key is missing or invalid, and future rotation with stored credentials requires a key ID/keyring and re-encryption workflow.
+
+Do not use `scripts/setup/create-env.sh --force` for key-only rotation because it replaces the entire `.env` file.
 
 ---
 

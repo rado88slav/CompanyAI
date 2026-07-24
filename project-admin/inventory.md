@@ -15,7 +15,6 @@ Generated automatically by:
 .
 ./.env.example
 ./.gitignore
-./0011_provider_execution
 ./AGENTS.md
 ./README.md
 ./agent/.gitkeep

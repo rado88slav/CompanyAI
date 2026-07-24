@@ -20,7 +20,7 @@ The initial MVP must provide:
 - activity and audit history;
 - portable installation through Docker and Bash scripts.
 
-Current provider foundation status: Provider Connections and the dry-run-only Provider Execution foundation are implemented and runtime-verified. Migration `0011_provider_execution` is applied at head; both execution tables contain zero rows. The healthy backend exposes 74 OpenAPI paths, including 9 Provider Execution paths, and the authenticated registry contains 22 operations across 8 providers. Live onboarding and external provider communication remain deferred. Encryption-key rotation remains a separately approved prerequisite before the first real credential is stored.
+Current provider foundation status: Provider Connections and the dry-run-only Provider Execution foundation are implemented and runtime-verified. Migration `0011_provider_execution` is applied at head; both execution tables contain zero rows. The healthy backend exposes 74 OpenAPI paths, including 9 Provider Execution paths, and the authenticated registry contains 22 operations across 8 providers. The development `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` was empty; the force-recreated backend uses it and passes health and readiness checks. No real credentials or provider executions exist. Live onboarding, external provider communication, production secret provisioning, fail-fast key validation, and keyring-based re-encryption remain deferred.
 
 ---
 

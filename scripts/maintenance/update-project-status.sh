@@ -395,6 +395,7 @@ The real company will later be created as a separate Company Context without cha
 - Provider Connections migration `0010_provider_connections`: applied locally; the database was at this revision when both empty provider tables were verified
 - Provider Connections runtime: healthy backend, database readiness reachable, 65 OpenAPI paths with 10 Provider Connections paths, authenticated company-scoped listing returns HTTP 200, and no external calls or plaintext retrieval API exist
 - Provider Connections validation: complete backend suite, focused tests, compilation, security scan and deterministic generator verification passed; generated_matches_current=yes and whitespace validation passed
+- Credential keyring expand migration `0012_credential_keyring_expand`: created and validated but not applied; no credential backfill, runtime keyring cutover, contract migration or re-encryption has occurred
 - Provider Execution: dry-run-only foundation implemented with Approval Manager evaluator decisions, atomic authorization usage reservation/consumption, administrator and agent approval-backed execution, exact Tool Registry grants for agents, and complete lifecycle audit actions
 - Provider Execution migration and schema: `0011_provider_execution` is applied to the real development database at head; PostgreSQL constraints and indexes are verified, and `provider_executions` and `provider_execution_attempts` each contain zero rows
 - Provider Execution runtime: rebuilt backend is healthy and database-ready; authenticated registry returns exactly 22 operations across 8 providers, company-scoped listing returns an empty `50/0` page, and OpenAPI exposes 74 total paths including 9 Provider Execution paths
@@ -412,7 +413,7 @@ The real company will later be created as a separate Company Context without cha
 - The safe development rotation is complete. No real credentials or provider executions were created, and no external provider operation ran.
 - Production secret management and key provisioning remain future work.
 - Startup configuration failures use one deterministic sanitized error and never include key, hash, ciphertext, nonce or payload material.
-- A key ID/keyring and re-encryption workflow are still required for future rotation when credentials exist.
+- The keyring core and expand migration exist, but runtime cutover, production provisioning, the contract migration and controlled re-encryption remain open.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
 - Tool execution and provider calls: intentionally not implemented
@@ -432,7 +433,7 @@ The real company will later be created as a separate Company Context without cha
 Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. design production secret provisioning and a key ID/keyring plus re-encryption workflow before production use or any future rotation with stored credentials;
+2. review and explicitly approve application of expand migration `0012_credential_keyring_expand` before any runtime cutover or credential backfill;
 3. continue with Tool Execution and Agent Runtime only as a separately approved task;
 4. commit and push only after explicit approval.
 
@@ -599,7 +600,9 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [x] Safely rotate the development credential encryption key while `provider_credentials` is empty and verify the force-recreated backend health and readiness.
 - [x] Add fail-fast startup validation for a missing, empty, malformed or wrong-length credential encryption key.
 - [ ] Define production secret management and production key provisioning.
-- [ ] Add a key ID/keyring and re-encryption workflow for future rotation when credentials exist.
+- [ ] Integrate the existing keyring into runtime configuration and add a controlled re-encryption workflow before rotating stored credentials.
+- [x] Create and validate expand migration `0012_credential_keyring_expand` without applying it, backfilling credentials or changing runtime configuration.
+- [ ] Apply migration `0012_credential_keyring_expand` only after explicit approval.
 - [x] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
 - [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
 - [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.
@@ -981,6 +984,8 @@ After a subsequent local terminal exposure, `APP_SECRET_KEY`, `AGENT_JWT_SECRET`
 Application creation now calls the same trusted key decoder used by credential encryption before constructing FastAPI. Startup fails for a missing, empty, malformed or wrong-length key, so health and readiness cannot succeed with invalid configuration. Accepted values are exactly 64 hexadecimal ASCII characters or exactly 44-character padded Base64/Base64url that decodes to exactly 32 bytes. Failures use one deterministic sanitized message and never include the key, its hash, ciphertext, nonce or secret payload material.
 
 Production secret management and production key provisioning remain future work. Future rotation after credentials exist requires a key ID/keyring and a controlled re-encryption workflow. `scripts/setup/create-env.sh --force` is not a key-rotation mechanism because it replaces the entire `.env` file.
+
+Expand migration `0012_credential_keyring_expand` has been created and validated but not applied. It adds nullable key identity and non-negative revision metadata without reading, decrypting or backfilling credential payloads. Runtime keyring cutover, the later contract migration and re-encryption have not occurred.
 
 ## 026 — Provider Execution and Approval Manager integration
 

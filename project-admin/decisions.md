@@ -284,6 +284,8 @@ Application creation now calls the same trusted key decoder used by credential e
 
 Production secret management and production key provisioning remain future work. Future rotation after credentials exist requires a key ID/keyring and a controlled re-encryption workflow. `scripts/setup/create-env.sh --force` is not a key-rotation mechanism because it replaces the entire `.env` file.
 
+Expand migration `0012_credential_keyring_expand` has been created and validated but not applied. It adds nullable key identity and non-negative revision metadata without reading, decrypting or backfilling credential payloads. Runtime keyring cutover, the later contract migration and re-encryption have not occurred.
+
 ## 026 — Provider Execution and Approval Manager integration
 
 Provider Execution uses the existing Authorization Evaluator and Authorization Usage ledger rather than a second approval mechanism. Approval-required executions remain `pending_authorization` without a matching active allow policy. The evaluator validates company, administrator or agent subject, exact provider operation tool identifier, risk, company scope and provider connection; a successful decision is reserved against the execution ID before any attempt starts. Single-use policy consumption, usage finalization, execution state, attempt history and audit events are committed together.

@@ -121,6 +121,7 @@ Generated automatically by:
 ./backend/migrations/versions/0009_create_tool_registry.py
 ./backend/migrations/versions/0010_create_provider_connections.py
 ./backend/migrations/versions/0011_provider_execution.py
+./backend/migrations/versions/0012_credential_keyring_expand.py
 ./backend/pytest.ini
 ./backend/requirements-dev.txt
 ./backend/requirements.txt
@@ -134,6 +135,7 @@ Generated automatically by:
 ./backend/tests/test_company_domain.py
 ./backend/tests/test_company_memberships.py
 ./backend/tests/test_company_settings.py
+./backend/tests/test_credential_keyring.py
 ./backend/tests/test_database.py
 ./backend/tests/test_health.py
 ./backend/tests/test_migrations.py

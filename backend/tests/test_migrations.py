@@ -30,7 +30,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0011_provider_execution"
+        "0012_credential_keyring_expand"
     ]
 
 
@@ -133,6 +133,151 @@ def test_tool_registry_migration_follows_agent_identity() -> None:
 def test_provider_connections_migration_follows_tool_registry() -> None:
     revision = ScriptDirectory.from_config(create_alembic_config()).get_revision("0010_provider_connections")
     assert revision is not None and revision.down_revision == "0009_tool_registry"
+
+
+def test_credential_keyring_expand_follows_provider_execution() -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision(
+        "0012_credential_keyring_expand"
+    )
+    assert revision is not None
+    assert revision.down_revision == "0011_provider_execution"
+
+
+def test_credential_keyring_expand_schema_and_downgrade(monkeypatch) -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision(
+        "0012_credential_keyring_expand"
+    )
+    assert revision is not None
+
+    class OperationsRecorder:
+        def __init__(self) -> None:
+            self.added_columns: list[tuple[str, sa.Column]] = []
+            self.created_constraints: list[tuple[str, str, str]] = []
+            self.created_indexes: list[tuple[str, str, list[str]]] = []
+            self.dropped_objects: list[tuple[object, ...]] = []
+
+        def add_column(self, table_name: str, column: sa.Column) -> None:
+            self.added_columns.append((table_name, column))
+
+        def create_check_constraint(
+            self, name: str, table_name: str, condition: str
+        ) -> None:
+            self.created_constraints.append((name, table_name, condition))
+
+        def create_index(
+            self, name: str, table_name: str, columns: list[str]
+        ) -> None:
+            self.created_indexes.append((name, table_name, columns))
+
+        def drop_index(self, name: str, *, table_name: str) -> None:
+            self.dropped_objects.append(("index", name, table_name))
+
+        def drop_constraint(
+            self, name: str, table_name: str, *, type_: str
+        ) -> None:
+            self.dropped_objects.append(
+                ("constraint", name, table_name, type_)
+            )
+
+        def drop_column(self, table_name: str, column_name: str) -> None:
+            self.dropped_objects.append(("column", table_name, column_name))
+
+    recorder = OperationsRecorder()
+    monkeypatch.setattr(revision.module, "op", recorder)
+    revision.module.upgrade()
+
+    columns = {
+        column.name: column for table_name, column in recorder.added_columns
+        if table_name == "provider_credentials"
+    }
+    assert set(columns) == {"encryption_key_id", "encryption_revision"}
+    assert isinstance(columns["encryption_key_id"].type, sa.String)
+    assert columns["encryption_key_id"].type.length == 64
+    assert columns["encryption_key_id"].nullable is True
+    assert isinstance(columns["encryption_revision"].type, sa.Integer)
+    assert columns["encryption_revision"].nullable is False
+    assert str(columns["encryption_revision"].server_default.arg) == "0"
+
+    assert recorder.created_constraints == [
+        (
+            "ck_provider_credentials_encryption_revision",
+            "provider_credentials",
+            "encryption_revision >= 0",
+        ),
+        (
+            "ck_provider_credentials_encryption_key_id",
+            "provider_credentials",
+            (
+                "encryption_key_id IS NULL OR "
+                "encryption_key_id ~ '^[a-z][a-z0-9_-]{0,63}$'"
+            ),
+        ),
+    ]
+    assert recorder.created_indexes == [
+        (
+            "ix_provider_credentials_encryption_key_id_id",
+            "provider_credentials",
+            ["encryption_key_id", "id"],
+        )
+    ]
+
+    revision.module.downgrade()
+    assert recorder.dropped_objects == [
+        (
+            "index",
+            "ix_provider_credentials_encryption_key_id_id",
+            "provider_credentials",
+        ),
+        (
+            "constraint",
+            "ck_provider_credentials_encryption_key_id",
+            "provider_credentials",
+            "check",
+        ),
+        (
+            "constraint",
+            "ck_provider_credentials_encryption_revision",
+            "provider_credentials",
+            "check",
+        ),
+        ("column", "provider_credentials", "encryption_revision"),
+        ("column", "provider_credentials", "encryption_key_id"),
+    ]
+
+
+def test_credential_keyring_expand_is_static_and_identifier_safe() -> None:
+    migration = (
+        BACKEND_ROOT
+        / "migrations/versions/0012_credential_keyring_expand.py"
+    )
+    source = migration.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imports = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+    }
+    assert not any(module == "app" or module.startswith("app.") for module in imports)
+    assert all(
+        forbidden not in source
+        for forbidden in (
+            "op.execute",
+            "op.bulk_insert",
+            "op.get_bind",
+            "encrypted_payload",
+            "decrypt",
+            "UPDATE ",
+        )
+    )
+    identifiers = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.startswith(("ck_", "ix_"))
+    ]
+    assert len(set(identifiers)) == 3
+    assert all(len(identifier.encode("utf-8")) <= 63 for identifier in identifiers)
 
 
 def test_provider_connections_migration_static_parity_and_identifier_safety() -> None:

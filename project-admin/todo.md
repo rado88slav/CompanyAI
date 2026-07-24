@@ -162,7 +162,7 @@
 - [x] Create and validate schema-only expand migration `0012_credential_keyring_expand` without credential backfill or runtime configuration changes.
 - [x] Apply migration `0012_credential_keyring_expand` after explicit approval and verify its columns, constraints and ordered index while `provider_credentials` remains empty.
 - [x] Create and validate contract migration `0013_credential_keyring_contract` with a fail-closed NULL-reference precondition and no backfill or decryption.
-- [ ] Apply migration `0013_credential_keyring_contract` to the real development database only after separate explicit approval.
+- [x] Apply and verify migration `0013_credential_keyring_contract` in the real development database while `provider_credentials` is empty.
 - [x] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
 - [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
 - [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.

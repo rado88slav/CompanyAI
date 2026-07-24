@@ -379,9 +379,9 @@ The real company will later be created as a separate Company Context without cha
 - Provider Connections migration `0010_provider_connections`: applied locally; the database was at this revision when both empty provider tables were verified
 - Provider Connections runtime: healthy backend, database readiness reachable, 65 OpenAPI paths with 10 Provider Connections paths, authenticated company-scoped listing returns HTTP 200, and no external calls or plaintext retrieval API exist
 - Provider Connections validation: complete backend suite, focused tests, compilation, security scan and deterministic generator verification passed; generated_matches_current=yes and whitespace validation passed
-- Credential keyring expand migration `0012_credential_keyring_expand`: applied to the real development database at head; nullable `encryption_key_id`, non-null `encryption_revision` with server default `0`, both checks and the ordered `(encryption_key_id, id)` index were verified while `provider_credentials` remained empty
+- Credential keyring contract migration `0013_credential_keyring_contract`: repository and real development database head; its fail-closed NULL precondition passed while `provider_credentials` was empty, and verified `encryption_key_id` is `VARCHAR(64) NOT NULL` with no backfill or re-encryption
 - Provider Execution: dry-run-only foundation implemented with Approval Manager evaluator decisions, atomic authorization usage reservation/consumption, administrator and agent approval-backed execution, exact Tool Registry grants for agents, and complete lifecycle audit actions
-- Provider Execution migration and schema: `0011_provider_execution` is an applied predecessor of current head `0012_credential_keyring_expand`; its PostgreSQL constraints and indexes are verified, and `provider_executions` and `provider_execution_attempts` each contain zero rows
+- Provider Execution migration and schema: `0011_provider_execution` is an applied predecessor of current head `0013_credential_keyring_contract`; its PostgreSQL constraints and indexes are verified, and `provider_executions` and `provider_execution_attempts` each contain zero rows
 - Provider Execution runtime: rebuilt backend is healthy and database-ready; authenticated registry returns exactly 22 operations across 8 providers, company-scoped listing returns an empty `50/0` page, and OpenAPI exposes 74 total paths including 9 Provider Execution paths
 - Provider Execution safety: no real connection, credential, approval, execution or attempt was created; no external provider operation ran; live mode remains fail-closed
 - Development credential key: `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows; the force-recreated backend uses the rotated key and passed health and database-readiness checks
@@ -401,9 +401,9 @@ The real company will later be created as a separate Company Context without cha
 - Startup configuration failures use one deterministic sanitized error and never include key, hash, ciphertext, nonce or payload material.
 - Repository runtime keyring support is implemented: `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON are validated once before FastAPI creation and shared with Provider Connections; standalone or mixed legacy configuration is rejected.
 - New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
-- Local secret provisioning and the running backend are cut over to the new keyring contract. Migration `0012_credential_keyring_expand` remains the applied real database head, so `encryption_key_id` remains nullable there.
-- Contract migration `0013_credential_keyring_contract` is created and validated but not applied. It fails closed while NULL key-ID references remain, performs no backfill or decryption, and makes `encryption_key_id` NOT NULL only after the precondition succeeds.
-- Real application of `0013` requires separate explicit approval. Production secret-manager provisioning, controlled re-encryption, old-key retirement/escrow and backup-retention remain open; dashboard work has not started automatically.
+- Local secret provisioning and the running backend are cut over to the keyring contract. The backend image rebuild and container recreation with migration 0013 are complete, and runtime keyring health remains verified.
+- Repository and real database heads are `0013_credential_keyring_contract`. Its fail-closed NULL precondition passed because `provider_credentials` contained zero rows; verified `encryption_key_id` is `VARCHAR(64) NOT NULL`, with no backfill or re-encryption.
+- Mandatory credential-keyring backend work blocking initial dashboard development is complete. Production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention remain open; dashboard work has not started automatically.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -424,10 +424,9 @@ The real company will later be created as a separate Company Context without cha
 Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. review and explicitly approve real development application of `0013_credential_keyring_contract`;
-3. design production secret-manager provisioning, controlled re-encryption, old-key retirement/escrow and backup-retention procedures before production use;
-4. begin dashboard work only as a separately approved phase;
-5. commit and push only after explicit approval.
+2. design production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention procedures before production use;
+3. begin dashboard work only as a separately approved phase;
+4. commit and push only after explicit approval.
 
 ---
 

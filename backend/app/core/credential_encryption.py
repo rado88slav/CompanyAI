@@ -2,9 +2,13 @@
 
 import base64
 import binascii
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field as dataclass_field
+import hmac
 import json
 import os
+import re
+from types import MappingProxyType
 from typing import Any
 from uuid import UUID
 
@@ -14,6 +18,10 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 class CredentialEncryptionError(Exception):
     """Sanitized credential encryption failure."""
+
+
+_CONFIGURATION_ERROR = "Credential encryption configuration is invalid."
+_KEY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 
 
 def decode_encryption_key(value: str) -> bytes:
@@ -26,10 +34,147 @@ def decode_encryption_key(value: str) -> bytes:
                 raise ValueError
             key = base64.b64decode(raw, altchars=b"-_", validate=True)
     except (ValueError, UnicodeError, binascii.Error) as exc:
-        raise CredentialEncryptionError("Credential encryption configuration is invalid.") from exc
+        raise CredentialEncryptionError(_CONFIGURATION_ERROR) from exc
     if len(key) != 32:
-        raise CredentialEncryptionError("Credential encryption configuration is invalid.")
+        raise CredentialEncryptionError(_CONFIGURATION_ERROR)
     return key
+
+
+@dataclass(frozen=True, slots=True)
+class CredentialEncryptionKeyMetadata:
+    """Non-secret immutable metadata for one configured key."""
+
+    key_id: str
+    is_active: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CredentialEncryptionKeyring:
+    """Immutable validated credential-encryption keyring."""
+
+    _active_key_id: str
+    _keys: Mapping[str, bytes] = dataclass_field(repr=False)
+    _metadata: tuple[CredentialEncryptionKeyMetadata, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "_keys",
+            MappingProxyType(dict(self._keys)),
+        )
+        object.__setattr__(self, "_metadata", tuple(self._metadata))
+
+    @property
+    def active_key_id(self) -> str:
+        return self._active_key_id
+
+    @property
+    def active_key_material(self) -> bytes:
+        return self._keys[self._active_key_id]
+
+    @property
+    def key_ids(self) -> tuple[str, ...]:
+        return tuple(item.key_id for item in self._metadata)
+
+    @property
+    def metadata(self) -> tuple[CredentialEncryptionKeyMetadata, ...]:
+        return self._metadata
+
+    def decryption_key(self, key_id: str) -> bytes:
+        if not isinstance(key_id, str) or not _KEY_ID_PATTERN.fullmatch(key_id):
+            raise CredentialEncryptionError(_CONFIGURATION_ERROR)
+        material = self._keys.get(key_id)
+        if material is None:
+            raise CredentialEncryptionError(_CONFIGURATION_ERROR)
+        return material
+
+
+def _unique_json_object(
+    pairs: list[tuple[str, Any]],
+) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError
+        result[key] = value
+    return result
+
+
+def _parse_encryption_keyring(
+    encoded_keyring: str,
+    *,
+    active_key_id: str | None,
+) -> CredentialEncryptionKeyring:
+    if not isinstance(encoded_keyring, str):
+        raise ValueError
+    parsed = json.loads(
+        encoded_keyring,
+        object_pairs_hook=_unique_json_object,
+    )
+    if not isinstance(parsed, dict) or not parsed:
+        raise ValueError
+    if (
+        not isinstance(active_key_id, str)
+        or not _KEY_ID_PATTERN.fullmatch(active_key_id)
+    ):
+        raise ValueError
+
+    decoded: dict[str, bytes] = {}
+    materials: list[bytes] = []
+    for key_id, encoded_key in parsed.items():
+        if (
+            not isinstance(key_id, str)
+            or not _KEY_ID_PATTERN.fullmatch(key_id)
+            or not isinstance(encoded_key, str)
+        ):
+            raise ValueError
+        material = decode_encryption_key(encoded_key)
+        if any(
+            hmac.compare_digest(material, existing)
+            for existing in materials
+        ):
+            raise ValueError
+        decoded[key_id] = material
+        materials.append(material)
+
+    if active_key_id not in decoded:
+        raise ValueError
+
+    key_ids = tuple(sorted(decoded))
+    metadata = tuple(
+        CredentialEncryptionKeyMetadata(
+            key_id=key_id,
+            is_active=key_id == active_key_id,
+        )
+        for key_id in key_ids
+    )
+    return CredentialEncryptionKeyring(
+        _active_key_id=active_key_id,
+        _keys=decoded,
+        _metadata=metadata,
+    )
+
+
+def parse_encryption_keyring(
+    encoded_keyring: str,
+    *,
+    active_key_id: str | None,
+) -> CredentialEncryptionKeyring:
+    """Parse and validate a JSON keyring without exposing key material."""
+
+    try:
+        return _parse_encryption_keyring(
+            encoded_keyring,
+            active_key_id=active_key_id,
+        )
+    except (
+        CredentialEncryptionError,
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+    ):
+        pass
+    raise CredentialEncryptionError(_CONFIGURATION_ERROR) from None
 
 
 def credential_aad(*, company_id: UUID, connection_id: UUID, credential_id: UUID, provider_key: str, encryption_version: int) -> bytes:

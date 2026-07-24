@@ -128,3 +128,7 @@ Generated automatically.
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 
+32. scripts/tests/test-create-env.sh
+   Description: Validate create-env.sh safely in an isolated temporary project.
+   Status: not executable
+

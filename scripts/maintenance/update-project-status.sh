@@ -413,8 +413,9 @@ The real company will later be created as a separate Company Context without cha
 - The safe development rotation is complete. No real credentials or provider executions were created, and no external provider operation ran.
 - Production secret management and key provisioning remain future work.
 - Startup configuration failures use one deterministic sanitized error and never include key, hash, ciphertext, nonce or payload material.
-- Provider Credential model, repository and service integration are keyring-aware. Runtime still consumes only the legacy `CREDENTIAL_ENCRYPTION_KEY`, wrapped internally as a one-key keyring with active ID `legacy`; new credentials use key-ID-bound encryption version 2 and revision `0`.
-- Historical version-1 rows with NULL key IDs remain readable only through the explicit transitional `legacy` compatibility path. The real multi-key environment cutover, production keyring provisioning, contract migration `0013` and controlled re-encryption remain open.
+- Repository runtime keyring support is implemented: `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON are validated once before FastAPI creation and shared with Provider Connections; standalone or mixed legacy configuration is rejected.
+- New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
+- Local secret provisioning and the running backend have not been cut over. Migration `0012_credential_keyring_expand` remains database head; production provisioning, contract migration `0013` and controlled re-encryption remain open.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -435,7 +436,7 @@ The real company will later be created as a separate Company Context without cha
 Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. design the separately approved real multi-key environment cutover and production provisioning without assuming that contract migration `0013` or re-encryption is complete;
+2. request separate approval for atomic local keyring provisioning, backend image rebuild, backend container recreation, and health/runtime verification;
 3. continue with Tool Execution and Agent Runtime only as a separately approved task;
 4. commit and push only after explicit approval.
 
@@ -603,6 +604,9 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [x] Add fail-fast startup validation for a missing, empty, malformed or wrong-length credential encryption key.
 - [ ] Define production secret management and production key provisioning.
 - [x] Integrate the existing keyring into Provider Credential model/repository/service behavior under the transitional one-key `legacy` runtime contract.
+- [x] Replace the repository runtime contract with active key ID plus validated keyring JSON and reject standalone legacy configuration.
+- [ ] Atomically provision the new local development keyring settings after explicit approval.
+- [ ] Rebuild and recreate the backend, then verify health and runtime behavior after separate explicit approval.
 - [ ] Add production multi-key environment provisioning and a controlled re-encryption workflow before rotating stored credentials.
 - [x] Create and validate schema-only expand migration `0012_credential_keyring_expand` without credential backfill or runtime configuration changes.
 - [x] Apply migration `0012_credential_keyring_expand` after explicit approval and verify its columns, constraints and ordered index while `provider_credentials` remains empty.
@@ -990,11 +994,13 @@ Production secret management and production key provisioning remain future work.
 
 The immutable keyring core exists. Expand migration `0012_credential_keyring_expand` is applied to the real development database at head. Its nullable `VARCHAR(64)` `encryption_key_id`, non-null `INTEGER` `encryption_revision` with server default `0`, both check constraints and ordered `(encryption_key_id, id)` index were verified while `provider_credentials` remained empty. Nullability is intentional during the expand phase. No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 
-Provider Credential model, repository and service integration are keyring-aware. The public runtime contract remains the single `CREDENTIAL_ENCRYPTION_KEY`, decoded through the trusted parser and wrapped internally as a one-key keyring with active ID `legacy`. New credentials and business rotations use encryption version 2, store key ID `legacy` and revision `0`, and bind the key ID into authenticated associated data alongside the existing company, connection, credential and provider identity.
+Provider Credential model, repository and service integration are keyring-aware. The repository runtime contract now requires non-secret `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON. Application creation validates the complete immutable keyring once before FastAPI is constructed and shares that exact keyring with Provider Connections through application state. Standalone `CREDENTIAL_ENCRYPTION_KEY`, legacy-only configuration and ambiguous mixed legacy/new configuration are rejected with the existing sanitized error.
 
-Historical version-1 rows retain their original AAD. NULL key IDs remain temporarily readable only through the explicit transitional `legacy` compatibility path; stored key IDs are resolved through the keyring, and missing, malformed or unknown version-2 key IDs fail closed. Reads do not mutate historical rows. No real credential was created during Stage 3.
+New credentials and business rotations use encryption version 2, store the configured active key ID and revision `0`, and bind the key ID into authenticated associated data alongside the existing company, connection, credential and provider identity. Previous configured keys are decryption-only because encryption always selects the active key.
 
-The real multi-key environment cutover has not occurred. Production keyring provisioning, contract migration `0013` and a controlled re-encryption workflow remain future work.
+Historical version-1 rows retain their original AAD. NULL key IDs are readable only when the configured keyring contains the explicit `legacy` entry; the active key is never guessed. Stored v1/v2 key IDs are resolved through the keyring, and missing, malformed or unknown IDs fail closed. Reads do not mutate historical rows.
+
+Repository support is implemented, but the real local `.env` and currently running backend have not been cut over. Atomic local secret provisioning, image rebuild, container recreation and health/runtime verification require separate approval. Migration `0012_credential_keyring_expand` remains database head; migration `0013` has not been created or applied. Production keyring provisioning and controlled re-encryption remain future work. No real credential was created during Stage 4.
 
 ## 026 — Provider Execution and Approval Manager integration
 

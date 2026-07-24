@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.api.router import api_router
 from app.core.config import get_settings
-from app.core.credential_encryption import create_legacy_encryption_keyring
+from app.core.credential_encryption import parse_runtime_encryption_keyring
 
 
 class RootResponse(BaseModel):
@@ -21,7 +21,13 @@ def create_application() -> FastAPI:
     """Create and configure the FastAPI application."""
 
     settings = get_settings()
-    create_legacy_encryption_keyring(settings.credential_encryption_key)
+    keyring = parse_runtime_encryption_keyring(
+        settings.credential_encryption_keyring,
+        active_key_id=settings.credential_encryption_active_key_id,
+        legacy_key_configured=(
+            settings.credential_encryption_legacy_key_present
+        ),
+    )
 
     application = FastAPI(
         title=settings.app_name,
@@ -31,6 +37,7 @@ def create_application() -> FastAPI:
         redoc_url="/redoc",
         openapi_url="/openapi.json",
     )
+    application.state.credential_encryption_keyring = keyring
 
     application.include_router(
         api_router,

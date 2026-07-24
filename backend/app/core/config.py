@@ -1,6 +1,6 @@
 """Environment-based application configuration."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from os import getenv
 
@@ -72,7 +72,9 @@ class Settings:
     debug: bool
 
     app_secret_key: str
-    credential_encryption_key: str
+    credential_encryption_active_key_id: str
+    credential_encryption_keyring: str = field(repr=False)
+    credential_encryption_legacy_key_present: bool
     access_token_expire_minutes: int
     agent_credential_pepper: str
     agent_jwt_secret: str
@@ -119,7 +121,17 @@ def get_settings() -> Settings:
         ),
         debug=_read_boolean("BACKEND_DEBUG", default=False),
         app_secret_key=getenv("APP_SECRET_KEY", ""),
-        credential_encryption_key=getenv("CREDENTIAL_ENCRYPTION_KEY", ""),
+        credential_encryption_active_key_id=getenv(
+            "CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID",
+            "",
+        ),
+        credential_encryption_keyring=getenv(
+            "CREDENTIAL_ENCRYPTION_KEYRING",
+            "",
+        ),
+        credential_encryption_legacy_key_present=(
+            getenv("CREDENTIAL_ENCRYPTION_KEY") is not None
+        ),
         access_token_expire_minutes=_read_positive_integer(
             "ACCESS_TOKEN_EXPIRE_MINUTES",
             default=60,

@@ -5,12 +5,11 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
-from app.core.credential_encryption import CredentialEncryptionService, DecryptedCredential, create_legacy_encryption_keyring
+from app.core.credential_encryption import CredentialEncryptionService, DecryptedCredential
 from app.core.provider_connections import provider_registry, validate_safe_object
 from app.db.session import get_db_session
 from app.models.administrator import Administrator
@@ -192,8 +191,9 @@ class ProviderConnectionService:
         )
 
 
-def get_provider_connection_service(session: Annotated[Session, Depends(get_db_session)]) -> ProviderConnectionService:
-    keyring = create_legacy_encryption_keyring(
-        get_settings().credential_encryption_key
-    )
+def get_provider_connection_service(
+    request: Request,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> ProviderConnectionService:
+    keyring = request.app.state.credential_encryption_keyring
     return ProviderConnectionService(ProviderConnectionRepository(session), AuditLogService(AuditLogRepository(session)), session, CredentialEncryptionService(keyring))

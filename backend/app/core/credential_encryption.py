@@ -183,21 +183,19 @@ def parse_encryption_keyring(
     raise CredentialEncryptionError(_CONFIGURATION_ERROR) from None
 
 
-def create_legacy_encryption_keyring(
-    encoded_key: str,
+def parse_runtime_encryption_keyring(
+    encoded_keyring: str,
+    *,
+    active_key_id: str | None,
+    legacy_key_configured: bool,
 ) -> CredentialEncryptionKeyring:
-    """Build the transitional one-key keyring from the legacy setting."""
+    """Validate the unambiguous runtime keyring configuration."""
 
-    material = decode_encryption_key(encoded_key)
-    return CredentialEncryptionKeyring(
-        _active_key_id=LEGACY_ENCRYPTION_KEY_ID,
-        _keys={LEGACY_ENCRYPTION_KEY_ID: material},
-        _metadata=(
-            CredentialEncryptionKeyMetadata(
-                key_id=LEGACY_ENCRYPTION_KEY_ID,
-                is_active=True,
-            ),
-        ),
+    if legacy_key_configured:
+        raise CredentialEncryptionError(_CONFIGURATION_ERROR)
+    return parse_encryption_keyring(
+        encoded_keyring,
+        active_key_id=active_key_id,
     )
 
 
@@ -249,6 +247,10 @@ class EncryptedCredential:
 class CredentialEncryptionService:
     def __init__(self, keyring: CredentialEncryptionKeyring) -> None:
         self._keyring = keyring
+
+    @property
+    def active_key_id(self) -> str:
+        return self._keyring.active_key_id
 
     def encrypt(
         self,

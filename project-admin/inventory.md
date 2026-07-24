@@ -195,6 +195,7 @@ Generated automatically by:
 ./scripts/setup/add-tool-registry.sh
 ./scripts/setup/create-backend.sh
 ./scripts/setup/create-env.sh
+./scripts/tests/test-create-env.sh
 ./scripts/utils/.gitkeep
 ./storage/backups/.gitkeep
 ./storage/cache/.gitkeep

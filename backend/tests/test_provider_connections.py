@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import ValidationError
 
 from app.core.company_permissions import CompanyPermission, role_has_permission
-from app.core.credential_encryption import CURRENT_ENCRYPTION_VERSION, LEGACY_ENCRYPTION_KEY_ID, CredentialEncryptionError, CredentialEncryptionService, create_legacy_encryption_keyring, credential_aad, decode_encryption_key, parse_encryption_keyring
+from app.core.credential_encryption import CURRENT_ENCRYPTION_VERSION, LEGACY_ENCRYPTION_KEY_ID, CredentialEncryptionError, CredentialEncryptionService, credential_aad, decode_encryption_key, parse_encryption_keyring
 from app.core.provider_connections import ProviderDescriptor, ProviderRegistry, provider_registry, validate_safe_object
 from app.main import app
 from app.models.audit_log import AuditAction
@@ -18,9 +18,16 @@ from app.schemas.provider_connection import ProviderConnectionCreate, ProviderCr
 from app.services.provider_connection import ProviderConnectionService
 
 
-def _encryption_service(encoded_key: str = "00" * 32) -> CredentialEncryptionService:
+def _encryption_service(
+    encoded_key: str = "00" * 32,
+    *,
+    active_key_id: str = "legacy",
+) -> CredentialEncryptionService:
     return CredentialEncryptionService(
-        create_legacy_encryption_keyring(encoded_key)
+        parse_encryption_keyring(
+            json.dumps({active_key_id: encoded_key}),
+            active_key_id=active_key_id,
+        )
     )
 
 
@@ -169,6 +176,79 @@ def test_v2_changed_known_key_id_fails_authenticated_decryption() -> None:
     assert str(error.value) == "Credential decryption failed."
 
 
+def test_previous_keys_decrypt_v1_and_v2_credentials() -> None:
+    keyring = parse_encryption_keyring(
+        json.dumps({"current": "55" * 32, "previous": "66" * 32}),
+        active_key_id="previous",
+    )
+    previous_service = CredentialEncryptionService(keyring)
+    company, connection, credential = uuid4(), uuid4(), uuid4()
+    encrypted = previous_service.encrypt(
+        {"api_key": "previous-value"},
+        company_id=company,
+        connection_id=connection,
+        credential_id=credential,
+        provider_key="retell",
+    )
+    runtime_service = CredentialEncryptionService(
+        parse_encryption_keyring(
+            json.dumps({"current": "55" * 32, "previous": "66" * 32}),
+            active_key_id="current",
+        )
+    )
+    assert runtime_service.decrypt(
+        encrypted.ciphertext,
+        encrypted.nonce,
+        company_id=company,
+        connection_id=connection,
+        credential_id=credential,
+        provider_key="retell",
+        encryption_version=2,
+        encryption_key_id="previous",
+    ).secrets == {"api_key": "previous-value"}
+
+    aad = credential_aad(
+        company_id=company,
+        connection_id=connection,
+        credential_id=credential,
+        provider_key="retell",
+        encryption_version=1,
+    )
+    nonce = bytes(range(12))
+    ciphertext = AESGCM(bytes([0x66]) * 32).encrypt(
+        nonce,
+        b'{"api_key":"historical"}',
+        aad,
+    )
+    assert runtime_service.decrypt(
+        ciphertext,
+        nonce,
+        company_id=company,
+        connection_id=connection,
+        credential_id=credential,
+        provider_key="retell",
+        encryption_version=1,
+        encryption_key_id="previous",
+    ).secrets == {"api_key": "historical"}
+
+
+def test_v1_null_key_id_requires_explicit_legacy_entry() -> None:
+    service = _encryption_service("77" * 32, active_key_id="current")
+    with pytest.raises(CredentialEncryptionError) as error:
+        service.decrypt(
+            b"ciphertext",
+            bytes(range(12)),
+            company_id=uuid4(),
+            connection_id=uuid4(),
+            credential_id=uuid4(),
+            provider_key="retell",
+            encryption_version=1,
+            encryption_key_id=None,
+        )
+
+    assert str(error.value) == "Credential decryption failed."
+
+
 def test_strict_key_decoding() -> None:
     assert len(decode_encryption_key("ab"*32)) == 32
     assert len(decode_encryption_key(base64.urlsafe_b64encode(b"x"*32).decode())) == 32
@@ -238,7 +318,7 @@ def test_credential_rotation_uses_v2_key_metadata_and_safe_audit() -> None:
         repository,
         audit,
         session,
-        _encryption_service(),
+        _encryption_service(active_key_id="current"),
     )
 
     new = service.rotate_credential(
@@ -251,12 +331,12 @@ def test_credential_rotation_uses_v2_key_metadata_and_safe_audit() -> None:
 
     assert old.status == "rotated"
     assert new.encryption_version == 2
-    assert new.encryption_key_id == "legacy"
+    assert new.encryption_key_id == "current"
     assert new.encryption_revision == 0
     assert new.rotated_from_credential_id == old_id
     details = audit.append_company_event.call_args.kwargs["details"]
     assert details["encryption_version"] == 2
-    assert details["encryption_key_id"] == "legacy"
+    assert details["encryption_key_id"] == "current"
     assert details["encryption_revision"] == 0
     serialized = repr(details)
     for forbidden in ("never-log-this", "old-ciphertext", "nonce", "api_key"):

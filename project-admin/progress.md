@@ -397,8 +397,9 @@ The real company will later be created as a separate Company Context without cha
 - The safe development rotation is complete. No real credentials or provider executions were created, and no external provider operation ran.
 - Production secret management and key provisioning remain future work.
 - Startup configuration failures use one deterministic sanitized error and never include key, hash, ciphertext, nonce or payload material.
-- Provider Credential model, repository and service integration are keyring-aware. Runtime still consumes only the legacy `CREDENTIAL_ENCRYPTION_KEY`, wrapped internally as a one-key keyring with active ID `legacy`; new credentials use key-ID-bound encryption version 2 and revision `0`.
-- Historical version-1 rows with NULL key IDs remain readable only through the explicit transitional `legacy` compatibility path. The real multi-key environment cutover, production keyring provisioning, contract migration `0013` and controlled re-encryption remain open.
+- Repository runtime keyring support is implemented: `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON are validated once before FastAPI creation and shared with Provider Connections; standalone or mixed legacy configuration is rejected.
+- New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
+- Local secret provisioning and the running backend have not been cut over. Migration `0012_credential_keyring_expand` remains database head; production provisioning, contract migration `0013` and controlled re-encryption remain open.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -419,7 +420,7 @@ The real company will later be created as a separate Company Context without cha
 Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. design the separately approved real multi-key environment cutover and production provisioning without assuming that contract migration `0013` or re-encryption is complete;
+2. request separate approval for atomic local keyring provisioning, backend image rebuild, backend container recreation, and health/runtime verification;
 3. continue with Tool Execution and Agent Runtime only as a separately approved task;
 4. commit and push only after explicit approval.
 

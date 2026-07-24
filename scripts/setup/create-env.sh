@@ -70,7 +70,7 @@ if command -v git >/dev/null 2>&1 &&
     fi
 fi
 
-generate_fernet_key() {
+generate_aes_key() {
     openssl rand -base64 32 |
         tr '+/' '-_' |
         tr -d '\n'
@@ -80,7 +80,9 @@ POSTGRES_PASSWORD="$(openssl rand -hex 24)"
 APP_SECRET_KEY="$(openssl rand -hex 32)"
 AGENT_CREDENTIAL_PEPPER="$(openssl rand -hex 32)"
 AGENT_JWT_SECRET="$(openssl rand -hex 32)"
-CREDENTIAL_ENCRYPTION_KEY="$(generate_fernet_key)"
+ENCRYPTION_ACTIVE_KEY_ID="local-primary"
+ENCRYPTION_KEY_MATERIAL="$(generate_aes_key)"
+ENCRYPTION_KEYRING_JSON="{\"$ENCRYPTION_ACTIVE_KEY_ID\":\"$ENCRYPTION_KEY_MATERIAL\"}"
 
 umask 077
 
@@ -97,7 +99,8 @@ awk \
     -v app_secret_key="$APP_SECRET_KEY" \
     -v agent_credential_pepper="$AGENT_CREDENTIAL_PEPPER" \
     -v agent_jwt_secret="$AGENT_JWT_SECRET" \
-    -v encryption_key="$CREDENTIAL_ENCRYPTION_KEY" '
+    -v encryption_key_id="$ENCRYPTION_ACTIVE_KEY_ID" \
+    -v encryption_keyring="$ENCRYPTION_KEYRING_JSON" '
         /^POSTGRES_PASSWORD=/ {
             print "POSTGRES_PASSWORD=" postgres_password
             next
@@ -118,8 +121,13 @@ awk \
             next
         }
 
-        /^CREDENTIAL_ENCRYPTION_KEY=/ {
-            print "CREDENTIAL_ENCRYPTION_KEY=" encryption_key
+        /^CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID=/ {
+            print "CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID=" encryption_key_id
+            next
+        }
+
+        /^CREDENTIAL_ENCRYPTION_KEYRING=/ {
+            print "CREDENTIAL_ENCRYPTION_KEYRING=" encryption_keyring
             next
         }
 

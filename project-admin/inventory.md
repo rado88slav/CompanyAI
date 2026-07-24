@@ -122,6 +122,7 @@ Generated automatically by:
 ./backend/migrations/versions/0010_create_provider_connections.py
 ./backend/migrations/versions/0011_provider_execution.py
 ./backend/migrations/versions/0012_credential_keyring_expand.py
+./backend/migrations/versions/0013_credential_keyring_contract.py
 ./backend/pytest.ini
 ./backend/requirements-dev.txt
 ./backend/requirements.txt

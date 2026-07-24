@@ -83,7 +83,7 @@ class ProviderCredential(Base):
     encrypted_payload: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     encryption_version: Mapped[int] = mapped_column(nullable=False, default=1, server_default="1")
-    encryption_key_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    encryption_key_id: Mapped[str] = mapped_column(String(64), nullable=False)
     encryption_revision: Mapped[int] = mapped_column(nullable=False, default=0, server_default="0")
     credential_schema_version: Mapped[int] = mapped_column(nullable=False, default=1, server_default="1")
     rotated_from_credential_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))

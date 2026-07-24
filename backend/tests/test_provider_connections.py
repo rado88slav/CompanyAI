@@ -261,7 +261,7 @@ def test_database_company_integrity_repr_and_restrict() -> None:
     names = {x.name for x in ProviderCredential.__table__.constraints}
     assert {"fk_provider_credentials_company_connection","fk_provider_credentials_rotation","ck_provider_credentials_encryption_key_id","ck_provider_credentials_encryption_revision"} <= names
     columns = ProviderCredential.__table__.columns
-    assert columns.encryption_key_id.nullable is True
+    assert columns.encryption_key_id.nullable is False
     assert columns.encryption_key_id.type.length == 64
     assert columns.encryption_revision.nullable is False
     assert str(columns.encryption_revision.server_default.arg) == "0"

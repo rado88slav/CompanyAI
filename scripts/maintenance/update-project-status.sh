@@ -417,7 +417,9 @@ The real company will later be created as a separate Company Context without cha
 - Startup configuration failures use one deterministic sanitized error and never include key, hash, ciphertext, nonce or payload material.
 - Repository runtime keyring support is implemented: `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON are validated once before FastAPI creation and shared with Provider Connections; standalone or mixed legacy configuration is rejected.
 - New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
-- Local secret provisioning and the running backend are cut over to the new keyring contract. Migration `0012_credential_keyring_expand` remains database head and `encryption_key_id` remains nullable during expand; production secret-manager provisioning, contract migration `0013`, controlled re-encryption, old-key retirement/escrow and backup-retention procedures remain open.
+- Local secret provisioning and the running backend are cut over to the new keyring contract. Migration `0012_credential_keyring_expand` remains the applied real database head, so `encryption_key_id` remains nullable there.
+- Contract migration `0013_credential_keyring_contract` is created and validated but not applied. It fails closed while NULL key-ID references remain, performs no backfill or decryption, and makes `encryption_key_id` NOT NULL only after the precondition succeeds.
+- Real application of `0013` requires separate explicit approval. Production secret-manager provisioning, controlled re-encryption, old-key retirement/escrow and backup-retention remain open; dashboard work has not started automatically.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
 - No provider API calls, OAuth flows, connectivity tests, plaintext retrieval APIs or tool execution are implemented.
@@ -438,9 +440,10 @@ The real company will later be created as a separate Company Context without cha
 Continue Phase 3 with:
 
 1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. design production secret-manager provisioning, controlled re-encryption, old-key retirement/escrow and backup-retention procedures before production use;
-3. continue with Tool Execution and Agent Runtime only as a separately approved task;
-4. commit and push only after explicit approval.
+2. review and explicitly approve real development application of `0013_credential_keyring_contract`;
+3. design production secret-manager provisioning, controlled re-encryption, old-key retirement/escrow and backup-retention procedures before production use;
+4. begin dashboard work only as a separately approved phase;
+5. commit and push only after explicit approval.
 
 ---
 
@@ -613,6 +616,8 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [ ] Define old-key retirement, key escrow and backup-retention procedures.
 - [x] Create and validate schema-only expand migration `0012_credential_keyring_expand` without credential backfill or runtime configuration changes.
 - [x] Apply migration `0012_credential_keyring_expand` after explicit approval and verify its columns, constraints and ordered index while `provider_credentials` remains empty.
+- [x] Create and validate contract migration `0013_credential_keyring_contract` with a fail-closed NULL-reference precondition and no backfill or decryption.
+- [ ] Apply migration `0013_credential_keyring_contract` to the real development database only after separate explicit approval.
 - [x] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.
 - [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
 - [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.
@@ -1007,7 +1012,9 @@ The real local development runtime cutover is complete. The local environment fi
 
 The backend image was rebuilt and the backend container was force-recreated without database changes. Runtime verification confirmed active ID `legacy`, one configured key, a validated immutable keyring, matching configured/runtime active IDs, HTTP 200 health with `status=ok`, and HTTP 200 readiness with reachable database connectivity. No database row, credential, approval or execution was created or modified.
 
-Migration `0012_credential_keyring_expand` remains database head and `encryption_key_id` intentionally remains nullable during the expand phase. Migration `0013` has not been created or applied. Production secret-manager/keyring provisioning, controlled re-encryption tooling, old-key retirement and escrow policy, and backup-retention procedures remain future work.
+Migration `0012_credential_keyring_expand` remains the applied real database head, where `encryption_key_id` intentionally remains nullable during the expand phase. Contract migration `0013_credential_keyring_contract` has been created and validated but not applied. It performs a read-only NULL-reference precondition, aborts with a deterministic sanitized operational error when any NULL key IDs remain, and otherwise changes only `provider_credentials.encryption_key_id` to NOT NULL. It does not guess or backfill key IDs, decrypt payloads, or modify credential data. Downgrade restores the exact post-0012 nullable contract while preserving rows and all other Stage 2 objects.
+
+Real development application of `0013` requires separate explicit approval. Controlled re-encryption tooling remains future work for environments with historical credentials. Production secret-manager/keyring provisioning, old-key retirement and escrow policy, and backup-retention procedures remain open. Dashboard work has not started automatically.
 
 ## 026 — Provider Execution and Approval Manager integration
 

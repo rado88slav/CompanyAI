@@ -5,7 +5,9 @@ import ast
 
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+import pytest
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, UniqueConstraint
 
 from app.models.approval import ApprovalDecision, ApprovalRequest, AuthorizationPolicy, AuthorizationUsage
@@ -30,7 +32,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0012_credential_keyring_expand"
+        "0013_credential_keyring_contract"
     ]
 
 
@@ -141,6 +143,176 @@ def test_credential_keyring_expand_follows_provider_execution() -> None:
     )
     assert revision is not None
     assert revision.down_revision == "0011_provider_execution"
+
+
+def test_credential_keyring_contract_follows_expand_revision() -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision(
+        "0013_credential_keyring_contract"
+    )
+    assert revision is not None
+    assert revision.down_revision == "0012_credential_keyring_expand"
+
+
+def test_credential_keyring_contract_fails_when_null_references_remain(
+    monkeypatch,
+) -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision(
+        "0013_credential_keyring_contract"
+    )
+    assert revision is not None
+
+    class Result:
+        def first(self):
+            return (1,)
+
+    class Bind:
+        def __init__(self) -> None:
+            self.statement = None
+
+        def execute(self, statement):
+            self.statement = statement
+            return Result()
+
+    class Operations:
+        def __init__(self) -> None:
+            self.bind = Bind()
+            self.alterations = []
+
+        def get_bind(self):
+            return self.bind
+
+        def alter_column(self, *args, **kwargs) -> None:
+            self.alterations.append((args, kwargs))
+
+    operations = Operations()
+    monkeypatch.setattr(revision.module, "op", operations)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "^Credential encryption key ID contract cannot be enforced "
+            "while NULL references remain\\.$"
+        ),
+    ):
+        revision.module.upgrade()
+
+    compiled = str(
+        operations.bind.statement.compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+    assert "FROM provider_credentials" in compiled
+    assert "encryption_key_id IS NULL" in compiled
+    assert operations.alterations == []
+
+
+def test_credential_keyring_contract_upgrade_and_downgrade(monkeypatch) -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision(
+        "0013_credential_keyring_contract"
+    )
+    assert revision is not None
+
+    class Result:
+        def first(self):
+            return None
+
+    class Bind:
+        def execute(self, _statement):
+            return Result()
+
+    class Operations:
+        def __init__(self) -> None:
+            self.alterations = []
+
+        def get_bind(self):
+            return Bind()
+
+        def alter_column(self, *args, **kwargs) -> None:
+            self.alterations.append((args, kwargs))
+
+    operations = Operations()
+    monkeypatch.setattr(revision.module, "op", operations)
+    revision.module.upgrade()
+    revision.module.downgrade()
+
+    assert len(operations.alterations) == 2
+    upgrade_args, upgrade_kwargs = operations.alterations[0]
+    assert upgrade_args == ("provider_credentials", "encryption_key_id")
+    assert isinstance(upgrade_kwargs["existing_type"], sa.String)
+    assert upgrade_kwargs["existing_type"].length == 64
+    assert upgrade_kwargs["existing_nullable"] is True
+    assert upgrade_kwargs["nullable"] is False
+
+    downgrade_args, downgrade_kwargs = operations.alterations[1]
+    assert downgrade_args == ("provider_credentials", "encryption_key_id")
+    assert isinstance(downgrade_kwargs["existing_type"], sa.String)
+    assert downgrade_kwargs["existing_type"].length == 64
+    assert downgrade_kwargs["existing_nullable"] is False
+    assert downgrade_kwargs["nullable"] is True
+
+
+def test_credential_keyring_contract_is_static_and_preserves_expand_objects() -> None:
+    migration = (
+        BACKEND_ROOT
+        / "migrations/versions/0013_credential_keyring_contract.py"
+    )
+    source = migration.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    imports = {
+        node.module
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module is not None
+    }
+    assert not any(module == "app" or module.startswith("app.") for module in imports)
+    assert all(
+        forbidden not in source
+        for forbidden in (
+            "op.execute",
+            "op.bulk_insert",
+            "UPDATE ",
+            "INSERT ",
+            "DELETE ",
+            "decrypt",
+            "encrypted_payload",
+            "ciphertext",
+            "nonce",
+            "encryption_revision",
+            "drop_constraint",
+            "drop_index",
+        )
+    )
+    identifiers = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and node.value.startswith(("ck_", "ix_", "uq_", "fk_"))
+    ]
+    assert all(len(identifier.encode("utf-8")) <= 63 for identifier in identifiers)
+    column = ProviderCredential.__table__.columns.encryption_key_id
+    assert isinstance(column.type, sa.String)
+    assert column.type.length == 64
+    assert column.nullable is False
+    constraints = {
+        constraint.name
+        for constraint in ProviderCredential.__table__.constraints
+    }
+    assert {
+        "ck_provider_credentials_encryption_key_id",
+        "ck_provider_credentials_encryption_revision",
+    } <= constraints
+    indexes = {
+        index.name: tuple(column.name for column in index.columns)
+        for index in ProviderCredential.__table__.indexes
+    }
+    assert indexes["ix_provider_credentials_encryption_key_id_id"] == (
+        "encryption_key_id",
+        "id",
+    )
+    revision_column = ProviderCredential.__table__.columns.encryption_revision
+    assert revision_column.nullable is False
+    assert str(revision_column.server_default.arg) == "0"
 
 
 def test_credential_keyring_expand_schema_and_downgrade(monkeypatch) -> None:
@@ -283,12 +455,15 @@ def test_credential_keyring_expand_is_static_and_identifier_safe() -> None:
 def test_provider_connections_migration_static_parity_and_identifier_safety() -> None:
     baseline_source = (BACKEND_ROOT / "migrations/versions/0010_create_provider_connections.py").read_text(encoding="utf-8")
     expand_source = (BACKEND_ROOT / "migrations/versions/0012_credential_keyring_expand.py").read_text(encoding="utf-8")
-    source = baseline_source + expand_source
-    for migration_source in (baseline_source, expand_source):
+    contract_source = (BACKEND_ROOT / "migrations/versions/0013_credential_keyring_contract.py").read_text(encoding="utf-8")
+    source = baseline_source + expand_source + contract_source
+    for migration_source in (baseline_source, expand_source, contract_source):
         tree = ast.parse(migration_source)
         imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
         assert not any(module == "app" or module.startswith("app.") for module in imports)
-        assert "op.get_bind" not in migration_source and "__table__" not in migration_source
+        assert "__table__" not in migration_source
+    assert "op.get_bind" not in baseline_source
+    assert "op.get_bind" not in expand_source
     for model in (ProviderConnection, ProviderCredential):
         for constraint in model.__table__.constraints:
             if constraint.name: assert constraint.name in source

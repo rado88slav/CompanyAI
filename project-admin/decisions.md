@@ -296,7 +296,9 @@ The real local development runtime cutover is complete. The local environment fi
 
 The backend image was rebuilt and the backend container was force-recreated without database changes. Runtime verification confirmed active ID `legacy`, one configured key, a validated immutable keyring, matching configured/runtime active IDs, HTTP 200 health with `status=ok`, and HTTP 200 readiness with reachable database connectivity. No database row, credential, approval or execution was created or modified.
 
-Migration `0012_credential_keyring_expand` remains database head and `encryption_key_id` intentionally remains nullable during the expand phase. Migration `0013` has not been created or applied. Production secret-manager/keyring provisioning, controlled re-encryption tooling, old-key retirement and escrow policy, and backup-retention procedures remain future work.
+Migration `0012_credential_keyring_expand` remains the applied real database head, where `encryption_key_id` intentionally remains nullable during the expand phase. Contract migration `0013_credential_keyring_contract` has been created and validated but not applied. It performs a read-only NULL-reference precondition, aborts with a deterministic sanitized operational error when any NULL key IDs remain, and otherwise changes only `provider_credentials.encryption_key_id` to NOT NULL. It does not guess or backfill key IDs, decrypt payloads, or modify credential data. Downgrade restores the exact post-0012 nullable contract while preserving rows and all other Stage 2 objects.
+
+Real development application of `0013` requires separate explicit approval. Controlled re-encryption tooling remains future work for environments with historical credentials. Production secret-manager/keyring provisioning, old-key retirement and escrow policy, and backup-retention procedures remain open. Dashboard work has not started automatically.
 
 ## 026 — Provider Execution and Approval Manager integration
 

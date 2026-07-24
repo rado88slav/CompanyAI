@@ -153,7 +153,8 @@
 - [x] Safely rotate the development credential encryption key while `provider_credentials` is empty and verify the force-recreated backend health and readiness.
 - [x] Add fail-fast startup validation for a missing, empty, malformed or wrong-length credential encryption key.
 - [ ] Define production secret management and production key provisioning.
-- [ ] Integrate the existing keyring into runtime configuration and add a controlled re-encryption workflow before rotating stored credentials.
+- [x] Integrate the existing keyring into Provider Credential model/repository/service behavior under the transitional one-key `legacy` runtime contract.
+- [ ] Add production multi-key environment provisioning and a controlled re-encryption workflow before rotating stored credentials.
 - [x] Create and validate schema-only expand migration `0012_credential_keyring_expand` without credential backfill or runtime configuration changes.
 - [x] Apply migration `0012_credential_keyring_expand` after explicit approval and verify its columns, constraints and ordered index while `provider_credentials` remains empty.
 - [x] Document that `scripts/setup/create-env.sh --force` replaces the entire `.env` and must not be used for key-only rotation.

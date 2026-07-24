@@ -21,7 +21,13 @@ class CredentialEncryptionError(Exception):
 
 
 _CONFIGURATION_ERROR = "Credential encryption configuration is invalid."
+_ENCRYPTION_ERROR = "Credential encryption failed."
+_DECRYPTION_ERROR = "Credential decryption failed."
 _KEY_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
+LEGACY_ENCRYPTION_KEY_ID = "legacy"
+LEGACY_ENCRYPTION_VERSION = 1
+CURRENT_ENCRYPTION_VERSION = 2
+CURRENT_ENCRYPTION_REVISION = 0
 
 
 def decode_encryption_key(value: str) -> bytes:
@@ -177,8 +183,50 @@ def parse_encryption_keyring(
     raise CredentialEncryptionError(_CONFIGURATION_ERROR) from None
 
 
-def credential_aad(*, company_id: UUID, connection_id: UUID, credential_id: UUID, provider_key: str, encryption_version: int) -> bytes:
-    return f"company-ai/provider-credential/v{encryption_version}/{company_id}/{connection_id}/{credential_id}/{provider_key}".encode()
+def create_legacy_encryption_keyring(
+    encoded_key: str,
+) -> CredentialEncryptionKeyring:
+    """Build the transitional one-key keyring from the legacy setting."""
+
+    material = decode_encryption_key(encoded_key)
+    return CredentialEncryptionKeyring(
+        _active_key_id=LEGACY_ENCRYPTION_KEY_ID,
+        _keys={LEGACY_ENCRYPTION_KEY_ID: material},
+        _metadata=(
+            CredentialEncryptionKeyMetadata(
+                key_id=LEGACY_ENCRYPTION_KEY_ID,
+                is_active=True,
+            ),
+        ),
+    )
+
+
+def credential_aad(
+    *,
+    company_id: UUID,
+    connection_id: UUID,
+    credential_id: UUID,
+    provider_key: str,
+    encryption_version: int,
+    encryption_key_id: str | None = None,
+) -> bytes:
+    if encryption_version == LEGACY_ENCRYPTION_VERSION:
+        value = (
+            f"company-ai/provider-credential/v1/{company_id}/"
+            f"{connection_id}/{credential_id}/{provider_key}"
+        )
+    elif (
+        encryption_version == CURRENT_ENCRYPTION_VERSION
+        and isinstance(encryption_key_id, str)
+        and _KEY_ID_PATTERN.fullmatch(encryption_key_id)
+    ):
+        value = (
+            f"company-ai/provider-credential/v2/{encryption_key_id}/"
+            f"{company_id}/{connection_id}/{credential_id}/{provider_key}"
+        )
+    else:
+        raise CredentialEncryptionError(_DECRYPTION_ERROR)
+    return value.encode("utf-8")
 
 
 @dataclass(slots=True)
@@ -189,29 +237,105 @@ class DecryptedCredential:
         return "DecryptedCredential(secrets=**********)"
 
 
-class CredentialEncryptionService:
-    def __init__(self, encoded_key: str) -> None:
-        self._key = decode_encryption_key(encoded_key)
+@dataclass(frozen=True, slots=True)
+class EncryptedCredential:
+    ciphertext: bytes = dataclass_field(repr=False)
+    nonce: bytes = dataclass_field(repr=False)
+    encryption_version: int
+    encryption_key_id: str
+    encryption_revision: int
 
-    def encrypt(self, secrets: dict[str, Any], *, associated_data: bytes) -> tuple[bytes, bytes]:
+
+class CredentialEncryptionService:
+    def __init__(self, keyring: CredentialEncryptionKeyring) -> None:
+        self._keyring = keyring
+
+    def encrypt(
+        self,
+        secrets: dict[str, Any],
+        *,
+        company_id: UUID,
+        connection_id: UUID,
+        credential_id: UUID,
+        provider_key: str,
+    ) -> EncryptedCredential:
+        key_id = self._keyring.active_key_id
+        associated_data = credential_aad(
+            company_id=company_id,
+            connection_id=connection_id,
+            credential_id=credential_id,
+            provider_key=provider_key,
+            encryption_version=CURRENT_ENCRYPTION_VERSION,
+            encryption_key_id=key_id,
+        )
         nonce = os.urandom(12)
         plaintext = bytearray(json.dumps(secrets, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode())
         try:
-            return AESGCM(self._key).encrypt(nonce, bytes(plaintext), associated_data), nonce
+            ciphertext = AESGCM(
+                self._keyring.active_key_material
+            ).encrypt(nonce, bytes(plaintext), associated_data)
+            return EncryptedCredential(
+                ciphertext=ciphertext,
+                nonce=nonce,
+                encryption_version=CURRENT_ENCRYPTION_VERSION,
+                encryption_key_id=key_id,
+                encryption_revision=CURRENT_ENCRYPTION_REVISION,
+            )
         except Exception as exc:
-            raise CredentialEncryptionError("Credential encryption failed.") from exc
+            raise CredentialEncryptionError(_ENCRYPTION_ERROR) from exc
         finally:
             plaintext[:] = b"\x00" * len(plaintext)
 
-    def decrypt(self, ciphertext: bytes, nonce: bytes, *, associated_data: bytes) -> DecryptedCredential:
+    def decrypt(
+        self,
+        ciphertext: bytes,
+        nonce: bytes,
+        *,
+        company_id: UUID,
+        connection_id: UUID,
+        credential_id: UUID,
+        provider_key: str,
+        encryption_version: int,
+        encryption_key_id: str | None,
+    ) -> DecryptedCredential:
         try:
-            plaintext = bytearray(AESGCM(self._key).decrypt(nonce, ciphertext, associated_data))
+            if encryption_version == LEGACY_ENCRYPTION_VERSION:
+                key_id = (
+                    LEGACY_ENCRYPTION_KEY_ID
+                    if encryption_key_id is None
+                    else encryption_key_id
+                )
+            elif (
+                encryption_version == CURRENT_ENCRYPTION_VERSION
+                and encryption_key_id is not None
+            ):
+                key_id = encryption_key_id
+            else:
+                raise CredentialEncryptionError(_DECRYPTION_ERROR)
+            key = self._keyring.decryption_key(key_id)
+            associated_data = credential_aad(
+                company_id=company_id,
+                connection_id=connection_id,
+                credential_id=credential_id,
+                provider_key=provider_key,
+                encryption_version=encryption_version,
+                encryption_key_id=encryption_key_id,
+            )
+            plaintext = bytearray(
+                AESGCM(key).decrypt(nonce, ciphertext, associated_data)
+            )
             value = json.loads(plaintext)
             if not isinstance(value, dict):
                 raise ValueError
             return DecryptedCredential(value)
-        except (InvalidTag, ValueError, TypeError, json.JSONDecodeError) as exc:
-            raise CredentialEncryptionError("Credential decryption failed.") from exc
+        except (
+            CredentialEncryptionError,
+            InvalidTag,
+            ValueError,
+            TypeError,
+            json.JSONDecodeError,
+        ):
+            raise CredentialEncryptionError(_DECRYPTION_ERROR) from None
         finally:
             if "plaintext" in locals():
                 plaintext[:] = b"\x00" * len(plaintext)

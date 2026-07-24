@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.api.router import api_router
 from app.core.config import get_settings
-from app.core.credential_encryption import decode_encryption_key
+from app.core.credential_encryption import create_legacy_encryption_keyring
 
 
 class RootResponse(BaseModel):
@@ -21,7 +21,7 @@ def create_application() -> FastAPI:
     """Create and configure the FastAPI application."""
 
     settings = get_settings()
-    decode_encryption_key(settings.credential_encryption_key)
+    create_legacy_encryption_keyring(settings.credential_encryption_key)
 
     application = FastAPI(
         title=settings.app_name,

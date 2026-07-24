@@ -286,7 +286,11 @@ Production secret management and production key provisioning remain future work.
 
 The immutable keyring core exists. Expand migration `0012_credential_keyring_expand` is applied to the real development database at head. Its nullable `VARCHAR(64)` `encryption_key_id`, non-null `INTEGER` `encryption_revision` with server default `0`, both check constraints and ordered `(encryption_key_id, id)` index were verified while `provider_credentials` remained empty. Nullability is intentional during the expand phase. No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 
-Runtime still uses the legacy single-key configuration. Keyring-aware model/repository/service integration, runtime cutover, production keyring provisioning, contract migration `0013` and a controlled re-encryption workflow remain future work.
+Provider Credential model, repository and service integration are keyring-aware. The public runtime contract remains the single `CREDENTIAL_ENCRYPTION_KEY`, decoded through the trusted parser and wrapped internally as a one-key keyring with active ID `legacy`. New credentials and business rotations use encryption version 2, store key ID `legacy` and revision `0`, and bind the key ID into authenticated associated data alongside the existing company, connection, credential and provider identity.
+
+Historical version-1 rows retain their original AAD. NULL key IDs remain temporarily readable only through the explicit transitional `legacy` compatibility path; stored key IDs are resolved through the keyring, and missing, malformed or unknown version-2 key IDs fail closed. Reads do not mutate historical rows. No real credential was created during Stage 3.
+
+The real multi-key environment cutover has not occurred. Production keyring provisioning, contract migration `0013` and a controlled re-encryption workflow remain future work.
 
 ## 026 — Provider Execution and Approval Manager integration
 

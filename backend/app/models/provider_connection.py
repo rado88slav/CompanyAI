@@ -70,8 +70,11 @@ class ProviderCredential(Base):
         CheckConstraint("(status='revoked' AND revoked_at IS NOT NULL AND revoked_by_administrator_id IS NOT NULL) OR status<>'revoked'", name="ck_provider_credentials_revocation"),
         CheckConstraint("octet_length(nonce)=12", name="ck_provider_credentials_nonce"),
         CheckConstraint("encryption_version > 0 AND credential_schema_version > 0", name="ck_provider_credentials_versions"),
+        CheckConstraint("encryption_revision >= 0", name="ck_provider_credentials_encryption_revision"),
+        CheckConstraint("encryption_key_id IS NULL OR encryption_key_id ~ '^[a-z][a-z0-9_-]{0,63}$'", name="ck_provider_credentials_encryption_key_id"),
         Index("uq_provider_credentials_active", "company_id", "provider_connection_id", unique=True, postgresql_where=text("status='active'")),
         Index("ix_provider_credentials_connection_created", "company_id", "provider_connection_id", "created_at"),
+        Index("ix_provider_credentials_encryption_key_id_id", "encryption_key_id", "id"),
     )
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     company_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
@@ -80,6 +83,8 @@ class ProviderCredential(Base):
     encrypted_payload: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     nonce: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     encryption_version: Mapped[int] = mapped_column(nullable=False, default=1, server_default="1")
+    encryption_key_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    encryption_revision: Mapped[int] = mapped_column(nullable=False, default=0, server_default="0")
     credential_schema_version: Mapped[int] = mapped_column(nullable=False, default=1, server_default="1")
     rotated_from_credential_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
     created_by_administrator_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("administrators.id", ondelete="RESTRICT"))

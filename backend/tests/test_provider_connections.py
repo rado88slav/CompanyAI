@@ -1,16 +1,27 @@
 """Focused Provider Connections security and contract tests."""
 import base64
+import json
+from types import SimpleNamespace
+from unittest.mock import Mock
 from uuid import uuid4
 import pytest
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import ValidationError
 
 from app.core.company_permissions import CompanyPermission, role_has_permission
-from app.core.credential_encryption import CredentialEncryptionError, CredentialEncryptionService, credential_aad, decode_encryption_key
+from app.core.credential_encryption import CURRENT_ENCRYPTION_VERSION, LEGACY_ENCRYPTION_KEY_ID, CredentialEncryptionError, CredentialEncryptionService, create_legacy_encryption_keyring, credential_aad, decode_encryption_key, parse_encryption_keyring
 from app.core.provider_connections import ProviderDescriptor, ProviderRegistry, provider_registry, validate_safe_object
 from app.main import app
 from app.models.audit_log import AuditAction
 from app.models.provider_connection import ProviderConnection, ProviderCredential
 from app.schemas.provider_connection import ProviderConnectionCreate, ProviderCredentialCreate
+from app.services.provider_connection import ProviderConnectionService
+
+
+def _encryption_service(encoded_key: str = "00" * 32) -> CredentialEncryptionService:
+    return CredentialEncryptionService(
+        create_legacy_encryption_keyring(encoded_key)
+    )
 
 
 def test_eight_immutable_builtin_descriptors() -> None:
@@ -61,29 +72,101 @@ def test_service_account_json_requires_object() -> None:
 
 
 def test_aes_gcm_roundtrip_random_nonce_and_no_plaintext() -> None:
-    service = CredentialEncryptionService("00"*32)
+    service = _encryption_service()
     company, connection, credential = uuid4(), uuid4(), uuid4()
-    aad = credential_aad(company_id=company,connection_id=connection,credential_id=credential,provider_key="retell",encryption_version=1)
     secret = "plaintext-provider-secret"
-    first, nonce1 = service.encrypt({"api_key":secret},associated_data=aad)
-    second, nonce2 = service.encrypt({"api_key":secret},associated_data=aad)
-    assert nonce1 != nonce2 and first != second and secret.encode() not in first
-    clear = service.decrypt(first,nonce1,associated_data=aad)
+    first = service.encrypt({"api_key":secret}, company_id=company, connection_id=connection, credential_id=credential, provider_key="retell")
+    second = service.encrypt({"api_key":secret}, company_id=company, connection_id=connection, credential_id=credential, provider_key="retell")
+    assert first.nonce != second.nonce and first.ciphertext != second.ciphertext
+    assert secret.encode() not in first.ciphertext
+    assert first.encryption_key_id == LEGACY_ENCRYPTION_KEY_ID
+    assert first.encryption_version == CURRENT_ENCRYPTION_VERSION
+    assert first.encryption_revision == 0
+    assert first.ciphertext.hex() not in repr(first)
+    assert first.nonce.hex() not in repr(first)
+    clear = service.decrypt(first.ciphertext, first.nonce, company_id=company, connection_id=connection, credential_id=credential, provider_key="retell", encryption_version=first.encryption_version, encryption_key_id=first.encryption_key_id)
     assert clear.secrets == {"api_key":secret} and secret not in repr(clear)
 
 
-@pytest.mark.parametrize("mutation", ["ciphertext","nonce","aad","key"])
+@pytest.mark.parametrize("mutation", ["ciphertext","nonce","identity","key"])
 def test_aead_tampering_identity_and_wrong_key_fail_sanitized(mutation: str) -> None:
     company, connection, credential = uuid4(), uuid4(), uuid4()
-    aad = credential_aad(company_id=company,connection_id=connection,credential_id=credential,provider_key="retell",encryption_version=1)
-    service = CredentialEncryptionService("11"*32)
-    ciphertext, nonce = service.encrypt({"api_key":"never-echo-this"},associated_data=aad)
-    target = CredentialEncryptionService("22"*32) if mutation == "key" else service
+    service = _encryption_service("11"*32)
+    encrypted = service.encrypt({"api_key":"never-echo-this"}, company_id=company, connection_id=connection, credential_id=credential, provider_key="retell")
+    ciphertext, nonce = encrypted.ciphertext, encrypted.nonce
+    target = _encryption_service("22"*32) if mutation == "key" else service
+    provider_key = "twilio" if mutation == "identity" else "retell"
     if mutation == "ciphertext": ciphertext = bytes([ciphertext[0]^1])+ciphertext[1:]
     if mutation == "nonce": nonce = bytes([nonce[0]^1])+nonce[1:]
-    if mutation == "aad": aad += b"/other"
-    with pytest.raises(CredentialEncryptionError) as error: target.decrypt(ciphertext,nonce,associated_data=aad)
+    with pytest.raises(CredentialEncryptionError) as error:
+        target.decrypt(ciphertext, nonce, company_id=company, connection_id=connection, credential_id=credential, provider_key=provider_key, encryption_version=2, encryption_key_id="legacy")
     assert "never-echo-this" not in str(error.value)
+
+
+def test_aad_v1_is_byte_compatible_and_v2_binds_key_id() -> None:
+    company, connection, credential = uuid4(), uuid4(), uuid4()
+    legacy = credential_aad(company_id=company, connection_id=connection, credential_id=credential, provider_key="retell", encryption_version=1)
+    assert legacy == f"company-ai/provider-credential/v1/{company}/{connection}/{credential}/retell".encode()
+    assert credential_aad(company_id=company, connection_id=connection, credential_id=credential, provider_key="retell", encryption_version=1, encryption_key_id="legacy") == legacy
+    first = credential_aad(company_id=company, connection_id=connection, credential_id=credential, provider_key="retell", encryption_version=2, encryption_key_id="legacy")
+    second = credential_aad(company_id=company, connection_id=connection, credential_id=credential, provider_key="retell", encryption_version=2, encryption_key_id="previous")
+    assert first != second and b"/v2/legacy/" in first
+
+
+@pytest.mark.parametrize("stored_key_id", [None, "legacy"])
+def test_historical_v1_credentials_remain_readable(
+    stored_key_id: str | None,
+) -> None:
+    key = bytes([31]) * 32
+    company, connection, credential = uuid4(), uuid4(), uuid4()
+    aad = credential_aad(company_id=company, connection_id=connection, credential_id=credential, provider_key="retell", encryption_version=1)
+    nonce = bytes(range(12))
+    ciphertext = AESGCM(key).encrypt(
+        nonce,
+        json.dumps({"api_key": "historical"}, separators=(",", ":")).encode(),
+        aad,
+    )
+    clear = _encryption_service(key.hex()).decrypt(
+        ciphertext,
+        nonce,
+        company_id=company,
+        connection_id=connection,
+        credential_id=credential,
+        provider_key="retell",
+        encryption_version=1,
+        encryption_key_id=stored_key_id,
+    )
+    assert clear.secrets == {"api_key": "historical"}
+
+
+@pytest.mark.parametrize(
+    "stored_key_id",
+    [None, "unknown", "INVALID"],
+    ids=["missing", "unknown", "malformed"],
+)
+def test_v2_missing_unknown_or_malformed_key_id_fails_closed(
+    stored_key_id: str | None,
+) -> None:
+    service = _encryption_service()
+    company, connection, credential = uuid4(), uuid4(), uuid4()
+    encrypted = service.encrypt({"api_key": "redacted"}, company_id=company, connection_id=connection, credential_id=credential, provider_key="retell")
+    with pytest.raises(CredentialEncryptionError) as error:
+        service.decrypt(encrypted.ciphertext, encrypted.nonce, company_id=company, connection_id=connection, credential_id=credential, provider_key="retell", encryption_version=2, encryption_key_id=stored_key_id)
+    assert str(error.value) == "Credential decryption failed."
+    assert "redacted" not in str(error.value)
+
+
+def test_v2_changed_known_key_id_fails_authenticated_decryption() -> None:
+    keyring = parse_encryption_keyring(
+        json.dumps({"legacy": "33" * 32, "previous": "44" * 32}),
+        active_key_id="legacy",
+    )
+    service = CredentialEncryptionService(keyring)
+    company, connection, credential = uuid4(), uuid4(), uuid4()
+    encrypted = service.encrypt({"api_key": "redacted"}, company_id=company, connection_id=connection, credential_id=credential, provider_key="retell")
+    with pytest.raises(CredentialEncryptionError) as error:
+        service.decrypt(encrypted.ciphertext, encrypted.nonce, company_id=company, connection_id=connection, credential_id=credential, provider_key="retell", encryption_version=2, encryption_key_id="previous")
+    assert str(error.value) == "Credential decryption failed."
 
 
 def test_strict_key_decoding() -> None:
@@ -96,7 +179,14 @@ def test_strict_key_decoding() -> None:
 def test_database_company_integrity_repr_and_restrict() -> None:
     assert "uq_provider_connections_company_id" in {x.name for x in ProviderConnection.__table__.constraints}
     names = {x.name for x in ProviderCredential.__table__.constraints}
-    assert {"fk_provider_credentials_company_connection","fk_provider_credentials_rotation"} <= names
+    assert {"fk_provider_credentials_company_connection","fk_provider_credentials_rotation","ck_provider_credentials_encryption_key_id","ck_provider_credentials_encryption_revision"} <= names
+    columns = ProviderCredential.__table__.columns
+    assert columns.encryption_key_id.nullable is True
+    assert columns.encryption_key_id.type.length == 64
+    assert columns.encryption_revision.nullable is False
+    assert str(columns.encryption_revision.server_default.arg) == "0"
+    index = next(item for item in ProviderCredential.__table__.indexes if item.name == "ix_provider_credentials_encryption_key_id_id")
+    assert tuple(column.name for column in index.columns) == ("encryption_key_id", "id")
     assert all(fk.ondelete=="RESTRICT" for model in (ProviderConnection,ProviderCredential) for fk in model.__table__.foreign_keys)
     item = ProviderCredential(id=uuid4(),company_id=uuid4(),provider_connection_id=uuid4(),encrypted_payload=b"secret-ciphertext",nonce=b"123456789012")
     assert "secret-ciphertext" not in repr(item) and "123456789012" not in repr(item)
@@ -113,4 +203,115 @@ def test_provider_rbac_audit_and_safe_openapi() -> None:
     assert "/api/v1/provider-types" in paths and "/api/v1/companies/{company_id}/provider-connections/{connection_id}/credentials" in paths
     assert all("delete" not in operations for path,operations in paths.items() if "provider" in path)
     schema = str(app.openapi())
-    assert "encrypted_payload" not in schema and "'nonce'" not in schema
+    for field in ("encryption_key_id", "encryption_revision", "encrypted_payload", "'nonce'", "keyring"):
+        assert field not in schema
+
+
+def test_credential_rotation_uses_v2_key_metadata_and_safe_audit() -> None:
+    company_id, connection_id, old_id, actor_id = uuid4(), uuid4(), uuid4(), uuid4()
+    connection = ProviderConnection(
+        id=connection_id,
+        company_id=company_id,
+        provider_key="retell",
+        display_name="Primary",
+        slug="primary",
+        authentication_type="api_key",
+        status="inactive",
+    )
+    old = ProviderCredential(
+        id=old_id,
+        company_id=company_id,
+        provider_connection_id=connection_id,
+        status="active",
+        encrypted_payload=b"old-ciphertext",
+        nonce=b"123456789012",
+        encryption_version=1,
+    )
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.credential.return_value = old
+    repository.save_credential.side_effect = lambda item: item
+    repository.create_credential.side_effect = lambda **values: ProviderCredential(**values)
+    audit = Mock()
+    session = Mock()
+    service = ProviderConnectionService(
+        repository,
+        audit,
+        session,
+        _encryption_service(),
+    )
+
+    new = service.rotate_credential(
+        company_id=company_id,
+        connection_id=connection_id,
+        credential_id=old_id,
+        data=ProviderCredentialCreate(secrets={"api_key": "never-log-this"}),
+        actor=SimpleNamespace(id=actor_id),
+    )
+
+    assert old.status == "rotated"
+    assert new.encryption_version == 2
+    assert new.encryption_key_id == "legacy"
+    assert new.encryption_revision == 0
+    assert new.rotated_from_credential_id == old_id
+    details = audit.append_company_event.call_args.kwargs["details"]
+    assert details["encryption_version"] == 2
+    assert details["encryption_key_id"] == "legacy"
+    assert details["encryption_revision"] == 0
+    serialized = repr(details)
+    for forbidden in ("never-log-this", "old-ciphertext", "nonce", "api_key"):
+        assert forbidden not in serialized
+
+
+def test_service_resolution_uses_stored_version_and_key_id() -> None:
+    company_id, connection_id, credential_id = uuid4(), uuid4(), uuid4()
+    encryption = _encryption_service()
+    encrypted = encryption.encrypt(
+        {"api_key": "resolved-value"},
+        company_id=company_id,
+        connection_id=connection_id,
+        credential_id=credential_id,
+        provider_key="retell",
+    )
+    connection = ProviderConnection(
+        id=connection_id,
+        company_id=company_id,
+        provider_key="retell",
+        display_name="Primary",
+        slug="primary",
+        authentication_type="api_key",
+        status="active",
+    )
+    credential = ProviderCredential(
+        id=credential_id,
+        company_id=company_id,
+        provider_connection_id=connection_id,
+        status="active",
+        encrypted_payload=encrypted.ciphertext,
+        nonce=encrypted.nonce,
+        encryption_version=encrypted.encryption_version,
+        encryption_key_id=encrypted.encryption_key_id,
+        encryption_revision=encrypted.encryption_revision,
+    )
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.company.return_value = SimpleNamespace(
+        is_active=True,
+        status="active",
+    )
+    repository.active_credential.return_value = credential
+    service = ProviderConnectionService(
+        repository,
+        Mock(),
+        Mock(),
+        encryption,
+    )
+
+    resolved = service.resolve(
+        company_id=company_id,
+        connection_id=connection_id,
+        provider_key="retell",
+    )
+
+    assert resolved.secret_bundle.secrets == {"api_key": "resolved-value"}
+    assert "resolved-value" not in repr(resolved)

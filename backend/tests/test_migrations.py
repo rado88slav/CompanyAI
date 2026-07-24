@@ -281,18 +281,22 @@ def test_credential_keyring_expand_is_static_and_identifier_safe() -> None:
 
 
 def test_provider_connections_migration_static_parity_and_identifier_safety() -> None:
-    source = (BACKEND_ROOT / "migrations/versions/0010_create_provider_connections.py").read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
-    assert not any(module == "app" or module.startswith("app.") for module in imports)
-    assert "op.get_bind" not in source and "__table__" not in source
+    baseline_source = (BACKEND_ROOT / "migrations/versions/0010_create_provider_connections.py").read_text(encoding="utf-8")
+    expand_source = (BACKEND_ROOT / "migrations/versions/0012_credential_keyring_expand.py").read_text(encoding="utf-8")
+    source = baseline_source + expand_source
+    for migration_source in (baseline_source, expand_source):
+        tree = ast.parse(migration_source)
+        imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+        assert not any(module == "app" or module.startswith("app.") for module in imports)
+        assert "op.get_bind" not in migration_source and "__table__" not in migration_source
     for model in (ProviderConnection, ProviderCredential):
         for constraint in model.__table__.constraints:
             if constraint.name: assert constraint.name in source
         for index in model.__table__.indexes: assert index.name in source
+    tree = ast.parse(source)
     names = [node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and isinstance(node.value,str) and node.value.startswith(("ck_","fk_","ix_","uq_"))]
     assert names and all(len(name.encode()) <= 63 for name in names)
-    assert source.index('op.drop_table("provider_credentials")') < source.index('op.drop_table("provider_connections")')
+    assert baseline_source.index('op.drop_table("provider_credentials")') < baseline_source.index('op.drop_table("provider_connections")')
 
 
 def test_tool_registry_migration_is_static_complete_and_identifier_safe() -> None:

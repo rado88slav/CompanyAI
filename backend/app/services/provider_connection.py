@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.credential_encryption import CredentialEncryptionService, DecryptedCredential, credential_aad
+from app.core.credential_encryption import CredentialEncryptionService, DecryptedCredential, create_legacy_encryption_keyring
 from app.core.provider_connections import provider_registry, validate_safe_object
 from app.db.session import get_db_session
 from app.models.administrator import Administrator
@@ -119,16 +119,21 @@ class ProviderConnectionService:
         descriptor = provider_registry.require(item.provider_key)
         secrets = data.validated_secrets(descriptor)
         credential_id = uuid4()
-        aad = credential_aad(company_id=item.company_id, connection_id=item.id, credential_id=credential_id, provider_key=item.provider_key, encryption_version=1)
-        ciphertext, nonce = self._encryption.encrypt(secrets, associated_data=aad)
-        return self._repository.create_credential(id=credential_id, company_id=item.company_id, provider_connection_id=item.id, status="active", encrypted_payload=ciphertext, nonce=nonce, encryption_version=1, credential_schema_version=1, rotated_from_credential_id=rotated_from, created_by_administrator_id=actor.id, expires_at=data.expires_at)
+        encrypted = self._encryption.encrypt(
+            secrets,
+            company_id=item.company_id,
+            connection_id=item.id,
+            credential_id=credential_id,
+            provider_key=item.provider_key,
+        )
+        return self._repository.create_credential(id=credential_id, company_id=item.company_id, provider_connection_id=item.id, status="active", encrypted_payload=encrypted.ciphertext, nonce=encrypted.nonce, encryption_version=encrypted.encryption_version, encryption_key_id=encrypted.encryption_key_id, encryption_revision=encrypted.encryption_revision, credential_schema_version=1, rotated_from_credential_id=rotated_from, created_by_administrator_id=actor.id, expires_at=data.expires_at)
 
     def create_credential(self, *, company_id: UUID, connection_id: UUID, data: ProviderCredentialCreate, actor: Administrator) -> ProviderCredential:
         item = self._connection(company_id, connection_id, lock=True)
         if item.status == "revoked" or self._repository.active_credential(company_id=company_id, connection_id=connection_id, for_update=True): raise ProviderLifecycleError
         try:
             credential = self._new_credential(item=item, data=data, actor=actor, rotated_from=None)
-            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_CREATED, resource_id=credential.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(credential.id), "expiration_present": credential.expires_at is not None})
+            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_CREATED, resource_id=credential.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(credential.id), "expiration_present": credential.expires_at is not None, "encryption_version": credential.encryption_version, "encryption_key_id": credential.encryption_key_id, "encryption_revision": credential.encryption_revision})
             self._session.commit(); return credential
         except IntegrityError as exc:
             self._session.rollback(); raise ProviderConflictError from exc
@@ -143,7 +148,7 @@ class ProviderConnectionService:
         try:
             self._repository.save_credential(old)
             new = self._new_credential(item=item, data=data, actor=actor, rotated_from=old.id)
-            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_ROTATED, resource_id=new.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(new.id), "previous_credential_id": str(old.id), "expiration_present": new.expires_at is not None})
+            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_ROTATED, resource_id=new.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(new.id), "previous_credential_id": str(old.id), "expiration_present": new.expires_at is not None, "encryption_version": new.encryption_version, "encryption_key_id": new.encryption_key_id, "encryption_revision": new.encryption_revision})
             self._session.commit(); return new
         except Exception:
             self._session.rollback(); raise
@@ -171,9 +176,24 @@ class ProviderConnectionService:
         now = datetime.now(UTC)
         if company is None or not company.is_active or company.status != "active" or item.provider_key != provider_key or provider_registry.get(provider_key) is None or item.status != "active" or credential is None or credential.status != "active" or (credential.expires_at is not None and credential.expires_at <= now):
             raise ProviderCredentialError
-        aad = credential_aad(company_id=company_id, connection_id=connection_id, credential_id=credential.id, provider_key=provider_key, encryption_version=credential.encryption_version)
-        return ResolvedProviderCredential(item, credential, self._encryption.decrypt(credential.encrypted_payload, credential.nonce, associated_data=aad))
+        return ResolvedProviderCredential(
+            item,
+            credential,
+            self._encryption.decrypt(
+                credential.encrypted_payload,
+                credential.nonce,
+                company_id=company_id,
+                connection_id=connection_id,
+                credential_id=credential.id,
+                provider_key=provider_key,
+                encryption_version=credential.encryption_version,
+                encryption_key_id=credential.encryption_key_id,
+            ),
+        )
 
 
 def get_provider_connection_service(session: Annotated[Session, Depends(get_db_session)]) -> ProviderConnectionService:
-    return ProviderConnectionService(ProviderConnectionRepository(session), AuditLogService(AuditLogRepository(session)), session, CredentialEncryptionService(get_settings().credential_encryption_key))
+    keyring = create_legacy_encryption_keyring(
+        get_settings().credential_encryption_key
+    )
+    return ProviderConnectionService(ProviderConnectionRepository(session), AuditLogService(AuditLogRepository(session)), session, CredentialEncryptionService(keyring))

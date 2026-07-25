@@ -81,6 +81,7 @@ for _item in (
     _descriptor("lemlist", "Lemlist", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.send"}),
     _descriptor("instantly", "Instantly", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.send"}),
     _descriptor("smartlead", "Smartlead", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.send"}),
+    _descriptor("local_test_email", "Local Test Email Provider", "email", "none", set(), capabilities={"email.send", "email.read", "email.reply"}),
 ):
     provider_registry.register(_item)
 

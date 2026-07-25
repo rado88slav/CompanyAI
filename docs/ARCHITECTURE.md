@@ -829,3 +829,15 @@ The agent must operate through:
 Provider Execution is a dry-run-only foundation. It uses trusted operation descriptors, company-scoped execution and attempt history, explicit lifecycle states, sanitized payloads and fail-closed live adapters. Approval-required execution reuses the existing Authorization Evaluator and Authorization Usage ledger: the authenticated administrator or agent, exact operation/tool identifier, company scope and provider connection must match an active allow policy, and reservation occurs before an attempt starts. Agents additionally require an exact active Tool Registry grant. Authorization usage finalization, execution state, attempt history and audit events are committed atomically.
 
 Migration `0011_provider_execution` is an applied predecessor of current database head `0013_credential_keyring_contract`. PostgreSQL verification confirmed both execution tables and their restrictive foreign keys, checks, uniqueness constraints and indexes; both tables contain zero rows. The rebuilt backend is healthy and database-ready. Authenticated checks return 22 operations across 8 providers and an empty company-scoped execution page, while OpenAPI exposes 74 total paths including 9 Provider Execution paths. No real provider credential, approval, execution or attempt was created, and no external provider call was made.
+
+## Thin email workflow
+
+The development-only vertical slice is test import → normalized inbound email
+→ manual proposal → exact SHA-256 approval binding → explicit deterministic
+test delivery → audit. States progress from received/draft through
+awaiting-approval and approved/rejected to sent/send-failed. Editing stops after
+submission and unique outbound/execution identities prevent duplicate delivery.
+
+The Local Test Email Provider makes no network call and sends no real email.
+Audit details exclude bodies and credentials. AI generation, live provider
+authentication, HTML, attachments and bulk workflows are not implemented.

@@ -95,10 +95,12 @@ def _execution_service(decision):
     return service, item, SimpleNamespace(id=administrator_id)
 
 
-def test_registry_has_exactly_22_operations_and_eight_providers():
+def test_registry_has_local_test_email_operation():
     items = provider_operation_registry.all()
-    assert len(items) == 22
-    assert {item.provider_key for item in items} == {"retell", "twilio", "telnyx", "microsoft_365", "google_workspace", "lemlist", "instantly", "smartlead"}
+    assert len(items) == 23
+    assert {item.provider_key for item in items} == {"retell", "twilio", "telnyx", "microsoft_365", "google_workspace", "lemlist", "instantly", "smartlead", "local_test_email"}
+    local = provider_operation_registry.require("local_test_email", "send_email")
+    assert local.implemented is True and local.required_credential_status == "not_required"
 
 
 def test_registry_exact_lookup_unknown_and_duplicate_rejection():

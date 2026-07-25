@@ -50,6 +50,13 @@ class ApprovalRepository:
     def create_decision(self, **values: object) -> ApprovalDecision:
         item = ApprovalDecision(**values); self._session.add(item); self._session.flush(); self._session.refresh(item); return item
 
+    def policy_for_request(self, *, company_id: UUID, request_id: UUID) -> AuthorizationPolicy | None:
+        return self._session.scalar(select(AuthorizationPolicy).where(
+            AuthorizationPolicy.company_id == company_id,
+            AuthorizationPolicy.source_approval_request_id == request_id,
+            AuthorizationPolicy.status.in_(("active", "consumed")),
+        ))
+
 
 class AuthorizationRepository:
     def __init__(self, session: Session) -> None:

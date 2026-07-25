@@ -728,3 +728,8 @@ Remaining in Phase 3:
 - audit logging;
 - repeatable development seed automation.
 Provider Execution's dry-run architecture, persistence and Approval Manager integration are implemented and runtime-verified. Approval-required operations use evaluator decisions and atomic usage reservations; agent execution also requires an exact Tool Registry grant. Migration `0011_provider_execution` is an applied predecessor of current database head `0013_credential_keyring_contract`, and both execution tables remain empty. Live adapters, real provider onboarding and external calls remain deferred pending explicit approval.
+
+The first thin email workflow is implemented with unapplied schema-only
+migration `0014_email_workflow`. It validates manual drafting, exact-content
+approval, deterministic local test delivery, idempotency and safe auditing.
+Live mailbox import, AI drafting and real provider sending remain Phase 9 work.

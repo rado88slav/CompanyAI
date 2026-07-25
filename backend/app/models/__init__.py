@@ -41,6 +41,8 @@ __all__ = ["ApprovalDecision", "ApprovalRequest", "AuthorizationPolicy", "Author
 from app.models.tool_registry import AgentToolGrant, AgentToolGrantStatus, CompanyTool, CompanyToolStatus, ToolDefinition, ToolExecutionMode, ToolRiskLevel, ToolStatus
 from app.models.provider_connection import ProviderConnection, ProviderConnectionStatus, ProviderCredential, ProviderCredentialStatus
 from app.models.provider_execution import ProviderExecution, ProviderExecutionAttempt
+from app.models.email import EmailReplyProposal, InboundEmail, OutboundEmail
 
 __all__ += ["AgentToolGrant", "AgentToolGrantStatus", "CompanyTool", "CompanyToolStatus", "ToolDefinition", "ToolExecutionMode", "ToolRiskLevel", "ToolStatus", "ProviderConnection", "ProviderConnectionStatus", "ProviderCredential", "ProviderCredentialStatus"]
 __all__ += ["ProviderExecution", "ProviderExecutionAttempt"]
+__all__ += ["EmailReplyProposal", "InboundEmail", "OutboundEmail"]

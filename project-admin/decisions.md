@@ -315,3 +315,15 @@ The first dashboard foundation uses React, TypeScript, Vite and React Router und
 `GET /api/v1/companies/{company_id}/dashboard/summary` is an authenticated read-only endpoint using the existing active-company context and activity, provider, approval and provider-execution read permissions. One aggregate statement returns company-scoped counts, and one bounded deterministic query returns at most five recent audit events. Explicit schemas expose only service status, readiness, environment, application version, seven counts and the safe audit fields `id`, `actor_type`, `action`, `resource_type`, `resource_id` and `created_at`.
 
 The API never serializes ORM objects directly and excludes audit details, credential identifiers and material, encrypted payloads, nonces, key IDs, keyring metadata, hashes and tokens. It performs no writes, credential decryption, provider execution or external call. Stage 1 adds no migration or Docker Compose change. Live email/call integrations, provider mutations, credential forms, approval actions and execution controls remain out of scope. Dashboard Stage 2 should add explicit company-selection and authentication UX plus richer read-only module views before any operational controls.
+
+## 028 — Thin local-test email workflow
+
+The repository implements authenticated test import, normalized inbound
+persistence, manual reply proposals, exact SHA-256 approval binding, existing
+Approval Manager decisions, explicit deterministic test delivery, provider
+execution history and safe audit events. Dashboard routes `/email`,
+`/email/:emailId`, `/approvals` and `/audit` use company-scoped APIs.
+
+The Local Test Email Provider needs no credential, makes no network call and
+sends no real email. Schema-only migration `0014_email_workflow` follows
+`0013` and remains unapplied. The real database was not queried or modified.

@@ -66,7 +66,27 @@ class UnsupportedProviderAdapter:
     def execute(self, descriptor: ProviderOperationDescriptor, payload: Mapping[str, Any], *, idempotency_key: str) -> dict[str, Any]:
         raise RuntimeError("Live provider execution is not implemented.")
 
+class LocalTestEmailAdapter:
+    """Development-only deterministic email delivery without network access."""
+    name = "local-test-email"
+    def execute(self, descriptor: ProviderOperationDescriptor, payload: Mapping[str, Any], *, idempotency_key: str) -> dict[str, Any]:
+        if payload.get("controlled_failure") is True:
+            raise RuntimeError("Controlled local test delivery failure.")
+        import hashlib
+        return {
+            "provider_message_id": "local-test-" + hashlib.sha256(idempotency_key.encode()).hexdigest()[:24],
+            "delivery": "test",
+        }
+
 provider_operation_registry = ProviderOperationRegistry()
+provider_operation_registry.register(ProviderOperationDescriptor(
+    "local_test_email", "send_email", "Test delivery",
+    "Development-only deterministic email delivery.", "email",
+    ExecutionRisk.HIGH, True, frozenset({ExecutionMode.DRY_RUN}),
+    required_credential_status="not_required",
+    input_fields=frozenset({"recipient_email", "subject", "body", "controlled_failure"}),
+    redaction_fields=frozenset({"body"}), implemented=True,
+))
 for _provider, _ops in {
     "retell": ("list_agents", "get_agent", "create_call"), "twilio": ("list_phone_numbers", "get_call", "create_call"),
     "telnyx": ("list_phone_numbers", "get_call", "create_call"), "microsoft_365": ("list_mailboxes", "send_email"),

@@ -40,6 +40,7 @@ Generated automatically by:
 ./backend/app/api/routes/company_memberships.py
 ./backend/app/api/routes/company_settings.py
 ./backend/app/api/routes/dashboard.py
+./backend/app/api/routes/email.py
 ./backend/app/api/routes/health.py
 ./backend/app/api/routes/provider_connections.py
 ./backend/app/api/routes/provider_execution.py
@@ -70,6 +71,7 @@ Generated automatically by:
 ./backend/app/models/company.py
 ./backend/app/models/company_membership.py
 ./backend/app/models/company_setting.py
+./backend/app/models/email.py
 ./backend/app/models/provider_connection.py
 ./backend/app/models/provider_execution.py
 ./backend/app/models/tool_registry.py
@@ -82,6 +84,7 @@ Generated automatically by:
 ./backend/app/repositories/company_membership.py
 ./backend/app/repositories/company_setting.py
 ./backend/app/repositories/dashboard.py
+./backend/app/repositories/email.py
 ./backend/app/repositories/provider_connection.py
 ./backend/app/repositories/provider_execution.py
 ./backend/app/repositories/tool_registry.py
@@ -95,6 +98,7 @@ Generated automatically by:
 ./backend/app/schemas/company_membership.py
 ./backend/app/schemas/company_setting.py
 ./backend/app/schemas/dashboard.py
+./backend/app/schemas/email.py
 ./backend/app/schemas/provider_connection.py
 ./backend/app/schemas/provider_execution.py
 ./backend/app/schemas/tool_registry.py
@@ -108,6 +112,7 @@ Generated automatically by:
 ./backend/app/services/company_membership.py
 ./backend/app/services/company_setting.py
 ./backend/app/services/dashboard.py
+./backend/app/services/email.py
 ./backend/app/services/provider_connection.py
 ./backend/app/services/provider_execution.py
 ./backend/app/services/tool_registry.py
@@ -127,6 +132,7 @@ Generated automatically by:
 ./backend/migrations/versions/0011_provider_execution.py
 ./backend/migrations/versions/0012_credential_keyring_expand.py
 ./backend/migrations/versions/0013_credential_keyring_contract.py
+./backend/migrations/versions/0014_email_workflow.py
 ./backend/pytest.ini
 ./backend/requirements-dev.txt
 ./backend/requirements.txt
@@ -143,6 +149,7 @@ Generated automatically by:
 ./backend/tests/test_credential_keyring.py
 ./backend/tests/test_dashboard.py
 ./backend/tests/test_database.py
+./backend/tests/test_email_workflow.py
 ./backend/tests/test_health.py
 ./backend/tests/test_migrations.py
 ./backend/tests/test_provider_connections.py
@@ -160,11 +167,17 @@ Generated automatically by:
 ./frontend/package-lock.json
 ./frontend/package.json
 ./frontend/src/App.tsx
+./frontend/src/api/client.ts
 ./frontend/src/api/dashboard.ts
+./frontend/src/api/email.ts
 ./frontend/src/components/MetricCard.tsx
 ./frontend/src/components/StatusBadge.tsx
 ./frontend/src/layouts/AppLayout.tsx
 ./frontend/src/main.tsx
+./frontend/src/pages/ApprovalsPage.tsx
+./frontend/src/pages/AuditPage.tsx
+./frontend/src/pages/EmailDetailPage.tsx
+./frontend/src/pages/EmailInboxPage.tsx
 ./frontend/src/pages/OverviewPage.tsx
 ./frontend/src/pages/PlaceholderPage.tsx
 ./frontend/src/routes/AppRoutes.tsx
@@ -172,6 +185,7 @@ Generated automatically by:
 ./frontend/src/test/App.test.tsx
 ./frontend/src/test/setup.ts
 ./frontend/src/types/dashboard.ts
+./frontend/src/types/email.ts
 ./frontend/tsconfig.app.json
 ./frontend/tsconfig.json
 ./frontend/tsconfig.node.json

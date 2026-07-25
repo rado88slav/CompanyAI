@@ -46,3 +46,5 @@ require_providers_read = require_company_permission(CompanyPermission.PROVIDERS_
 require_providers_manage = require_company_permission(CompanyPermission.PROVIDERS_MANAGE)
 require_provider_executions_read = require_company_permission(CompanyPermission.PROVIDER_EXECUTIONS_READ)
 require_provider_executions_manage = require_company_permission(CompanyPermission.PROVIDER_EXECUTIONS_MANAGE)
+require_emails_read = require_company_permission(CompanyPermission.EMAILS_READ)
+require_emails_write = require_company_permission(CompanyPermission.EMAILS_WRITE)

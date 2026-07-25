@@ -32,7 +32,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0013_credential_keyring_contract"
+        "0014_email_workflow"
     ]
 
 

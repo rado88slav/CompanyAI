@@ -38,6 +38,14 @@ class AuthorizationConditionsV1(BaseModel):
     fixed_timezone: str | None = None
     allowed_recipient_countries: list[str] | None = None
     maximum_followup_index: int | None = Field(default=None, ge=0)
+    payload_schema: Literal["email_reply.v1"] | None = None
+    payload_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_payload_binding(self) -> "AuthorizationConditionsV1":
+        if (self.payload_schema is None) != (self.payload_digest is None):
+            raise ValueError("Payload schema and digest must be provided together.")
+        return self
 
     @field_validator("allowed_weekdays")
     @classmethod

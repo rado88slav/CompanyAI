@@ -20,6 +20,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.tool_registry import router as tool_registry_router
 from app.api.routes.provider_connections import router as provider_connections_router
 from app.api.routes.provider_execution import router as provider_execution_router
+from app.api.routes.email import router as email_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -36,3 +37,4 @@ api_router.include_router(dashboard_router)
 api_router.include_router(tool_registry_router)
 api_router.include_router(provider_connections_router)
 api_router.include_router(provider_execution_router)
+api_router.include_router(email_router)

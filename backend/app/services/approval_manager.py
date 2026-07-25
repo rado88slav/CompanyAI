@@ -59,7 +59,7 @@ class ApprovalManagerService:
         except Exception:
             self._session.rollback(); raise
 
-    def create_request(self, *, company_id: UUID, actor: Administrator, payload: ApprovalRequestCreate) -> ApprovalRequest:
+    def create_request(self, *, company_id: UUID, actor: Administrator, payload: ApprovalRequestCreate, commit: bool = True) -> ApprovalRequest:
         key = _dedup(company_id, actor.id, payload)
         existing = self._approvals.get_pending_by_dedup(company_id=company_id, deduplication_key=key)
         if existing is not None: return existing
@@ -68,7 +68,7 @@ class ApprovalManagerService:
             item = self._approvals.create_request(company_id=company_id, requester_type="administrator", requester_administrator_id=actor.id, requester_agent_id=None, authorization_mode=payload.authorization_mode.value, action_type=payload.action_type, tool_identifier=payload.tool_identifier, risk_level=effective.value, scope_type=payload.scope_type, scope_id=payload.scope_id, target_resource_type=payload.target_resource_type, target_resource_id=payload.target_resource_id, campaign_id=payload.campaign_id, batch_id=payload.batch_id, contact_list_id=payload.contact_list_id, provider_connection_id=payload.provider_connection_id, requested_limits=_json(payload.requested_limits), requested_conditions=_json(payload.requested_conditions), reason=payload.reason, deduplication_key=key, decision_due_at=payload.decision_due_at)
             self._audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.APPROVAL_REQUEST_CREATED.value, resource_type="approval_request", resource_id=item.id, details={"action_type": item.action_type, "risk_level": item.risk_level, "authorization_mode": item.authorization_mode})
             return item
-        return self._atomic(operation)
+        return self._atomic(operation) if commit else operation()
 
     def _expire(self, item: ApprovalRequest, *, actor_id: UUID) -> ApprovalRequest:
         now = datetime.now(UTC)
@@ -115,7 +115,7 @@ class ApprovalManagerService:
         if approved.get("expires_at") and requested.get("expires_at") and approved["expires_at"] > requested["expires_at"]:
             raise ApprovalValidationError
 
-    def approve(self, *, company_id: UUID, request_id: UUID, actor: Administrator, actor_role: str | None, payload: ApprovalDecisionCreate):
+    def approve(self, *, company_id: UUID, request_id: UUID, actor: Administrator, actor_role: str | None, payload: ApprovalDecisionCreate, commit: bool = True):
         request = self._approvals.get_request(company_id=company_id, request_id=request_id, for_update=True)
         if request is None: raise ApprovalNotFoundError
         if request.status != "pending": raise ApprovalConflictError
@@ -133,9 +133,9 @@ class ApprovalManagerService:
             self._audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.APPROVAL_REQUEST_APPROVED.value, resource_type="approval_request", resource_id=request.id, details={"decision_id": str(decision.id), "policy_id": str(policy.id), "authorization_mode": mode_value})
             self._audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.AUTHORIZATION_POLICY_CREATED.value, resource_type="authorization_policy", resource_id=policy.id, details={"source_type": "approval_decision", "effect": "allow"})
             return request
-        return self._atomic(operation)
+        return self._atomic(operation) if commit else operation()
 
-    def deny(self, *, company_id: UUID, request_id: UUID, actor: Administrator, actor_role: str | None, reason: str | None):
+    def deny(self, *, company_id: UUID, request_id: UUID, actor: Administrator, actor_role: str | None, reason: str | None, commit: bool = True):
         request = self._approvals.get_request(company_id=company_id, request_id=request_id, for_update=True)
         if request is None: raise ApprovalNotFoundError
         if request.status != "pending": raise ApprovalConflictError
@@ -145,7 +145,7 @@ class ApprovalManagerService:
             self._approvals.set_request_status(request, "denied")
             self._audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.APPROVAL_REQUEST_DENIED.value, resource_type="approval_request", resource_id=request.id, details={"reason_code": "administrator_denied"})
             return request
-        return self._atomic(operation)
+        return self._atomic(operation) if commit else operation()
 
     def cancel(self, *, company_id: UUID, request_id: UUID, actor: Administrator, may_cancel_any: bool):
         request = self._approvals.get_request(company_id=company_id, request_id=request_id, for_update=True)

@@ -92,7 +92,8 @@ class ProviderConnectionService:
         action = {"active": AuditAction.PROVIDER_CONNECTION_ACTIVATED, "inactive": AuditAction.PROVIDER_CONNECTION_DEACTIVATED, "revoked": AuditAction.PROVIDER_CONNECTION_REVOKED}[target]
         if target == "active":
             credential = self._repository.active_credential(company_id=company_id, connection_id=connection_id, for_update=True)
-            if credential is None or (credential.expires_at is not None and credential.expires_at <= now): raise ProviderLifecycleError
+            descriptor = provider_registry.require(item.provider_key)
+            if descriptor.required_secret_fields and (credential is None or (credential.expires_at is not None and credential.expires_at <= now)): raise ProviderLifecycleError
             item.status, item.activated_at, item.activated_by_administrator_id = target, now, actor.id
             item.deactivated_at = item.deactivated_by_administrator_id = None
         elif target == "inactive":

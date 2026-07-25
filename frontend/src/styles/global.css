@@ -8,6 +8,29 @@
   text-rendering: optimizeLegibility;
 }
 
+.module-page { display: grid; gap: 1.5rem; }
+.page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.page-heading h1, .page-heading h2 { margin: 0; }
+.eyebrow { color: #6f6b63; font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.state-card, .message-card, .workflow-card { background: #fff; border: 1px solid #ddd8ce; border-radius: 14px; padding: 1.4rem; }
+.table-wrap { overflow-x: auto; background: #fff; border: 1px solid #ddd8ce; border-radius: 14px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: .9rem 1rem; border-bottom: 1px solid #eee9df; text-align: left; vertical-align: top; }
+td small { display: block; color: #777168; margin-top: .2rem; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.55; }
+.workflow-card { display: grid; gap: 1rem; }
+.workflow-card label { display: grid; gap: .4rem; font-weight: 650; }
+.workflow-card input, .workflow-card textarea { border: 1px solid #bbb4a8; border-radius: 8px; padding: .75rem; font: inherit; }
+.actions { display: flex; flex-wrap: wrap; gap: .7rem; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+.danger { background: #7c2d2d; color: white; }
+.status-pill { background: #eee9df; border-radius: 999px; padding: .35rem .7rem; text-transform: capitalize; }
+.approval-grid { display: grid; gap: 1rem; }
+.hint { background: #fff6d8; border-radius: 8px; padding: .8rem; }
+.success { color: #17653a; }
+.error-text, .state-card.error { color: #8a2525; }
+
 * {
   box-sizing: border-box;
 }

@@ -93,6 +93,12 @@ class AuditAction(StrEnum):
     PROVIDER_EXECUTION_SUCCEEDED = "provider_execution.succeeded"
     PROVIDER_EXECUTION_FAILED = "provider_execution.failed"
     PROVIDER_EXECUTION_CANCELLED = "provider_execution.cancelled"
+    EMAIL_IMPORTED = "email.imported"
+    EMAIL_REPLY_DRAFTED = "email_reply.drafted"
+    EMAIL_REPLY_UPDATED = "email_reply.updated"
+    EMAIL_REPLY_SUBMITTED = "email_reply.submitted"
+    EMAIL_REPLY_SENT = "email_reply.sent"
+    EMAIL_REPLY_SEND_FAILED = "email_reply.send_failed"
 
 
 class AuditLog(Base):

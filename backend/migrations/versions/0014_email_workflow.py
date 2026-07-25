@@ -14,6 +14,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    op.create_unique_constraint(
+        "uq_approval_requests_company_id",
+        "approval_requests",
+        ["company_id", "id"],
+    )
     op.create_table(
         "inbound_emails",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -58,7 +63,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("approval_request_id", name="uq_email_reply_proposals_approval"),
         sa.ForeignKeyConstraint(["company_id"], ["companies.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["company_id", "inbound_email_id"], ["inbound_emails.company_id", "inbound_emails.id"], name="fk_email_reply_proposals_inbound", ondelete="RESTRICT"),
-        sa.ForeignKeyConstraint(["approval_request_id"], ["approval_requests.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["company_id", "approval_request_id"], ["approval_requests.company_id", "approval_requests.id"], name="fk_email_reply_proposals_company_approval", ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["created_by_administrator_id"], ["administrators.id"], ondelete="RESTRICT"),
         sa.CheckConstraint("status IN ('draft','awaiting_approval','approved','rejected','sent','send_failed')", name="ck_email_reply_proposals_status"),
         sa.CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="ck_email_reply_proposals_digest"),
@@ -87,7 +92,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["company_id", "provider_execution_id"], ["provider_executions.company_id", "provider_executions.id"], name="fk_outbound_emails_execution", ondelete="RESTRICT"),
         sa.CheckConstraint("status IN ('pending','sent','failed')", name="ck_outbound_emails_status"),
         sa.CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="ck_outbound_emails_digest"),
-        sa.CheckConstraint("(status='sent' AND provider_message_id IS NOT NULL AND sent_at IS NOT NULL) OR status<>'sent'", name="ck_outbound_emails_sent_result"),
+        sa.CheckConstraint("(status='sent' AND provider_message_id IS NOT NULL AND sent_at IS NOT NULL) OR (status<>'sent' AND provider_message_id IS NULL AND sent_at IS NULL)", name="ck_outbound_emails_sent_result"),
     )
     op.create_index("ix_outbound_emails_company_status", "outbound_emails", ["company_id", "status"])
 
@@ -100,3 +105,8 @@ def downgrade() -> None:
     op.drop_index("ix_inbound_emails_company_status", table_name="inbound_emails")
     op.drop_index("ix_inbound_emails_company_received_id", table_name="inbound_emails")
     op.drop_table("inbound_emails")
+    op.drop_constraint(
+        "uq_approval_requests_company_id",
+        "approval_requests",
+        type_="unique",
+    )

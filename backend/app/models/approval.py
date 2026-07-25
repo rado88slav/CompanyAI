@@ -75,6 +75,7 @@ MODES_SQL = "'ask_every_time','approve_single_action','approve_batch','approve_c
 class ApprovalRequest(Base):
     __tablename__ = "approval_requests"
     __table_args__ = (
+        UniqueConstraint("company_id", "id", name="uq_approval_requests_company_id"),
         CheckConstraint("requester_type IN ('administrator','agent','system')", name="ck_approval_requests_requester_type"),
         CheckConstraint("(requester_type='administrator' AND requester_administrator_id IS NOT NULL AND requester_agent_id IS NULL) OR (requester_type='agent' AND requester_agent_id IS NOT NULL AND requester_administrator_id IS NULL) OR (requester_type='system' AND requester_administrator_id IS NULL AND requester_agent_id IS NULL)", name="ck_approval_requests_requester_identity"),
         CheckConstraint(f"authorization_mode IN ({MODES_SQL})", name="ck_approval_requests_mode"),

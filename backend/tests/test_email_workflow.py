@@ -4,10 +4,13 @@ from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import CheckConstraint
 
 from app.core.company_permissions import CompanyPermission, role_has_permission
 from app.core.provider_execution import LocalTestEmailAdapter, provider_operation_registry
 from app.models.company_membership import CompanyRole
+from app.models.approval import ApprovalRequest
+from app.models.email import EmailReplyProposal, OutboundEmail
 from app.schemas.approval import AuthorizationConditionsV1
 from app.schemas.email import ReplyProposalWrite, TestInboundEmailImport as InboundImportSchema
 from app.services.email import content_digest, reply_subject
@@ -59,3 +62,40 @@ def test_email_openapi_routes_are_registered():
     paths = app.openapi()["paths"]
     for path in ("/api/v1/companies/{company_id}/emails/test-import", "/api/v1/companies/{company_id}/emails", "/api/v1/companies/{company_id}/emails/{email_id}", "/api/v1/companies/{company_id}/emails/{email_id}/reply-proposals", "/api/v1/companies/{company_id}/reply-proposals/{proposal_id}", "/api/v1/companies/{company_id}/reply-proposals/{proposal_id}/submit", "/api/v1/companies/{company_id}/reply-proposals/{proposal_id}/send", "/api/v1/companies/{company_id}/email-approvals"):
         assert path in paths
+
+
+def test_email_schema_uses_company_scoped_approval_foreign_key():
+    approval_unique = {
+        constraint.name: tuple(column.name for column in constraint.columns)
+        for constraint in ApprovalRequest.__table__.constraints
+        if constraint.name
+    }
+    assert approval_unique["uq_approval_requests_company_id"] == ("company_id", "id")
+
+    proposal_foreign_keys = {
+        constraint.name: (
+            tuple(element.parent.name for element in constraint.elements),
+            tuple(element.target_fullname for element in constraint.elements),
+            constraint.ondelete,
+        )
+        for constraint in EmailReplyProposal.__table__.foreign_key_constraints
+    }
+    assert proposal_foreign_keys["fk_email_reply_proposals_company_approval"] == (
+        ("company_id", "approval_request_id"),
+        ("approval_requests.company_id", "approval_requests.id"),
+        "RESTRICT",
+    )
+    assert all(
+        targets != ("approval_requests.id",)
+        for _columns, targets, _ondelete in proposal_foreign_keys.values()
+    )
+
+
+def test_outbound_sent_state_constraint_is_fail_closed():
+    constraints = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in OutboundEmail.__table__.constraints
+        if isinstance(constraint, CheckConstraint) and constraint.name
+    }
+    sent = constraints["ck_outbound_emails_sent_result"]
+    assert "status<>'sent' AND provider_message_id IS NULL AND sent_at IS NULL" in sent

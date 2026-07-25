@@ -685,6 +685,9 @@ def test_approval_manager_static_snapshot_matches_orm(monkeypatch) -> None:
 
         named_types = (CheckConstraint, UniqueConstraint)
         orm_constraints = {item.name for item in orm_table.constraints if isinstance(item, named_types) and item.name}
+        if model is ApprovalRequest:
+            # Added later by unapplied migration 0014 for company-scoped email approval FKs.
+            orm_constraints.discard("uq_approval_requests_company_id")
         migration_constraints = {item.name for item in migration_table.constraints if isinstance(item, named_types) and item.name}
         assert migration_constraints == orm_constraints
 

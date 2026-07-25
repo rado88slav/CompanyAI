@@ -41,6 +41,7 @@ class EmailReplyProposal(Base):
         UniqueConstraint("company_id", "inbound_email_id", name="uq_email_reply_proposals_inbound"),
         UniqueConstraint("approval_request_id", name="uq_email_reply_proposals_approval"),
         ForeignKeyConstraint(["company_id", "inbound_email_id"], ["inbound_emails.company_id", "inbound_emails.id"], name="fk_email_reply_proposals_inbound", ondelete="RESTRICT"),
+        ForeignKeyConstraint(["company_id", "approval_request_id"], ["approval_requests.company_id", "approval_requests.id"], name="fk_email_reply_proposals_company_approval", ondelete="RESTRICT"),
         CheckConstraint("status IN ('draft','awaiting_approval','approved','rejected','sent','send_failed')", name="ck_email_reply_proposals_status"),
         CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="ck_email_reply_proposals_digest"),
         Index("ix_email_reply_proposals_company_status", "company_id", "status"),
@@ -53,7 +54,7 @@ class EmailReplyProposal(Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
     content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft", server_default="draft")
-    approval_request_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("approval_requests.id", ondelete="RESTRICT"))
+    approval_request_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
     created_by_administrator_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("administrators.id", ondelete="RESTRICT"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -69,7 +70,7 @@ class OutboundEmail(Base):
         ForeignKeyConstraint(["company_id", "provider_execution_id"], ["provider_executions.company_id", "provider_executions.id"], name="fk_outbound_emails_execution", ondelete="RESTRICT"),
         CheckConstraint("status IN ('pending','sent','failed')", name="ck_outbound_emails_status"),
         CheckConstraint("content_sha256 ~ '^[0-9a-f]{64}$'", name="ck_outbound_emails_digest"),
-        CheckConstraint("(status='sent' AND provider_message_id IS NOT NULL AND sent_at IS NOT NULL) OR status<>'sent'", name="ck_outbound_emails_sent_result"),
+        CheckConstraint("(status='sent' AND provider_message_id IS NOT NULL AND sent_at IS NOT NULL) OR (status<>'sent' AND provider_message_id IS NULL AND sent_at IS NULL)", name="ck_outbound_emails_sent_result"),
         Index("ix_outbound_emails_company_status", "company_id", "status"),
     )
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)

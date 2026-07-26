@@ -424,3 +424,25 @@ not-provisioned capabilities are clearly marked as limited instead of being
 presented as live services. There are no mutation controls, provider writes,
 real email sends, campaign launches, phone calls, paid actions, external AI
 calls, arbitrary shell access or arbitrary HTTP tools.
+
+## 034 — Built-in Documentation Center
+
+CompanyAI now treats product documentation as part of the dashboard, not as an
+external manual. The protected `/documentation` route provides a SaaS-style
+reader with a left article tree, central article view, table of contents,
+search, previous/next navigation, copy-link affordance, reading progress and
+responsive layout.
+
+Documentation content lives outside React components in Markdown source files
+under `frontend/src/docs-ui/`, one file per supported language: Bulgarian,
+English, German and French. A typed content parser builds article metadata,
+headings, related links and the client-side search index. The renderer does
+not execute raw HTML; it renders a constrained Markdown subset with headings,
+lists, code styling and controlled Info, Warning, Tip and Note admonitions.
+
+Every current dashboard module has an initial professional article: Getting
+Started, Dashboard, Companies, Providers, Agent, Email Campaigns, Approvals,
+Activity Center, System Status, Security, FAQ and Release Notes. Providers,
+Agent and Email pages link directly to the relevant documentation article.
+Future user-visible features must update the Documentation Center before that
+feature is considered complete.

@@ -19,7 +19,7 @@ export function EmailInboxPage() {
   }, []);
   useEffect(load, [load]);
   return <section className="module-page">
-    <div className="page-heading"><div><p className="eyebrow">Email</p><h1>Inbound email</h1><p>Company-scoped messages imported for the local test workflow.</p></div><button onClick={load} disabled={state === "loading"}>Refresh</button></div>
+    <div className="page-heading page-heading--split"><div><p className="eyebrow">Email</p><h1>Inbound email</h1><p>Company-scoped messages imported for the local test workflow.</p></div><div className="heading-actions"><Link className="button button--light" to="/documentation/email-campaigns">Email Campaign Guide</Link><button onClick={load} disabled={state === "loading"}>Refresh</button></div></div>
     {state === "loading" && <div className="state-card">Loading inbound email…</div>}
     {state === "error" && <div className="state-card error"><h2>Inbox unavailable</h2><button onClick={load}>Retry</button></div>}
     {state === "ready" && items.length === 0 && <div className="state-card"><h2>No imported email</h2><p>Use the authenticated test-import API to add one development message.</p></div>}

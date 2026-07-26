@@ -237,7 +237,7 @@ test("renders protected System Status health indicators", async () => {
 
   expect(await screen.findByRole("heading", { name: "Operational health without the noise." })).toBeInTheDocument();
   expect(screen.getAllByText("Company Test").length).toBeGreaterThan(0);
-  expect(screen.getByRole("heading", { name: "Backend" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Backend" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Database" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Lemlist" })).toBeInTheDocument();
   expect(screen.getByText("No call placement or paid telephony action is enabled")).toBeInTheDocument();
@@ -248,6 +248,32 @@ test("renders protected System Status health indicators", async () => {
       headers: expect.objectContaining({ "X-Company-ID": "company-id" }),
     }),
   );
+});
+
+test("renders Documentation Center, switches language, searches and navigates articles", async () => {
+  setToken();
+  await authenticatedFetchMock();
+  window.history.pushState({}, "", "/documentation/providers");
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Learn CompanyAI without leaving the dashboard." })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Providers" })).toBeInTheDocument();
+  expect(screen.getByText("On this page")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Language"), { target: { value: "bg" } });
+  expect(await screen.findByRole("heading", { name: "Providers" })).toBeInTheDocument();
+  expect(screen.getAllByText("Интеграции").length).toBeGreaterThan(0);
+  expect(sessionStorage.getItem("companyai.docsLanguage")).toBe("bg");
+
+  fireEvent.change(screen.getByLabelText("Search documentation"), { target: { value: "approval" } });
+  expect(await screen.findByRole("heading", { name: "Search results" })).toBeInTheDocument();
+  const approvalsDocLink = screen.getAllByRole("link", { name: /Approvals/i }).find((link) => (
+    link.getAttribute("href") === "/documentation/approvals"
+  ));
+  expect(approvalsDocLink).toBeDefined();
+  fireEvent.click(approvalsDocLink!);
+  expect(await screen.findByRole("heading", { name: "Approvals" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Next:/ })).toBeInTheDocument();
 });
 
 test("company selector changes the active company for protected requests", async () => {
@@ -308,6 +334,7 @@ test("renders agent runtime tools and structured read-only result", async () => 
   render(<App />);
 
   expect(await screen.findByRole("heading", { name: "Agent Activity" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "How Agent works" })).toHaveAttribute("href", "/documentation/agent");
   expect(screen.getByText("List mock email campaigns")).toBeInTheDocument();
   fireEvent.click(screen.getAllByRole("button", { name: "Run read-only tool" })[0]);
   expect(await screen.findByText("dashboard.summary.read")).toBeInTheDocument();
@@ -367,6 +394,7 @@ test("renders provider connections from safe catalog and company data", async ()
   render(<App />);
 
   expect(await screen.findByRole("heading", { name: "Provider Connections" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Learn more" })).toHaveAttribute("href", "/documentation/providers");
   expect(screen.getAllByText("Local Test Email").length).toBeGreaterThan(0);
   expect(screen.getAllByText("email.send").length).toBeGreaterThan(0);
   expect(document.body.textContent?.toLowerCase()).not.toContain("secret");
@@ -394,6 +422,7 @@ test("renders inbox empty state and refresh", async () => {
   window.history.pushState({}, "", "/email");
   render(<App />);
   expect(await screen.findByRole("heading", { name: "No imported email" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Email Campaign Guide" })).toHaveAttribute("href", "/documentation/email-campaigns");
   expect(screen.getByText("Welcome sequence")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
 });

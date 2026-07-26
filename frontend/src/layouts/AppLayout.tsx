@@ -26,6 +26,7 @@ const navigation = [
   { to: "/calls", label: "Call Operations", icon: "C" },
   { to: "/approvals", label: "Approvals", icon: "Q" },
   { to: "/audit", label: "Audit Log", icon: "L" },
+  { to: "/documentation", label: "Documentation", icon: "D" },
   { to: "/settings", label: "Settings", icon: "S" },
 ];
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { agentRuntimeApi } from "../api/agentRuntime";
 import type { AgentRuntimeResult, AgentRuntimeTool } from "../types/agentRuntime";
@@ -90,9 +91,12 @@ export function AgentRuntimePage() {
           <h1>Agent Activity</h1>
           <p>Run deterministic internal tools through the controlled runtime boundary.</p>
         </div>
-        <button className="button" type="button" onClick={() => void load()}>
-          Refresh
-        </button>
+        <div className="heading-actions">
+          <Link className="button button--light" to="/documentation/agent">How Agent works</Link>
+          <button className="button" type="button" onClick={() => void load()}>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && <p role="alert" className="error-text">{error}</p>}

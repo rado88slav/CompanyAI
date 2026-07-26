@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { fetchProviderConnections, fetchProviderTypes } from "../api/providers";
 import type { ProviderConnection, ProviderDescriptor } from "../types/provider";
@@ -91,9 +92,12 @@ export function ProviderConnectionsPage() {
           <h1>Provider Connections</h1>
           <p>Review configured adapters and safe catalog metadata for this company.</p>
         </div>
-        <button className="button" type="button" onClick={() => void load()}>
-          Refresh
-        </button>
+        <div className="heading-actions">
+          <Link className="button button--light" to="/documentation/providers">Learn more</Link>
+          <button className="button" type="button" onClick={() => void load()}>
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="metrics-grid">

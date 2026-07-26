@@ -11,6 +11,7 @@ import { AgentRuntimePage } from "../pages/AgentRuntimePage";
 import { ProviderConnectionsPage } from "../pages/ProviderConnectionsPage";
 import { ActivityCenterPage } from "../pages/ActivityCenterPage";
 import { SystemStatusPage } from "../pages/SystemStatusPage";
+import { DocumentationCenterPage } from "../pages/DocumentationCenterPage";
 
 const placeholders = [
   ["/calls", "Call Operations", "Coordinate calling platforms in a future stage."],
@@ -28,6 +29,8 @@ export function AppRoutes() {
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/activity" element={<ActivityCenterPage />} />
         <Route path="/system-status" element={<SystemStatusPage />} />
+        <Route path="/documentation" element={<DocumentationCenterPage />} />
+        <Route path="/documentation/:slug" element={<DocumentationCenterPage />} />
         <Route path="/audit" element={<AuditPage />} />
         <Route path="/providers" element={<ProviderConnectionsPage />} />
         {placeholders.map(([path, title, description]) => (

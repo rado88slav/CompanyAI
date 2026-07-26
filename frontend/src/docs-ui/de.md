@@ -12,7 +12,8 @@ CompanyAI ist ein unternehmensbezogenes Operations-Dashboard. Melden Sie sich mi
 1. Öffnen Sie das Dashboard und melden Sie sich an.
 2. Wählen Sie das aktive Unternehmen in der oberen Leiste.
 3. Nutzen Sie die Seitenleiste für Overview, Activity, System Status, Providers, Agent, Email, Approvals oder Documentation.
-4. Verwenden Sie Logout, wenn Sie den Arbeitsplatz verlassen.
+4. Nutzen Sie den Breadcrumb Trail in der oberen Leiste, um Ihre Position zu bestätigen.
+5. Verwenden Sie Logout, wenn Sie den Arbeitsplatz verlassen.
 > [!TIP] Ist ein gespeichertes Unternehmen nicht mehr verfügbar, wählt CompanyAI ein sicher zugängliches Unternehmen.
 > [!WARNING] Teilen Sie niemals Passwörter, Tokens oder kopierte Browser-Speicherwerte.
 ## Häufige Fehler
@@ -242,6 +243,7 @@ related: dashboard,activity-center,system-status
 - Activity Center wurde als normalized read-only Timeline ergänzt.
 - System Status wurde für Health Indicators only ergänzt.
 - Documentation Center wurde als multilingual built-in help system ergänzt.
+- Breadcrumb Navigation wurde zur protected dashboard shell ergänzt.
 ## Safety Posture
 - Keine realen E-Mail-Sends.
 - Keine Campaign Launches.

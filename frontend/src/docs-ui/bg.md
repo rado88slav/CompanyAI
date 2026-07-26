@@ -12,7 +12,8 @@ CompanyAI е оперативен dashboard с изолация по компа�
 1. Отворете dashboard-а и влезте.
 2. Изберете активна компания от горната лента.
 3. Използвайте лявата навигация за Overview, Activity, System Status, Providers, Agent, Email, Approvals или Documentation.
-4. Използвайте Logout, когато приключите.
+4. Използвайте breadcrumbs в горната лента, за да потвърдите къде се намирате.
+5. Използвайте Logout, когато приключите.
 > [!TIP] Ако запазена компания вече не е достъпна, CompanyAI избира първата компания, до която имате право.
 > [!WARNING] Не споделяйте пароли, tokens или стойности от browser storage.
 ## Чести грешки
@@ -242,6 +243,7 @@ related: dashboard,activity-center,system-status
 - Activity Center е добавен като normalized read-only timeline.
 - System Status е добавен за health indicators only.
 - Documentation Center е добавен като multilingual built-in help system.
+- Breadcrumb navigation е добавена към protected dashboard shell.
 ## Safety posture
 - Няма real email sends.
 - Няма campaign launches.

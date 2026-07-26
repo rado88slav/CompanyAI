@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -30,6 +30,25 @@ const navigation = [
   { to: "/settings", label: "Settings", icon: "S" },
 ];
 
+const sectionLabels: Record<string, string> = {
+  activity: "Activity",
+  agent: "Agent Activity",
+  approvals: "Approvals",
+  audit: "Audit Log",
+  calls: "Call Operations",
+  documentation: "Documentation",
+  email: "Email Operations",
+  providers: "Provider Connections",
+  settings: "Settings",
+  "system-status": "System Status",
+};
+
+function titleFromSlug(value: string): string {
+  return value.split("-").filter(Boolean).map((part) => (
+    part.charAt(0).toUpperCase() + part.slice(1)
+  )).join(" ");
+}
+
 type SessionState =
   | { status: "bootstrapping" }
   | { status: "anonymous"; message?: string }
@@ -43,6 +62,7 @@ type SessionState =
     };
 
 export function AppLayout() {
+  const location = useLocation();
   const [session, setSession] = useState<SessionState>({
     status: "bootstrapping",
   });
@@ -160,6 +180,17 @@ export function AppLayout() {
     if (session.status !== "authenticated") return null;
     return session.companies.find((item) => item.company.id === session.activeCompanyId) ?? null;
   }, [session]);
+  const breadcrumbs = useMemo(() => {
+    const segments = location.pathname.split("/").filter(Boolean);
+    if (segments.length === 0) return [{ label: "Overview", to: "/" }];
+    return segments.map((segment, index) => {
+      const to = `/${segments.slice(0, index + 1).join("/")}`;
+      return {
+        label: sectionLabels[segment] ?? titleFromSlug(segment),
+        to,
+      };
+    });
+  }, [location.pathname]);
 
   return (
     <div className="app-shell">
@@ -204,6 +235,16 @@ export function AppLayout() {
                 ? activeCompany.company.name
                 : "Observe systems after selecting an authorized company."}
             </p>
+            <nav className="breadcrumbs" aria-label="Breadcrumb">
+              <Link to="/">Overview</Link>
+              {breadcrumbs[0]?.to !== "/" && breadcrumbs.map((item, index) => (
+                index === breadcrumbs.length - 1 ? (
+                  <span aria-current="page" key={item.to}>{item.label}</span>
+                ) : (
+                  <Link to={item.to} key={item.to}>{item.label}</Link>
+                )
+              ))}
+            </nav>
           </div>
           <div className="topbar__actions">
             {session.status === "authenticated" && (

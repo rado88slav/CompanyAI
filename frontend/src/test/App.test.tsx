@@ -259,6 +259,10 @@ test("renders Documentation Center, switches language, searches and navigates ar
   expect(await screen.findByRole("heading", { name: "Learn CompanyAI without leaving the dashboard." })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Providers" })).toBeInTheDocument();
   expect(screen.getByText("On this page")).toBeInTheDocument();
+  const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+  expect(breadcrumb).toHaveTextContent("Overview");
+  expect(breadcrumb).toHaveTextContent("Documentation");
+  expect(breadcrumb).toHaveTextContent("Provider Connections");
 
   fireEvent.change(screen.getByLabelText("Language"), { target: { value: "bg" } });
   expect(await screen.findByRole("heading", { name: "Providers" })).toBeInTheDocument();

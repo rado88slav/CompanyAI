@@ -446,3 +446,15 @@ Activity Center, System Status, Security, FAQ and Release Notes. Providers,
 Agent and Email pages link directly to the relevant documentation article.
 Future user-visible features must update the Documentation Center before that
 feature is considered complete.
+
+## 035 — Dashboard Breadcrumb Navigation
+
+The protected dashboard shell now shows a compact breadcrumb trail in the top
+bar. Breadcrumbs are derived from the current route, keep Overview as the root,
+and provide additional orientation for nested pages such as Documentation
+articles without introducing page-specific backend dependencies.
+
+The breadcrumb change is presentation-only. It does not change authentication,
+active-company selection, authorization, provider behavior, email behavior,
+agent runtime access or any mutation boundary. The Documentation Center was
+updated in the same slice because navigation changes are user-visible.

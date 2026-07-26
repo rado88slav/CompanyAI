@@ -12,7 +12,8 @@ CompanyAI is a company-scoped operations dashboard. Start by signing in with an 
 1. Open the dashboard and sign in.
 2. Choose the active company from the top bar.
 3. Use the sidebar to open Overview, Activity, System Status, Providers, Agent, Email, Approvals or Documentation.
-4. Use Logout when you leave the workstation.
+4. Use the breadcrumb trail in the top bar to confirm where you are.
+5. Use Logout when you leave the workstation.
 > [!TIP] If a saved company is no longer available, CompanyAI selects the first company you can access.
 > [!WARNING] Never share passwords, tokens or copied browser storage values.
 ## Common mistakes
@@ -242,6 +243,7 @@ related: dashboard,activity-center,system-status
 - Activity Center added as a normalized read-only timeline.
 - System Status added for health indicators only.
 - Documentation Center added as a multilingual built-in help system.
+- Breadcrumb navigation added to the protected dashboard shell.
 ## Safety posture
 - No real email sends.
 - No campaign launches.

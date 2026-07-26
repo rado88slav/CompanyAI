@@ -12,7 +12,8 @@ CompanyAI est un tableau de bord opérationnel isolé par société. Connectez-v
 1. Ouvrez le dashboard et connectez-vous.
 2. Choisissez la société active dans la barre supérieure.
 3. Utilisez la navigation gauche pour Overview, Activity, System Status, Providers, Agent, Email, Approvals ou Documentation.
-4. Utilisez Logout lorsque vous quittez le poste.
+4. Utilisez le fil d’Ariane dans la barre supérieure pour confirmer votre position.
+5. Utilisez Logout lorsque vous quittez le poste.
 > [!TIP] Si une société enregistrée n’est plus disponible, CompanyAI sélectionne une société accessible.
 > [!WARNING] Ne partagez jamais mots de passe, tokens ou valeurs copiées du stockage navigateur.
 ## Erreurs fréquentes
@@ -242,6 +243,7 @@ related: dashboard,activity-center,system-status
 - Activity Center ajouté comme normalized read-only timeline.
 - System Status ajouté pour health indicators only.
 - Documentation Center ajouté comme multilingual built-in help system.
+- Fil d’Ariane ajouté au protected dashboard shell.
 ## Safety posture
 - Aucun real email send.
 - Aucun campaign launch.

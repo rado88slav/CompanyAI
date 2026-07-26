@@ -5,8 +5,9 @@ import io
 from fastapi.testclient import TestClient
 
 from app.api.routes.first_run import get_db_session
-from app.cli.bootstrap_first_run import FirstRunBootstrapInput, main
+from app.cli.bootstrap_first_run import main
 from app.main import app
+from app.schemas.first_run import FirstRunInitializeRequest
 
 
 class FakeScalarSession:
@@ -31,7 +32,7 @@ def test_first_run_status_reports_setup_required_without_secrets():
         "setup_required": True,
         "administrator_count": 0,
         "company_count": 0,
-        "bootstrap_method": "local_cli",
+        "bootstrap_method": "local_wizard",
     }
     assert "token" not in str(body).lower()
     assert "password" not in str(body).lower()
@@ -39,6 +40,7 @@ def test_first_run_status_reports_setup_required_without_secrets():
 
 def test_first_run_openapi_route_is_registered():
     assert "/api/v1/first-run/status" in app.openapi()["paths"]
+    assert "/api/v1/first-run/initialize" in app.openapi()["paths"]
 
 
 def test_first_run_bootstrap_input_requires_strong_password(monkeypatch, capsys):
@@ -66,7 +68,7 @@ def test_first_run_bootstrap_input_requires_strong_password(monkeypatch, capsys)
 
 
 def test_first_run_bootstrap_input_accepts_valid_payload():
-    item = FirstRunBootstrapInput(
+    item = FirstRunInitializeRequest(
         company_name="HVAC Company",
         company_slug="hvac-company",
         administrator_email="OWNER@example.test",
@@ -77,4 +79,22 @@ def test_first_run_bootstrap_input_accepts_valid_payload():
     )
 
     assert item.company_slug == "hvac-company"
+    assert item.administrator_email == "owner@example.test"
     assert item.language == "en"
+
+
+def test_first_run_initialize_request_rejects_weak_password():
+    try:
+        FirstRunInitializeRequest(
+            company_name="HVAC Company",
+            company_slug="hvac-company",
+            administrator_email="owner@example.test",
+            administrator_full_name="Owner User",
+            administrator_password="weak-password",
+            language="en",
+            timezone="Europe/Sofia",
+        )
+    except Exception as exc:
+        assert "password" in str(exc).lower()
+    else:
+        raise AssertionError("Weak first-run password was accepted.")

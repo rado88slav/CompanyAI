@@ -52,6 +52,24 @@ export type FirstRunStatus = {
   bootstrap_method: string;
 };
 
+export type FirstRunInitializeInput = {
+  company_name: string;
+  company_slug: string;
+  administrator_email: string;
+  administrator_full_name: string;
+  administrator_password: string;
+  language: string;
+  timezone: string;
+};
+
+export type FirstRunInitializeResponse = {
+  initialized: boolean;
+  company_id: string;
+  company_slug: string;
+  administrator_id: string;
+  administrator_email: string;
+};
+
 export function accessToken(): string | null {
   return sessionStorage.getItem(AUTH_TOKEN_KEY);
 }
@@ -124,6 +142,16 @@ export async function fetchFirstRunStatus(signal?: AbortSignal): Promise<FirstRu
   const response = await fetch("/api/v1/first-run/status", { signal });
   if (!response.ok) throw new ApiError("Setup status is unavailable.", response.status);
   return parseJson<FirstRunStatus>(response);
+}
+
+export async function initializeFirstRun(payload: FirstRunInitializeInput): Promise<FirstRunInitializeResponse> {
+  const response = await fetch("/api/v1/first-run/initialize", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new ApiError("First-run setup could not be completed.", response.status);
+  return parseJson<FirstRunInitializeResponse>(response);
 }
 
 export function fetchCurrentAdministrator(signal?: AbortSignal): Promise<Administrator> {

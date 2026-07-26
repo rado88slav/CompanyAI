@@ -273,7 +273,7 @@ CompanyAI Local Edition Beta е предназначен за Windows workstatio
 5. Създайте диагностика със `scripts/local/diagnose.sh`.
 > [!WARNING] Не пазете business data постоянно върху обикновена USB flash drive.
 ## First run
-Ако няма administrator, dashboard-ът показва setup-required state. Завършете local bootstrap command в backend container; няма default password.
+Ако няма administrator, dashboard-ът показва setup-required wizard. Завършете го еднократно; няма default password.
 ## Backups
 Database backups са manual и checksum-protected. Optional encrypted configuration backup е наличен само когато operator подаде passphrase за конкретната команда.
 ## Безопасност

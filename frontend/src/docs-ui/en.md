@@ -273,7 +273,7 @@ CompanyAI Local Edition Beta is designed for a Windows workstation with Docker D
 5. Diagnose with `scripts/local/diagnose.sh`.
 > [!WARNING] Do not run business data permanently from an ordinary USB flash drive.
 ## First run
-If no administrator exists, the dashboard shows a setup-required state. Complete the local bootstrap command inside the backend container; no default password exists.
+If no administrator exists, the dashboard shows a setup-required wizard. Complete it once; no default password exists.
 ## Backups
 Database backups are manual and checksum-protected. Optional encrypted configuration backup is available only when the operator supplies a passphrase for that command.
 ## Safety

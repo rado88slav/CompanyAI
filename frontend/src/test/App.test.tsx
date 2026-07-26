@@ -172,6 +172,39 @@ test("renders setup-required state before any default administrator exists", asy
   expect(document.body.textContent).not.toContain("password_hash");
 });
 
+test("first-run wizard initializes without rendering secrets", async () => {
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse({
+      initialized: false,
+      setup_required: true,
+      administrator_count: 0,
+      company_count: 0,
+      bootstrap_method: "local_wizard",
+    }))
+    .mockResolvedValueOnce(await jsonResponse({
+      initialized: true,
+      company_id: "company-id",
+      company_slug: "hvac-company",
+      administrator_id: "admin-id",
+      administrator_email: "owner@example.test",
+    }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "CompanyAI is not initialized yet" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Company name"), { target: { value: "HVAC Company" } });
+  fireEvent.change(screen.getByLabelText("Company slug"), { target: { value: "hvac-company" } });
+  fireEvent.change(screen.getByLabelText("Administrator name"), { target: { value: "Owner User" } });
+  fireEvent.change(screen.getByLabelText("Administrator email"), { target: { value: "OWNER@example.test" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "Str0ng-local-setup!" } });
+  fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "Str0ng-local-setup!" } });
+  fireEvent.click(screen.getByRole("button", { name: "Initialize CompanyAI" }));
+
+  expect(await screen.findByText("Setup completed for hvac-company. Sign in with the administrator account.")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "CompanyAI dashboard" })).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("Str0ng-local-setup!");
+});
+
 test("saved unauthorized company falls back to the first available company", async () => {
   setToken("unauthorized-company");
   await authenticatedFetchMock(await jsonResponse(summary), await jsonResponse(activity));

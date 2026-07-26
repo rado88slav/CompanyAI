@@ -459,8 +459,9 @@ Continue Phase 3 with:
 - Added an offline package builder that exports Docker images and emits manifests/checksums without Git history, `.env.local`, `node_modules` or generated secrets.
 - Added manual backup and restore scripts with checksum verification, a pre-restore safety backup and explicit restore confirmation.
 - Added backend-enforced Email Sandbox checks for local production sends: exact allowlists, subject prefix, quotas, duplicate protection, approval path and emergency stop. Rejections are audited with sanitized reason codes.
-- Added read-only first-run setup status detection and a setup-required dashboard state when no administrator exists.
-- Added `app.cli.bootstrap_first_run`, a single-use local bootstrap command that creates the first company and non-superuser owner administrator only when administrator, company and membership tables are empty.
+- Added read-only first-run setup status detection and a setup-required dashboard wizard when no administrator exists.
+- Added `POST /api/v1/first-run/initialize`, a backend-authoritative graphical setup endpoint protected by a PostgreSQL transaction advisory lock.
+- Added `app.cli.bootstrap_first_run`, a single-use local bootstrap fallback that shares the same setup service and creates the first company and non-superuser owner administrator only when administrator, company and membership tables are empty.
 - Added optional encrypted `.env.local` backup export using an operator-supplied passphrase. Restore decrypts configuration only to a support review directory and never overwrites active `.env.local` automatically.
 
 ---

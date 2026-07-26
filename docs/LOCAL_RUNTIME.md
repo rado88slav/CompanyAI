@@ -20,7 +20,7 @@ The dashboard is available at:
 http://localhost:8080
 ```
 
-If the installation has no administrator, the dashboard shows a setup-required state. Complete the single-use first-run bootstrap from the backend container before signing in.
+If the installation has no administrator, the dashboard shows a setup-required wizard. Complete it once before signing in. The backend rejects setup after an administrator, company or membership exists.
 
 ## Stop
 

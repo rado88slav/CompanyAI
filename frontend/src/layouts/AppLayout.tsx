@@ -7,6 +7,7 @@ import {
   fetchCurrentAdministrator,
   fetchFirstRunStatus,
   hasAccessToken,
+  initializeFirstRun,
   isAuthenticationError,
   login,
   saveCompanyContext,
@@ -70,6 +71,9 @@ export function AppLayout() {
   });
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState("");
+  const [setupSuccess, setSetupSuccess] = useState("");
 
   const bootstrap = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -177,6 +181,38 @@ export function AppLayout() {
       }
     } finally {
       setLoginBusy(false);
+    }
+  }
+
+  async function handleFirstRun(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get("administrator_password") ?? "");
+    const confirmation = String(form.get("administrator_password_confirm") ?? "");
+    setSetupError("");
+    setSetupSuccess("");
+    if (password !== confirmation) {
+      setSetupError("The administrator passwords do not match.");
+      return;
+    }
+    setSetupBusy(true);
+    try {
+      const result = await initializeFirstRun({
+        company_name: String(form.get("company_name") ?? ""),
+        company_slug: String(form.get("company_slug") ?? ""),
+        administrator_email: String(form.get("administrator_email") ?? ""),
+        administrator_full_name: String(form.get("administrator_full_name") ?? ""),
+        administrator_password: password,
+        language: String(form.get("language") ?? "en"),
+        timezone: String(form.get("timezone") ?? "UTC"),
+      });
+      setSetupSuccess(`Setup completed for ${result.company_slug}. Sign in with the administrator account.`);
+      clearSessionContext();
+      setSession({ status: "anonymous" });
+    } catch {
+      setSetupError("Setup could not be completed. It may already be closed or the input may be invalid.");
+    } finally {
+      setSetupBusy(false);
     }
   }
 
@@ -324,21 +360,26 @@ export function AppLayout() {
                 <span className="eyebrow">First-run setup</span>
                 <h1 id="setup-title">CompanyAI is not initialized yet</h1>
                 <p>
-                  Create the first company and administrator through the local
-                  secure bootstrap command before signing in.
+                  Create the first company and administrator. Setup closes
+                  permanently after the first administrator exists.
                 </p>
               </div>
-              <div className="setup-required-card">
-                <strong>Setup is closed automatically after the first administrator exists.</strong>
-                <code>docker compose --env-file .env.local -f docker-compose.local.yml exec -T backend python -m app.cli.bootstrap_first_run</code>
-                <p>
-                  The command reads setup fields from standard input and never prints
-                  passwords, hashes, tokens or generated secrets.
-                </p>
-                <button className="button" type="button" onClick={() => void bootstrap()}>
-                  Check again
-                </button>
-              </div>
+              <form className="setup-required-card setup-wizard" onSubmit={(event) => void handleFirstRun(event)}>
+                <label><span>Company name</span><input name="company_name" minLength={2} maxLength={200} required /></label>
+                <label><span>Company slug</span><input name="company_slug" pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$" placeholder="my-company" required /></label>
+                <label><span>Administrator name</span><input name="administrator_full_name" minLength={2} maxLength={200} required /></label>
+                <label><span>Administrator email</span><input name="administrator_email" type="email" autoComplete="username" required /></label>
+                <label><span>Password</span><input name="administrator_password" type="password" autoComplete="new-password" minLength={14} required /></label>
+                <label><span>Confirm password</span><input name="administrator_password_confirm" type="password" autoComplete="new-password" minLength={14} required /></label>
+                <div className="setup-wizard__row">
+                  <label><span>Language</span><select name="language" defaultValue="en"><option value="en">English</option><option value="bg">Bulgarian</option><option value="de">German</option><option value="fr">French</option></select></label>
+                  <label><span>Timezone</span><input name="timezone" defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"} required /></label>
+                </div>
+                <p className="settings-note">Passwords are sent once to the local backend, stored only as an Argon2 hash and never displayed in the dashboard.</p>
+                {setupError && <p role="alert" className="error-text">{setupError}</p>}
+                <button className="button" type="submit" disabled={setupBusy}>{setupBusy ? "Creating setup" : "Initialize CompanyAI"}</button>
+                <button className="button button--light" type="button" onClick={() => void bootstrap()}>Check again</button>
+              </form>
             </section>
           )}
 
@@ -365,6 +406,7 @@ export function AppLayout() {
                     {session.message}
                   </p>
                 )}
+                {setupSuccess && <p role="status" className="session-message">{setupSuccess}</p>}
               </div>
               <form className="auth-form" onSubmit={(event) => void handleLogin(event)}>
                 <label>

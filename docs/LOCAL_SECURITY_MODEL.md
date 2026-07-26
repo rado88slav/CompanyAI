@@ -17,7 +17,7 @@ Secrets live in `.env.local`, generated on the workstation. Examples contain pla
 
 ## First Run
 
-The first administrator is not created by default. The setup status endpoint is read-only, and the local bootstrap command closes automatically once administrator, company or membership records exist. Passwords are hashed and are never printed by the command.
+The first administrator is not created by default. The setup status endpoint is read-only, and both the graphical wizard and local bootstrap command close automatically once administrator, company or membership records exist. Passwords are hashed and are never returned or printed.
 
 ## Email
 

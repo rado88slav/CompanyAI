@@ -512,13 +512,12 @@ credential keyrings or generated secrets. The dashboard uses this endpoint to
 show a setup-required state instead of implying that a default administrator
 exists.
 
-The current setup implementation intentionally uses a single-use local CLI
-bootstrap rather than a browser password form. `app.cli.bootstrap_first_run`
-reads setup values from standard input, validates a stronger first
-administrator password, creates a non-superuser administrator, creates the
-first company, adds an active owner membership and writes audit events in one
-transaction. It refuses to run once any administrator, company or membership
-exists.
+The setup implementation now provides a graphical wizard plus a single-use
+local CLI fallback. Both use the same first-run service. The service takes a
+PostgreSQL transaction advisory lock, validates a stronger first administrator
+password, creates a non-superuser administrator, creates the first company,
+adds an active owner membership and writes audit events in one transaction. It
+refuses to run once any administrator, company or membership exists.
 
 Backups continue to exclude `.env.local` by default. Operators may include an
 encrypted config bundle by setting `COMPANYAI_BACKUP_PASSPHRASE` for the

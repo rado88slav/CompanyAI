@@ -449,7 +449,9 @@ test("renders inbox empty state and refresh", async () => {
   window.history.pushState({}, "", "/email");
   render(<App />);
   expect(await screen.findByRole("heading", { name: "No imported email" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Email Campaign Guide" })).toHaveAttribute("href", "/documentation/email-campaigns");
+  expect(screen.getByRole("link", { name: "Email Sandbox Guide" })).toHaveAttribute("href", "/documentation/email-sandbox");
+  expect(screen.getByRole("heading", { name: "Email Sandbox" })).toBeInTheDocument();
+  expect(screen.getByText("Backend enforced")).toBeInTheDocument();
   expect(screen.getByText("Welcome sequence")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
 });

@@ -3,19 +3,22 @@
 import hashlib
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.authorization import AuthorizationMode, RiskLevel
 from app.core.provider_execution import LocalTestEmailAdapter, provider_operation_registry
 from app.db.session import get_db_session
 from app.models.administrator import Administrator
 from app.models.audit_log import AuditAction
+from app.models.company_setting import CompanySetting
 from app.models.email import EmailReplyProposal, InboundEmail, OutboundEmail
 from app.models.provider_execution import ProviderExecution, ProviderExecutionAttempt
 from app.repositories.approval import ApprovalRepository, AuthorizationRepository
@@ -33,6 +36,7 @@ from app.services.audit_log import AuditLogService
 class EmailNotFoundError(Exception): pass
 class EmailConflictError(Exception): pass
 class EmailForbiddenError(Exception): pass
+class EmailSandboxRejectedError(EmailForbiddenError): pass
 
 
 def content_digest(recipient: str, subject: str, body: str) -> str:
@@ -61,6 +65,93 @@ class EmailWorkflowService:
 
     def _event(self, company_id: UUID, actor: Administrator, action: AuditAction, resource_type: str, resource_id: UUID, details: dict) -> None:
         self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=action.value, resource_type=resource_type, resource_id=resource_id, details=details)
+
+    def _sandbox_policy(self, company_id: UUID) -> dict:
+        setting = self.session.scalar(
+            select(CompanySetting).where(
+                CompanySetting.company_id == company_id,
+                CompanySetting.category == "email_sandbox",
+                CompanySetting.key == "policy",
+            )
+        )
+        if setting is not None and isinstance(setting.value, dict):
+            return setting.value
+        return {
+            "enabled": True,
+            "recipient_allowlist": [],
+            "sender_allowlist": [],
+            "max_recipients_per_message": 1,
+            "max_messages_per_hour": 5,
+            "max_messages_per_day": 10,
+            "required_subject_prefix": "[COMPANYAI TEST]",
+            "approval_required": True,
+            "emergency_stop": False,
+            "followups_enabled": False,
+            "bulk_sending_enabled": False,
+            "attachments_enabled": False,
+        }
+
+    def _sent_count_since(self, company_id: UUID, since: datetime) -> int:
+        return int(
+            self.session.scalar(
+                select(func.count())
+                .select_from(OutboundEmail)
+                .where(
+                    OutboundEmail.company_id == company_id,
+                    OutboundEmail.status == "sent",
+                    OutboundEmail.sent_at >= since,
+                )
+            )
+            or 0
+        )
+
+    def _reject_sandbox(self, company_id: UUID, actor: Administrator, proposal: EmailReplyProposal, reason_code: str) -> None:
+        self._event(
+            company_id,
+            actor,
+            AuditAction.PROVIDER_EXECUTION_DENIED,
+            "email_reply_proposal",
+            proposal.id,
+            {
+                "operation_key": "send_email",
+                "reason_code": reason_code,
+                "sandbox": True,
+            },
+        )
+        self.session.commit()
+        raise EmailSandboxRejectedError
+
+    def _enforce_sandbox(self, company_id: UUID, proposal: EmailReplyProposal, actor: Administrator) -> None:
+        if get_settings().app_environment == "development":
+            return
+        policy = self._sandbox_policy(company_id)
+        if not bool(policy.get("enabled", True)):
+            self._reject_sandbox(company_id, actor, proposal, "sandbox_disabled")
+        if bool(policy.get("emergency_stop", False)):
+            self._reject_sandbox(company_id, actor, proposal, "emergency_stop_enabled")
+        recipients = [proposal.recipient_email.casefold()]
+        if len(recipients) > int(policy.get("max_recipients_per_message", 1)):
+            self._reject_sandbox(company_id, actor, proposal, "too_many_recipients")
+        allowed_recipients = {str(item).strip().casefold() for item in policy.get("recipient_allowlist", [])}
+        if not allowed_recipients or any(item not in allowed_recipients for item in recipients):
+            self._reject_sandbox(company_id, actor, proposal, "recipient_not_allowlisted")
+        inbound = self.repo.inbound(company_id, proposal.inbound_email_id)
+        sender = inbound.recipient_email.casefold() if inbound else ""
+        allowed_senders = {str(item).strip().casefold() for item in policy.get("sender_allowlist", [])}
+        if not allowed_senders or sender not in allowed_senders:
+            self._reject_sandbox(company_id, actor, proposal, "sender_not_allowlisted")
+        prefix = str(policy.get("required_subject_prefix", "")).strip()
+        if prefix and not proposal.subject.startswith(prefix):
+            self._reject_sandbox(company_id, actor, proposal, "subject_prefix_required")
+        if len(proposal.body.encode("utf-8")) > int(policy.get("max_message_bytes", 100_000)):
+            self._reject_sandbox(company_id, actor, proposal, "message_too_large")
+        if bool(policy.get("attachments_enabled", False)):
+            self._reject_sandbox(company_id, actor, proposal, "attachments_not_supported")
+        now = datetime.now(UTC)
+        if self._sent_count_since(company_id, now - timedelta(hours=1)) >= int(policy.get("max_messages_per_hour", 5)):
+            self._reject_sandbox(company_id, actor, proposal, "hourly_quota_exceeded")
+        if self._sent_count_since(company_id, now - timedelta(days=1)) >= int(policy.get("max_messages_per_day", 10)):
+            self._reject_sandbox(company_id, actor, proposal, "daily_quota_exceeded")
 
     def import_test(self, company_id: UUID, data: TestInboundEmailImport, actor: Administrator):
         if self.repo.inbound_by_external(company_id, data.external_message_id):
@@ -184,6 +275,7 @@ class EmailWorkflowService:
         if proposal is None: raise EmailNotFoundError
         existing = self.repo.outbound_for_proposal(company_id, proposal_id)
         if existing is not None: return existing
+        self._enforce_sandbox(company_id, proposal, actor)
         if proposal.approval_request_id is None: raise EmailForbiddenError
         approval = self.approvals.get_request(company_id=company_id, request_id=proposal.approval_request_id, for_update=True)
         digest = content_digest(proposal.recipient_email, proposal.subject, proposal.body)

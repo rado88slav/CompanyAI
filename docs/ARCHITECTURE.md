@@ -164,6 +164,28 @@ Migration `0010_provider_connections` is applied locally after `0009_tool_regist
 
 The development credential-encryption key was safely rotated while `provider_credentials` contained zero rows. Its cryptographic material was subsequently preserved during the atomic local cutover from standalone `CREDENTIAL_ENCRYPTION_KEY` to the active-ID plus secret-keyring contract. The active development key ID is the non-secret identifier `legacy`; the old standalone environment variable is no longer active. Secret values and hashes remain local and must never appear in Git, documentation, logs or configuration errors. The immutable keyring core exists, and the repository and real development database heads are both `0013_credential_keyring_contract`. The verified `encryption_key_id` contract is `VARCHAR(64) NOT NULL`; `provider_credentials` remains empty.
 
+CompanyAI Local Edition Beta adds a separate production-local runtime for the
+real HVAC workstation path. `docker-compose.local.yml` uses Nginx as the single
+localhost entry point on `127.0.0.1:8080`, serves the production React build,
+proxies `/api` to FastAPI, runs Alembic through a dedicated migration service
+before backend readiness and keeps PostgreSQL unexposed to the host. Named
+local volumes preserve PostgreSQL data, backups, logs and config across normal
+stop, restart, rebuild, update and container uninstall operations.
+
+The Local Edition lifecycle is script-driven through `scripts/local/` and
+Windows PowerShell wrappers under `installer/windows/`. Offline package
+creation exports Docker images with manifests and checksums while excluding
+source-control history, generated secrets, `.env.local`, provider credentials
+and `node_modules`. Backup and restore are manual, checksum-verified and
+guarded by explicit restore confirmation.
+
+Outbound email remains restricted. The backend Email Sandbox policy is enforced
+inside the existing approved email reply send path; the dashboard is not the
+authority. Local production send attempts check exact recipient and sender
+allowlists, approval state, provider connection, duplicate-send protection,
+quotas, subject prefix and emergency stop before provider execution. Rejected
+attempts are audited with sanitized reason codes.
+
 Provider Credential model, repository and service integration are keyring-aware. The repository runtime contract now requires `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON. Application creation parses the complete immutable keyring once before FastAPI is constructed and shares it with Provider Connections through application state. Standalone `CREDENTIAL_ENCRYPTION_KEY` and ambiguous mixed legacy/new configuration are rejected without fallback. New credentials and business rotations use encryption version 2, store the configured active key ID and revision `0`, and authenticate the key ID together with the existing company, connection, credential and provider identity. Previous configured keys are decryption-only because encryption always selects the active key.
 
 Historical version-1 rows retain their original AAD. NULL key IDs are readable only when the configured keyring contains the explicit `legacy` entry; the active key is never guessed. Stored v1/v2 key IDs are resolved through the keyring, reads never mutate historical rows, and missing, malformed or unknown key IDs fail closed with sanitized errors.

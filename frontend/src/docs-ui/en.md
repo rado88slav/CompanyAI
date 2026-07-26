@@ -256,6 +256,47 @@ Use Activity Center for a readable timeline and Audit Log for low-level audit fi
 Sign in again. The dashboard clears protected context automatically.
 
 ---
+slug: local-edition
+title: Local Edition Beta
+category: Operations
+summary: Install and run CompanyAI locally on a Windows workstation.
+keywords: local, beta, docker, windows, backup, sandbox, install
+related: getting-started,system-status,settings
+---
+# Local Edition Beta
+CompanyAI Local Edition Beta is designed for a Windows workstation with Docker Desktop and WSL2. The dashboard opens at `http://localhost:8080`.
+## Essentials
+1. Copy the package to the internal SSD before use.
+2. Start with `scripts/local/start.sh` or the Windows Start wrapper.
+3. Stop with `scripts/local/stop.sh`.
+4. Back up with `scripts/local/backup.sh`.
+5. Diagnose with `scripts/local/diagnose.sh`.
+> [!WARNING] Do not run business data permanently from an ordinary USB flash drive.
+## Safety
+LAN access is disabled by default, data lives in persistent Docker volumes, and normal stop, restart, rebuild and update commands preserve business data.
+
+---
+slug: email-sandbox
+title: Email Sandbox
+category: Email
+summary: Understand the restricted email test mode for early controlled outreach validation.
+keywords: email, sandbox, allowlist, approval, quota, emergency stop
+related: email-campaigns,approvals,security
+---
+# Email Sandbox
+Email Sandbox is the required safety boundary before any real-world outreach pilot. The backend enforces recipient allowlists, sender allowlists, quotas, approval, duplicate-send protection and the emergency stop.
+## Initial limits
+1. Only allowlisted team-controlled recipients.
+2. One recipient per message.
+3. Five messages per hour.
+4. Ten messages per day.
+5. `[COMPANYAI TEST]` subject prefix when configured.
+6. No automatic follow-ups, bulk sending or attachments.
+> [!WARNING] Do not use real HVAC prospects during sandbox acceptance testing.
+## If a send is rejected
+Check the visible reason, approval state, allowlist and emergency stop. Rejections are audited with sanitized reasons.
+
+---
 slug: release-notes
 title: Release Notes
 category: Product
@@ -272,6 +313,7 @@ related: dashboard,activity-center,system-status
 - Breadcrumb navigation added to the protected dashboard shell.
 - Settings added with safe local preference storage.
 - Development activity seed command added for local Activity Center testing.
+- Local Edition Beta foundation added with production runtime, lifecycle scripts, backup/restore foundation and backend-enforced Email Sandbox policy.
 ## Safety posture
 - No real email sends.
 - No campaign launches.

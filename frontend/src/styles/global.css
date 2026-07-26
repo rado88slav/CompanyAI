@@ -1448,6 +1448,66 @@ h1 {
   color: #667388;
 }
 
+.sandbox-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.35fr) minmax(160px, 0.5fr);
+  gap: 18px;
+  align-items: center;
+  padding: 22px;
+  margin-bottom: 22px;
+  border: 1px solid #e0e5ec;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fff7ed, #ffffff 52%, #eef6ff);
+  box-shadow: 0 14px 34px rgba(16, 26, 45, 0.08);
+}
+
+.sandbox-panel h2 {
+  margin: 4px 0 8px;
+}
+
+.sandbox-panel p {
+  margin: 0;
+  color: #667388;
+}
+
+.sandbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sandbox-grid span,
+.sandbox-stop {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.74);
+  color: #667388;
+  font-size: 0.88rem;
+}
+
+.sandbox-grid strong,
+.sandbox-stop strong {
+  color: #162033;
+}
+
+.sandbox-stop {
+  justify-items: start;
+  border-color: rgba(185, 28, 28, 0.28);
+}
+
+.sandbox-stop span {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 700;
+}
+
 .activity-panel,
 .empty-panel {
   margin-top: 28px;
@@ -1724,6 +1784,10 @@ h1 {
   }
 
   .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sandbox-panel {
     grid-template-columns: 1fr;
   }
 

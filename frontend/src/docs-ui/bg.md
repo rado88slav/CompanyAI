@@ -256,6 +256,47 @@ Activity Center е четимата timeline страница; Audit Log пок�
 Влезте отново. Dashboard-ът чисти protected context автоматично.
 
 ---
+slug: local-edition
+title: Local Edition Beta
+category: Операции
+summary: Инсталиране и локално стартиране на CompanyAI върху Windows workstation.
+keywords: local, beta, docker, windows, backup, sandbox, install
+related: getting-started,system-status,settings
+---
+# Local Edition Beta
+CompanyAI Local Edition Beta е предназначен за Windows workstation с Docker Desktop и WSL2. Dashboard-ът се отваря на `http://localhost:8080`.
+## Основни действия
+1. Копирайте package-а на internal SSD преди употреба.
+2. Стартирайте със `scripts/local/start.sh` или Windows Start wrapper.
+3. Спрете със `scripts/local/stop.sh`.
+4. Направете backup със `scripts/local/backup.sh`.
+5. Създайте диагностика със `scripts/local/diagnose.sh`.
+> [!WARNING] Не пазете business data постоянно върху обикновена USB flash drive.
+## Безопасност
+LAN access е изключен по подразбиране, данните са в persistent Docker volumes, а нормални stop, restart, rebuild и update команди пазят business data.
+
+---
+slug: email-sandbox
+title: Email Sandbox
+category: Email
+summary: Restricted email test mode за ранна контролирана outreach проверка.
+keywords: email, sandbox, allowlist, approval, quota, emergency stop
+related: email-campaigns,approvals,security
+---
+# Email Sandbox
+Email Sandbox е задължителната safety boundary преди реален outreach pilot. Backend-ът enforcement-ва recipient allowlists, sender allowlists, quotas, approval, duplicate-send protection и emergency stop.
+## Начални лимити
+1. Само allowlisted team-controlled recipients.
+2. Един recipient на message.
+3. Пет messages на час.
+4. Десет messages на ден.
+5. `[COMPANYAI TEST]` subject prefix, когато е configured.
+6. Няма automatic follow-ups, bulk sending или attachments.
+> [!WARNING] Не използвайте реални HVAC prospects по време на sandbox acceptance testing.
+## Ако send бъде rejected
+Проверете visible reason, approval state, allowlist и emergency stop. Rejections се audit-ват със sanitized reasons.
+
+---
 slug: release-notes
 title: Release Notes
 category: Product
@@ -272,6 +313,7 @@ related: dashboard,activity-center,system-status
 - Breadcrumb navigation е добавена към protected dashboard shell.
 - Settings е добавен със safe local preference storage.
 - Development activity seed command е добавена за local Activity Center testing.
+- Local Edition Beta foundation е добавен с production runtime, lifecycle scripts, backup/restore foundation и backend-enforced Email Sandbox policy.
 ## Safety posture
 - Няма real email sends.
 - Няма campaign launches.

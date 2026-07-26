@@ -256,6 +256,47 @@ Activity Center zeigt die lesbare Timeline; Audit Log zeigt Low-Level Audit Fiel
 Melden Sie sich erneut an. Das Dashboard löscht protected context automatisch.
 
 ---
+slug: local-edition
+title: Local Edition Beta
+category: Betrieb
+summary: CompanyAI lokal auf einer Windows Workstation installieren und ausführen.
+keywords: local, beta, docker, windows, backup, sandbox, install
+related: getting-started,system-status,settings
+---
+# Local Edition Beta
+CompanyAI Local Edition Beta ist für eine Windows Workstation mit Docker Desktop und WSL2 ausgelegt. Das Dashboard öffnet unter `http://localhost:8080`.
+## Grundlagen
+1. Kopieren Sie das Package vor der Nutzung auf die interne SSD.
+2. Starten Sie mit `scripts/local/start.sh` oder dem Windows Start Wrapper.
+3. Stoppen Sie mit `scripts/local/stop.sh`.
+4. Erstellen Sie Backups mit `scripts/local/backup.sh`.
+5. Erstellen Sie Diagnosen mit `scripts/local/diagnose.sh`.
+> [!WARNING] Speichern Sie Business Data nicht dauerhaft auf einem gewöhnlichen USB Flash Drive.
+## Sicherheit
+LAN Access ist standardmäßig deaktiviert, Daten liegen in persistent Docker Volumes, und normale Stop-, Restart-, Rebuild- und Update-Kommandos erhalten Business Data.
+
+---
+slug: email-sandbox
+title: Email Sandbox
+category: Email
+summary: Restricted Email Test Mode für frühe kontrollierte Outreach-Validierung.
+keywords: email, sandbox, allowlist, approval, quota, emergency stop
+related: email-campaigns,approvals,security
+---
+# Email Sandbox
+Email Sandbox ist die verpflichtende Safety Boundary vor einem realen Outreach Pilot. Das Backend erzwingt Recipient Allowlists, Sender Allowlists, Quotas, Approval, Duplicate-Send Protection und Emergency Stop.
+## Initiale Limits
+1. Nur allowlisted team-controlled recipients.
+2. Ein Recipient pro Message.
+3. Fünf Messages pro Stunde.
+4. Zehn Messages pro Tag.
+5. `[COMPANYAI TEST]` Subject Prefix, wenn konfiguriert.
+6. Keine automatic Follow-ups, Bulk Sending oder Attachments.
+> [!WARNING] Verwenden Sie während Sandbox Acceptance Testing keine echten HVAC Prospects.
+## Wenn ein Send abgelehnt wird
+Prüfen Sie visible reason, approval state, allowlist und emergency stop. Rejections werden mit sanitized reasons auditiert.
+
+---
 slug: release-notes
 title: Release Notes
 category: Produkt
@@ -272,6 +313,7 @@ related: dashboard,activity-center,system-status
 - Breadcrumb Navigation wurde zur protected dashboard shell ergänzt.
 - Settings wurde mit safe local preference storage ergänzt.
 - Development activity seed command wurde für lokales Activity Center Testing ergänzt.
+- Local Edition Beta foundation wurde mit production runtime, lifecycle scripts, backup/restore foundation und backend-enforced Email Sandbox policy ergänzt.
 ## Safety Posture
 - Keine realen E-Mail-Sends.
 - Keine Campaign Launches.

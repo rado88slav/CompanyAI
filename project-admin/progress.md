@@ -443,11 +443,22 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. design production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention procedures before production use;
-2. improve navigation with breadcrumbs, denser active-section cues and responsive mobile behavior while keeping Documentation Center links current;
-3. add dashboard deployment/container integration only after separate explicit approval;
-4. add credential-backed read-only Lemlist transport after a real development credential is explicitly supplied through the approved credential storage flow;
-5. commit and push this documentation synchronization after review.
+1. complete real workstation acceptance for CompanyAI Local Edition Beta before any real HVAC prospect pilot;
+2. implement a graphical first-run wizard or equivalent audited single-use bootstrap closure;
+3. harden encrypted configuration backup and restore for provider credentials;
+4. add credential-backed read-only provider transports only after secure credential provisioning;
+5. transition Email Sandbox from team-controlled addresses to a 20-50 prospect pilot only after the acceptance checklist passes.
+
+## Local Edition Beta Runtime Foundation
+
+- Added a separate `docker-compose.local.yml` production-local stack with Nginx frontend/reverse proxy, FastAPI backend, one-shot Alembic migration service and PostgreSQL.
+- The local stack exposes only `127.0.0.1:8080` by default; backend and PostgreSQL are not published to the host.
+- Added named local volumes for PostgreSQL data, backups, logs and config. Normal stop, restart, rebuild and uninstall-container actions do not delete business data.
+- Added WSL2 lifecycle scripts under `scripts/local/` for install, start, stop, restart, status, logs, health-check, diagnose, backup, restore, build-package and uninstall.
+- Added Windows PowerShell wrappers under `installer/windows/` that call the Bash scripts through WSL without hard-coded developer paths.
+- Added an offline package builder that exports Docker images and emits manifests/checksums without Git history, `.env.local`, `node_modules` or generated secrets.
+- Added manual backup and restore scripts with checksum verification, a pre-restore safety backup and explicit restore confirmation.
+- Added backend-enforced Email Sandbox checks for local production sends: exact allowlists, subject prefix, quotas, duplicate protection, approval path and emergency stop. Rejections are audited with sanitized reason codes.
 
 ---
 

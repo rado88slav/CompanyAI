@@ -256,6 +256,47 @@ Activity Center donne la timeline lisible; Audit Log montre les low-level audit 
 Reconnectez-vous. Le dashboard nettoie automatiquement le protected context.
 
 ---
+slug: local-edition
+title: Local Edition Beta
+category: Opérations
+summary: Installer et exécuter CompanyAI localement sur une station Windows.
+keywords: local, beta, docker, windows, backup, sandbox, install
+related: getting-started,system-status,settings
+---
+# Local Edition Beta
+CompanyAI Local Edition Beta est conçu pour une station Windows avec Docker Desktop et WSL2. Le dashboard s'ouvre sur `http://localhost:8080`.
+## Essentiel
+1. Copiez le package sur le SSD interne avant utilisation.
+2. Démarrez avec `scripts/local/start.sh` ou le wrapper Windows Start.
+3. Arrêtez avec `scripts/local/stop.sh`.
+4. Sauvegardez avec `scripts/local/backup.sh`.
+5. Diagnostiquez avec `scripts/local/diagnose.sh`.
+> [!WARNING] Ne stockez pas les business data de façon permanente sur une simple clé USB.
+## Sécurité
+LAN access est désactivé par défaut, les données sont dans des persistent Docker volumes, et les commandes normales stop, restart, rebuild et update préservent les business data.
+
+---
+slug: email-sandbox
+title: Email Sandbox
+category: Email
+summary: Restricted email test mode pour une validation outreach contrôlée.
+keywords: email, sandbox, allowlist, approval, quota, emergency stop
+related: email-campaigns,approvals,security
+---
+# Email Sandbox
+Email Sandbox est la safety boundary obligatoire avant tout outreach pilot réel. Le backend applique recipient allowlists, sender allowlists, quotas, approval, duplicate-send protection et emergency stop.
+## Limites initiales
+1. Uniquement des team-controlled recipients allowlisted.
+2. Un recipient par message.
+3. Cinq messages par heure.
+4. Dix messages par jour.
+5. Préfixe sujet `[COMPANYAI TEST]` lorsqu'il est configuré.
+6. Aucun automatic follow-up, bulk sending ou attachment.
+> [!WARNING] N'utilisez pas de vrais HVAC prospects pendant le sandbox acceptance testing.
+## Si un send est rejeté
+Vérifiez visible reason, approval state, allowlist et emergency stop. Les rejections sont auditées avec des sanitized reasons.
+
+---
 slug: release-notes
 title: Release Notes
 category: Produit
@@ -272,6 +313,7 @@ related: dashboard,activity-center,system-status
 - Fil d’Ariane ajouté au protected dashboard shell.
 - Settings ajouté avec safe local preference storage.
 - Development activity seed command ajouté pour tester Activity Center localement.
+- Local Edition Beta foundation ajouté avec production runtime, lifecycle scripts, backup/restore foundation et backend-enforced Email Sandbox policy.
 ## Safety posture
 - Aucun real email send.
 - Aucun campaign launch.

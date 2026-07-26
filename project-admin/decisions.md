@@ -476,3 +476,29 @@ and inserts deterministic company-scoped audit events with stable UUIDs. Re-runs
 skip existing seed IDs, so no duplicates are created. The events contain only
 safe development metadata and perform no provider calls, email delivery,
 campaign launch, phone call, paid action or external request.
+
+## 037 — CompanyAI Local Edition Beta Foundation
+
+CompanyAI Local Edition Beta is the product direction for the next real HVAC
+workstation. The local production runtime is separate from the developer
+Compose workflow and uses `docker-compose.local.yml`. It publishes one local
+entry point, `127.0.0.1:8080`, through an Nginx frontend/reverse proxy image.
+The backend and PostgreSQL are not exposed to the host in local production.
+
+Startup uses a dedicated `migrate` service that runs Alembic before the backend
+can become healthy. Migration failure prevents unsafe startup and does not
+wipe, recreate or downgrade data. Named Docker volumes hold local production
+data, backups, logs and config; normal lifecycle scripts never delete volumes.
+
+Offline delivery is prepared through a package builder that exports Docker
+images, manifests and checksums while excluding Git history, `.env.local`,
+`node_modules`, generated secrets and provider credentials. Windows wrappers
+are thin WSL bridges to the Bash lifecycle scripts and do not pretend to
+silently install Docker Desktop or WSL2.
+
+Email Sandbox enforcement lives in the backend send path, not in the UI. In
+local production, missing sandbox policy fails closed with empty exact
+allowlists, approval requirement, one-recipient messages, hourly/daily quotas,
+subject-prefix enforcement and emergency-stop support. Development mode keeps
+the existing local dry-run email workflow available for automated and local
+validation. Rejected sandbox sends are audited with sanitized reason codes.

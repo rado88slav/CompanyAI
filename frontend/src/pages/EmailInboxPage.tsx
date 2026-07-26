@@ -19,7 +19,26 @@ export function EmailInboxPage() {
   }, []);
   useEffect(load, [load]);
   return <section className="module-page">
-    <div className="page-heading page-heading--split"><div><p className="eyebrow">Email</p><h1>Inbound email</h1><p>Company-scoped messages imported for the local test workflow.</p></div><div className="heading-actions"><Link className="button button--light" to="/documentation/email-campaigns">Email Campaign Guide</Link><button onClick={load} disabled={state === "loading"}>Refresh</button></div></div>
+    <div className="page-heading page-heading--split"><div><p className="eyebrow">Email</p><h1>Email Operations</h1><p>Company-scoped inbox, read-only campaigns and restricted sandbox testing.</p></div><div className="heading-actions"><Link className="button button--light" to="/documentation/email-sandbox">Email Sandbox Guide</Link><button onClick={load} disabled={state === "loading"}>Refresh</button></div></div>
+    <section className="sandbox-panel">
+      <div>
+        <p className="eyebrow">Restricted test mode</p>
+        <h2>Email Sandbox</h2>
+        <p>Outbound email is backend-gated by exact allowlists, approval, duplicate-send protection, quotas and a global emergency stop.</p>
+      </div>
+      <div className="sandbox-grid" aria-label="Email sandbox safeguards">
+        <span><strong>Recipients</strong> Allowlist only</span>
+        <span><strong>Per message</strong> 1 recipient</span>
+        <span><strong>Hourly</strong> 5 messages</span>
+        <span><strong>Daily</strong> 10 messages</span>
+        <span><strong>Approval</strong> Required</span>
+        <span><strong>Follow-ups</strong> Disabled</span>
+      </div>
+      <div className="sandbox-stop" aria-label="Emergency stop status">
+        <strong>Emergency stop</strong>
+        <span>Backend enforced</span>
+      </div>
+    </section>
     {state === "loading" && <div className="state-card">Loading inbound email…</div>}
     {state === "error" && <div className="state-card error"><h2>Inbox unavailable</h2><button onClick={load}>Retry</button></div>}
     {state === "ready" && items.length === 0 && <div className="state-card"><h2>No imported email</h2><p>Use the authenticated test-import API to add one development message.</p></div>}

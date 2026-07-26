@@ -69,3 +69,17 @@ docker run --rm --user root -e PIP_ROOT_USER_ACTION=ignore -e PYTHONPYCACHEPREFI
 
 21. Seed deterministic development Activity Center events
 scripts/dev/seed-activity.sh company-test
+
+22. CompanyAI Local Edition lifecycle
+scripts/local/install.sh
+scripts/local/start.sh
+scripts/local/status.sh
+scripts/local/health-check.sh
+scripts/local/logs.sh
+scripts/local/stop.sh
+scripts/local/restart.sh
+scripts/local/diagnose.sh
+scripts/local/backup.sh
+scripts/local/restore.sh <backup-directory> RESTORE_COMPANYAI_DATABASE
+scripts/local/build-package.sh 0.1.0-beta
+scripts/local/uninstall.sh

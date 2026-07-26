@@ -202,6 +202,14 @@
 - [x] Add deterministic mock email campaign listing with Tool Registry-backed Agent Runtime invocation.
 - [x] Add first Lemlist read-only campaign adapter contract with fake transport tests.
 - [ ] Add credential-backed read-only Lemlist transport after approved secure credential provisioning.
+- [x] Add CompanyAI Local Edition Beta production-local runtime foundation.
+- [x] Add WSL2 local lifecycle scripts and Windows wrappers.
+- [x] Add offline package builder foundation with checksums.
+- [x] Add manual backup/restore foundation with guarded restore.
+- [x] Add backend-enforced Email Sandbox policy layer for local production sends.
+- [ ] Complete graphical first-run wizard.
+- [ ] Complete encrypted configuration backup/restore for provider credentials.
+- [ ] Complete real HVAC workstation acceptance checklist.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.

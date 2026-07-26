@@ -52,87 +52,139 @@ Generated automatically.
    Description: Stop the Company AI Docker Compose services without deleting containers, networks or data.
    Status: executable
 
-13. scripts/maintenance/update-inventory.sh
+13. scripts/local/backup.sh
+   Description: Create a local logical PostgreSQL backup with a checksum manifest.
+   Status: executable
+
+14. scripts/local/build-package.sh
+   Description: Build an offline CompanyAI Local Edition delivery directory.
+   Status: executable
+
+15. scripts/local/common.sh
+   Description: No description yet
+   Status: executable
+
+16. scripts/local/diagnose.sh
+   Description: Create a sanitized local support bundle without secrets.
+   Status: executable
+
+17. scripts/local/health-check.sh
+   Description: Verify local frontend, reverse proxy, backend and database readiness.
+   Status: executable
+
+18. scripts/local/install.sh
+   Description: Prepare CompanyAI Local Edition configuration and validate prerequisites.
+   Status: executable
+
+19. scripts/local/logs.sh
+   Description: Show sanitized local runtime logs from selected services.
+   Status: executable
+
+20. scripts/local/restart.sh
+   Description: Restart the CompanyAI Local Edition runtime without deleting data.
+   Status: executable
+
+21. scripts/local/restore.sh
+   Description: Restore a verified local PostgreSQL backup with explicit confirmation.
+   Status: executable
+
+22. scripts/local/start.sh
+   Description: Build and start the CompanyAI Local Edition runtime.
+   Status: executable
+
+23. scripts/local/status.sh
+   Description: Show CompanyAI Local Edition container and image status.
+   Status: executable
+
+24. scripts/local/stop.sh
+   Description: Stop the CompanyAI Local Edition runtime without deleting data.
+   Status: executable
+
+25. scripts/local/uninstall.sh
+   Description: Stop and remove CompanyAI Local Edition containers without deleting business data.
+   Status: executable
+
+26. scripts/maintenance/update-inventory.sh
    Description: Generate the project inventory and Bash scripts index.
    Status: executable
 
-14. scripts/maintenance/update-project-status.sh
+27. scripts/maintenance/update-project-status.sh
    Description: Update project progress, tasks, architecture decisions and inventory.
    Status: executable
 
-15. scripts/maintenance/validate-agent-compose.sh
+28. scripts/maintenance/validate-agent-compose.sh
    Description: Validate tracked Agent Authentication Docker Compose propagation without resolving secrets.
    Status: executable
 
-16. scripts/setup.sh
+29. scripts/setup.sh
    Description: Create the initial project structure and base files.
    Status: executable
 
-17. scripts/setup/add-active-company-context.sh
+30. scripts/setup/add-active-company-context.sh
    Description: Add stateless superuser-selected Active Company Context and Company Settings isolation.
    Status: executable
 
-18. scripts/setup/add-agent-identity.sh
+31. scripts/setup/add-agent-identity.sh
    Description: Add the complete Agent Identity and Internal Agent Authentication module.
    Status: executable
 
-19. scripts/setup/add-approval-manager.sh
+32. scripts/setup/add-approval-manager.sh
    Description: Add the complete Approval Manager and Authorization Policies backend module.
    Status: executable
 
-20. scripts/setup/add-audit-logging.sh
+33. scripts/setup/add-audit-logging.sh
    Description: Generate the complete append-only Audit Logging foundation.
    Status: executable
 
-21. scripts/setup/add-authentication-foundation.sh
+34. scripts/setup/add-authentication-foundation.sh
    Description: Add administrator accounts, secure authentication and protected administration API access.
    Status: executable
 
-22. scripts/setup/add-backend-database.sh
+35. scripts/setup/add-backend-database.sh
    Description: Add SQLAlchemy and PostgreSQL connectivity to the Company AI FastAPI backend.
    Status: executable
 
-23. scripts/setup/add-company-domain.sh
+36. scripts/setup/add-company-domain.sh
    Description: Add the Company domain model, migration, service layer and API to Company AI.
    Status: executable
 
-24. scripts/setup/add-company-management.sh
+37. scripts/setup/add-company-management.sh
    Description: Add company update, activation and deactivation operations.
    Status: executable
 
-25. scripts/setup/add-company-memberships.sh
+38. scripts/setup/add-company-memberships.sh
    Description: Add the complete Company Memberships and Roles backend module.
    Status: executable
 
-26. scripts/setup/add-company-settings.sh
+39. scripts/setup/add-company-settings.sh
    Description: Add company-owned settings storage, API operations and migration.
    Status: executable
 
-27. scripts/setup/add-database-migrations.sh
+40. scripts/setup/add-database-migrations.sh
    Description: Add Alembic database migrations and Bash migration tools to the Company AI backend.
    Status: executable
 
-28. scripts/setup/add-provider-connections.sh
+41. scripts/setup/add-provider-connections.sh
    Description: Add the complete Provider Connections foundation.
    Status: executable
 
-29. scripts/setup/add-provider-execution.sh
+42. scripts/setup/add-provider-execution.sh
    Description: Add the Provider Execution foundation.
    Status: executable
 
-30. scripts/setup/add-tool-registry.sh
+43. scripts/setup/add-tool-registry.sh
    Description: Add the secure Tool Registry foundation.
    Status: executable
 
-31. scripts/setup/create-backend.sh
+44. scripts/setup/create-backend.sh
    Description: Generate the initial Company AI FastAPI backend structure and Docker configuration.
    Status: executable
 
-32. scripts/setup/create-env.sh
+45. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 
-33. scripts/tests/test-create-env.sh
+46. scripts/tests/test-create-env.sh
    Description: Validate create-env.sh safely in an isolated temporary project.
    Status: executable
 

@@ -1,5 +1,7 @@
 """Persistence operations for Company records."""
 
+from __future__ import annotations
+
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -71,10 +73,52 @@ class CompanyRepository:
             self._session.scalars(statement).all()
         )
 
+    def list_active(
+        self,
+        *,
+        limit: int,
+        offset: int,
+    ) -> list[Company]:
+        """Return active companies in deterministic creation order."""
+
+        statement = (
+            select(Company)
+            .where(
+                Company.is_active.is_(True),
+                Company.status == CompanyStatus.ACTIVE.value,
+            )
+            .order_by(
+                Company.created_at.asc(),
+                Company.id.asc(),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        return list(
+            self._session.scalars(statement).all()
+        )
+
     def count(self) -> int:
         """Return the total number of companies."""
 
         statement = select(func.count()).select_from(Company)
+
+        return int(
+            self._session.scalar(statement) or 0
+        )
+
+    def count_active(self) -> int:
+        """Return the total number of active companies."""
+
+        statement = (
+            select(func.count())
+            .select_from(Company)
+            .where(
+                Company.is_active.is_(True),
+                Company.status == CompanyStatus.ACTIVE.value,
+            )
+        )
 
         return int(
             self._session.scalar(statement) or 0

@@ -54,3 +54,9 @@ find . -maxdepth 3 -print | sort
 
 17. Create bash history
 nano project-admin/bash-history.txt
+
+18. Frontend validation through local Docker Node image
+docker run --rm --network none -v "$PWD/frontend:/app" -w /app node:22-alpine npm test -- --run
+
+19. Vite proxy smoke through local Docker Node image
+docker run --rm --add-host host.docker.internal:host-gateway -p 5173:5173 -v "$PWD/frontend:/app" -w /app -e VITE_BACKEND_PROXY_TARGET=http://host.docker.internal:8000 node:22-alpine npm run dev -- --host 0.0.0.0 --port 5173

@@ -151,6 +151,40 @@ class CompanyService:
 
         return companies, total
 
+    def list_available_company_contexts(
+        self,
+        *,
+        administrator_id: UUID,
+        is_superuser: bool,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[tuple[Company, CompanyMembership | None]], int]:
+        """Return active companies an administrator may select."""
+
+        if is_superuser:
+            companies = self._repository.list_active(
+                limit=limit,
+                offset=offset,
+            )
+            return (
+                [(company, None) for company in companies],
+                self._repository.count_active(),
+            )
+
+        memberships = self._membership_repository.list_for_administrator(
+            administrator_id=administrator_id,
+            limit=limit,
+            offset=offset,
+        )
+        items = [
+            (membership.company, membership)
+            for membership in memberships
+            if membership.company is not None
+        ]
+        return items, self._membership_repository.count_for_administrator(
+            administrator_id=administrator_id,
+        )
+
     def update_company(
         self,
         company_id: UUID,

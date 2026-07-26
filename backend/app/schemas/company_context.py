@@ -27,3 +27,20 @@ class ActiveCompanyContextResponse(BaseModel):
     company: CompanyResponse
     membership_role: CompanyRole | None
     is_platform_superuser: bool
+
+
+class AvailableCompanyContext(BaseModel):
+    """A company the authenticated administrator may select."""
+
+    company: CompanyResponse
+    membership_role: CompanyRole | None
+    is_platform_superuser: bool
+
+
+class AvailableCompanyContextListResponse(BaseModel):
+    """Page of selectable active company contexts."""
+
+    items: list[AvailableCompanyContext]
+    total: int
+    limit: int
+    offset: int

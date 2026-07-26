@@ -187,7 +187,7 @@
 - [x] Add the authenticated read-only company Dashboard Summary API and tested Overview.
 - [x] Add polished placeholder routes without fake metrics or operational claims.
 - [x] Add development session company context and token-based authentication setup for local validation.
-- [ ] Add production dashboard company-selection and authentication UX.
+- [x] Add production dashboard company-selection and authentication UX.
 - [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
 - [x] Add read-only Provider Connections dashboard view backed by safe catalog and company metadata APIs.
 - [x] Add first safe Agent Runtime dashboard view and deterministic read-only internal tool invocation.
@@ -222,7 +222,7 @@ Phase 3 is complete when:
 - [x] Current company-owned records are isolated.
 - [x] Cross-company access tests pass.
 - [x] Company changes create audit records.
-- [ ] The active company can be identified by the dashboard.
+- [x] The active company can be identified by the dashboard.
 - [x] Company access roles and membership isolation are implemented.
 - [ ] Development seed data can be created safely.
 - [ ] Documentation and inventory are current.

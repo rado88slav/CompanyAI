@@ -20,7 +20,7 @@ The initial MVP must provide:
 - activity and audit history;
 - portable installation through Docker and Bash scripts.
 
-Current provider foundation status: Provider Connections, the dry-run-only Provider Execution foundation, the thin local-test email workflow, the first safe Agent Runtime vertical slice and deterministic mock email campaign listing are implemented and runtime-verified. The immutable keyring core and runtime support exist, and the real local keyring cutover is complete with active ID `legacy`. The repository and real development database heads are both `0014_email_workflow`; `0013_credential_keyring_contract` remains the verified keyring contract predecessor with `provider_credentials.encryption_key_id` as `VARCHAR(64) NOT NULL`. No credential backfill or re-encryption occurred. Dashboard Stage 1 provides the tested React, TypeScript and Vite shell, read-only Overview, authenticated company-scoped summary API, a read-only Provider Connections module, mock email campaign view and a controlled Agent Activity page backed by deterministic internal tools. The development session also exposes local thin email validation screens for import, proposals, approvals, local test send status and audit review. Production secret-manager provisioning, controlled re-encryption tooling, old-key retirement/key escrow, backup-retention, real mailbox import, AI drafting and live provider delivery remain open.
+Current provider foundation status: Provider Connections, the dry-run-only Provider Execution foundation, the thin local-test email workflow, the first safe Agent Runtime vertical slice and deterministic mock email campaign listing are implemented and runtime-verified. The immutable keyring core and runtime support exist, and the real local keyring cutover is complete with active ID `legacy`. The repository and real development database heads are both `0014_email_workflow`; `0013_credential_keyring_contract` remains the verified keyring contract predecessor with `provider_credentials.encryption_key_id` as `VARCHAR(64) NOT NULL`. No credential backfill or re-encryption occurred. Dashboard Stage 1 provides the tested React, TypeScript and Vite shell, read-only Overview, authenticated company-scoped summary API, a read-only Provider Connections module, mock email campaign view, a controlled Agent Activity page backed by deterministic internal tools, graphical administrator login/logout, authenticated session bootstrap and active company selection. Production secret-manager provisioning, controlled re-encryption tooling, old-key retirement/key escrow, backup-retention, real mailbox import, AI drafting and live provider delivery remain open.
 
 ---
 
@@ -247,16 +247,17 @@ The Tool Registry foundation adds a non-executable global catalog, company enabl
 
 # Phase 4 — Dashboard Foundation
 
-Stage 1 is implemented without deployment or container changes. The
-`frontend/` application provides the shell, responsive navigation, manual
-Overview refresh, typed runtime response validation and loading, error and
-empty states. The read-only Dashboard Summary API supplies only safe service
-metadata, company-scoped counts and a bounded recent audit subset. No email or
-call integration, provider mutation, credential form, approval action or
-execution control is present. The Provider Connections route now reads the
-trusted provider catalog and company-scoped connection metadata without
-rendering credential values or exposing mutation controls. Company selection UX, authentication UX,
-production delivery and richer module views remain later dashboard work.
+Stage 1 is implemented without deployment changes. The `frontend/` application
+provides the shell, responsive navigation, graphical administrator login/logout,
+authenticated session bootstrap, active company selector, manual Overview
+refresh, typed runtime response validation and loading, error, session-expired,
+backend-unavailable and empty states. The read-only Dashboard Summary API
+supplies only safe service metadata, company-scoped counts and a bounded recent
+audit subset. No email or call integration, provider mutation, credential form,
+approval action or execution control is present. The Provider Connections route
+now reads the trusted provider catalog and company-scoped connection metadata
+without rendering credential values or exposing mutation controls. Production
+delivery and richer module views remain later dashboard work.
 
 ## Goal
 

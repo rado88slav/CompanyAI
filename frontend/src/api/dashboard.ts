@@ -3,9 +3,7 @@ import type {
   DashboardCounts,
   DashboardSummary,
 } from "../types/dashboard";
-
-const AUTH_TOKEN_KEY = "companyai.accessToken";
-const COMPANY_ID_KEY = "companyai.companyId";
+import { ApiError, accessToken, companyId, notifySessionExpired } from "./client";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -56,29 +54,30 @@ function isDashboardSummary(value: unknown): value is DashboardSummary {
 export async function fetchDashboardSummary(
   signal?: AbortSignal,
 ): Promise<DashboardSummary> {
-  const accessToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
-  const companyId = sessionStorage.getItem(COMPANY_ID_KEY);
+  const token = accessToken();
+  const id = companyId();
 
-  if (!accessToken || !companyId) {
+  if (!token || !id) {
     throw new Error(
       "An authenticated company context is required to load the dashboard.",
     );
   }
 
   const response = await fetch(
-    `/api/v1/companies/${encodeURIComponent(companyId)}/dashboard/summary`,
+    `/api/v1/companies/${encodeURIComponent(id)}/dashboard/summary`,
     {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "X-Company-ID": companyId,
+        Authorization: `Bearer ${token}`,
+        "X-Company-ID": id,
       },
       signal,
     },
   );
 
   if (!response.ok) {
-    throw new Error("The dashboard summary is currently unavailable.");
+    if (response.status === 401 || response.status === 403) notifySessionExpired();
+    throw new ApiError("The dashboard summary is currently unavailable.", response.status);
   }
 
   const payload: unknown = await response.json();

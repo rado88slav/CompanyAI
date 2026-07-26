@@ -92,6 +92,35 @@ class FakeCompanyService:
                 return membership
         return None
 
+    def list_available_company_contexts(
+        self,
+        *,
+        administrator_id: UUID,
+        is_superuser: bool,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[tuple[FakeCompany, FakeMembership | None]], int]:
+        active_companies = [
+            company
+            for company in self.companies.values()
+            if company.is_active and company.status == CompanyStatus.ACTIVE.value
+        ]
+        if is_superuser:
+            items = [(company, None) for company in active_companies]
+            return items[offset : offset + limit], len(items)
+
+        items: list[tuple[FakeCompany, FakeMembership | None]] = []
+        for membership in self.memberships:
+            company = self.companies.get(membership.company_id)
+            if (
+                membership.administrator_id == administrator_id
+                and membership.is_active
+                and company is not None
+                and company.is_active
+            ):
+                items.append((company, membership))
+        return items[offset : offset + limit], len(items)
+
 
 class RecordingSettingService:
     """Record whether an isolated setting operation reached its service."""
@@ -239,6 +268,68 @@ def test_company_context_endpoint_returns_selected_company() -> None:
     assert response.json()["company"]["status"] == "active"
     assert response.json()["membership_role"] is None
     assert response.json()["is_platform_superuser"] is True
+
+
+def test_available_company_contexts_for_superuser_include_active_companies_only() -> None:
+    active_company = FakeCompany(company_id=uuid4())
+    inactive_company = FakeCompany(company_id=uuid4(), is_active=False)
+
+    try:
+        with create_client(
+            administrator=FakeAdministrator(is_superuser=True),
+            companies=[active_company, inactive_company],
+        ) as client:
+            response = client.get("/api/v1/company-context/available-companies")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["company"]["id"] == str(active_company.id)
+    assert payload["items"][0]["membership_role"] is None
+    assert payload["items"][0]["is_platform_superuser"] is True
+
+
+def test_available_company_contexts_for_administrator_are_membership_scoped() -> None:
+    administrator = FakeAdministrator(is_superuser=False)
+    company_a = FakeCompany(company_id=uuid4())
+    company_b = FakeCompany(company_id=uuid4())
+    company_c = FakeCompany(company_id=uuid4(), is_active=False)
+    memberships = [
+        FakeMembership(
+            company_id=company_a.id,
+            administrator_id=administrator.id,
+            role="admin",
+        ),
+        FakeMembership(
+            company_id=company_b.id,
+            administrator_id=uuid4(),
+            role="owner",
+        ),
+        FakeMembership(
+            company_id=company_c.id,
+            administrator_id=administrator.id,
+            role="owner",
+        ),
+    ]
+
+    try:
+        with create_client(
+            administrator=administrator,
+            companies=[company_a, company_b, company_c],
+            memberships=memberships,
+        ) as client:
+            response = client.get("/api/v1/company-context/available-companies")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["company"]["id"] == str(company_a.id)
+    assert payload["items"][0]["membership_role"] == "admin"
+    assert payload["items"][0]["is_platform_superuser"] is False
 
 
 def test_superuser_context_returns_real_active_owner_membership() -> None:

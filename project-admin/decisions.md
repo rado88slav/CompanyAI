@@ -314,7 +314,7 @@ The first dashboard foundation uses React, TypeScript, Vite and React Router und
 
 `GET /api/v1/companies/{company_id}/dashboard/summary` is an authenticated read-only endpoint using the existing active-company context and activity, provider, approval and provider-execution read permissions. One aggregate statement returns company-scoped counts, and one bounded deterministic query returns at most five recent audit events. Explicit schemas expose only service status, readiness, environment, application version, seven counts and the safe audit fields `id`, `actor_type`, `action`, `resource_type`, `resource_id` and `created_at`.
 
-The API never serializes ORM objects directly and excludes audit details, credential identifiers and material, encrypted payloads, nonces, key IDs, keyring metadata, hashes and tokens. It performs no writes, credential decryption, provider execution or external call. Stage 1 adds no migration or Docker Compose change. Live email/call integrations, provider mutations, credential forms, approval actions and execution controls remain out of scope. Dashboard Stage 2 should add explicit company-selection and authentication UX plus richer read-only module views before any operational controls.
+The API never serializes ORM objects directly and excludes audit details, credential identifiers and material, encrypted payloads, nonces, key IDs, keyring metadata, hashes and tokens. It performs no writes, credential decryption, provider execution or external call. Stage 1 adds no migration or Docker Compose change. Live email/call integrations, provider mutations, credential forms, approval actions and execution controls remain out of scope. Dashboard Stage 2 should add richer read-only module views and deployment packaging before any operational controls.
 
 ## 028 — Thin local-test email workflow
 
@@ -329,3 +329,26 @@ sends no real email. Migration `0014_email_workflow` follows `0013`, is applied
 to the real local development database, and was validated through the first
 approved local E2E. The historical E2E records are intentionally retained as
 local validation evidence; token files were removed during approved cleanup.
+
+## 029 — Dashboard Authentication and Active Company Context
+
+The graphical dashboard uses the existing administrator authentication API
+instead of a parallel browser-only authentication mechanism. The browser stores
+the short-lived bearer token only in session storage, never renders it, and
+clears both token and selected company when authentication fails or the user
+logs out.
+
+Selectable companies are resolved by the backend through
+`GET /api/v1/company-context/available-companies`. Superusers may select active
+companies; ordinary administrators see only active companies with active
+memberships. Existing `X-Company-ID` path matching and permission dependencies
+remain authoritative for protected module requests, so a stale or unauthorized
+saved company ID is rejected by the API and safely replaced with the first
+currently available company during bootstrap.
+
+Providers, Agent Runtime, Email Campaigns, Overview and future
+company-scoped modules continue to use the same central frontend company API
+client. Changing the active company remounts the protected route outlet, which
+forces pages to reload against the new company context. The dashboard still
+contains no credential-entry form and exposes no real send, launch, call,
+arbitrary shell or arbitrary HTTP action.

@@ -1,8 +1,53 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 
 import { App } from "../App";
 import type { DashboardSummary } from "../types/dashboard";
+
+const administrator = {
+  id: "admin-1",
+  email: "admin@example.test",
+  full_name: "Admin User",
+  is_active: true,
+  is_superuser: false,
+  last_login_at: null,
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const companyContexts = {
+  items: [
+    {
+      company: {
+        id: "company-id",
+        name: "Company Test",
+        slug: "company-test",
+        status: "active",
+        is_active: true,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      membership_role: "admin",
+      is_platform_superuser: false,
+    },
+    {
+      company: {
+        id: "company-two",
+        name: "Second Company",
+        slug: "second-company",
+        status: "active",
+        is_active: true,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      membership_role: "viewer",
+      is_platform_superuser: false,
+    },
+  ],
+  total: 2,
+  limit: 100,
+  offset: 0,
+};
 
 const summary: DashboardSummary = {
   service: {
@@ -23,36 +68,93 @@ const summary: DashboardSummary = {
   recent_audit_events: [],
 };
 
-function setContext() {
-  sessionStorage.setItem("companyai.accessToken", "test-session-token");
-  sessionStorage.setItem("companyai.companyId", "company-id");
+function setToken(companyId = "company-id") {
+  sessionStorage.setItem("companyai.accessToken", "opaque-test-session-value");
+  sessionStorage.setItem("companyai.companyId", companyId);
 }
 
-function jsonResponse(body: unknown, ok = true) {
+function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 500) {
   return Promise.resolve({
     ok,
+    status,
     json: () => Promise.resolve(body),
   } as Response);
 }
 
-test("development session setup stores context without echoing the bearer token", async () => {
+async function bootstrapResponses() {
+  return [await jsonResponse(administrator), await jsonResponse(companyContexts)];
+}
+
+async function authenticatedFetchMock(...responses: Response[]) {
+  const fetchMock = vi.spyOn(globalThis, "fetch");
+  for (const response of await bootstrapResponses()) fetchMock.mockResolvedValueOnce(response);
+  for (const response of responses) fetchMock.mockResolvedValueOnce(response);
+  return fetchMock;
+}
+
+beforeEach(() => {
   sessionStorage.clear();
+  vi.restoreAllMocks();
+  window.history.pushState({}, "", "/");
+});
+
+test("login flow stores the token without rendering it and selects an authorized company", async () => {
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse({ access_token: "opaque-login-session-value" }))
+    .mockResolvedValueOnce(await jsonResponse(administrator))
+    .mockResolvedValueOnce(await jsonResponse(companyContexts));
+
   render(<App />);
 
-  expect(screen.getByRole("heading", { name: "Browser session" })).toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("Administrator bearer token"), { target: { value: "secret-bearer-token" } });
-  fireEvent.change(screen.getByLabelText("Active company ID"), { target: { value: "0138bfbe-80af-4304-ad91-14d1914a9869" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save session" }));
+  expect(await screen.findByRole("heading", { name: "CompanyAI dashboard" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ADMIN@example.test" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "not-rendered" } });
+  fireEvent.click(screen.getByRole("button", { name: "Login" }));
 
-  expect(sessionStorage.getItem("companyai.accessToken")).toBe("secret-bearer-token");
-  expect(document.body.textContent).not.toContain("secret-bearer-token");
-  expect(screen.getByRole("button", { name: "Clear session" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Logout" })).toBeInTheDocument();
+  expect(sessionStorage.getItem("companyai.accessToken")).toBe("opaque-login-session-value");
+  expect(sessionStorage.getItem("companyai.companyId")).toBe("company-id");
+  expect(document.body.textContent).not.toContain("opaque-login-session-value");
+});
+
+test("saved unauthorized company falls back to the first available company", async () => {
+  setToken("unauthorized-company");
+  await authenticatedFetchMock(await jsonResponse(summary));
+
+  render(<App />);
+
+  expect(await screen.findByRole("combobox", { name: "Active company" })).toHaveValue("company-id");
+  expect(sessionStorage.getItem("companyai.companyId")).toBe("company-id");
+});
+
+test("empty company list renders a protected empty state", async () => {
+  setToken();
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse(administrator))
+    .mockResolvedValueOnce(await jsonResponse({ items: [], total: 0, limit: 100, offset: 0 }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "No companies available" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Provider Connections" })).toBeInTheDocument();
+});
+
+test("expired session clears protected context", async () => {
+  setToken();
+  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(await jsonResponse({}, false, 401));
+
+  render(<App />);
+
+  expect(await screen.findByText("Your session expired. Please sign in again.")).toBeInTheDocument();
+  expect(sessionStorage.getItem("companyai.accessToken")).toBeNull();
 });
 
 test("renders the overview loading state and successful real summary", async () => {
-  setContext();
+  setToken();
   let resolveRequest!: (response: Response) => void;
-  vi.spyOn(globalThis, "fetch").mockReturnValue(
+  const fetchMock = vi.spyOn(globalThis, "fetch");
+  for (const response of await bootstrapResponses()) fetchMock.mockResolvedValueOnce(response);
+  fetchMock.mockReturnValueOnce(
     new Promise((resolve) => {
       resolveRequest = resolve;
     }),
@@ -60,7 +162,7 @@ test("renders the overview loading state and successful real summary", async () 
 
   render(<App />);
 
-  expect(screen.getByText("Loading current operations")).toBeInTheDocument();
+  expect(await screen.findByText("Loading current operations")).toBeInTheDocument();
   resolveRequest(await jsonResponse(summary));
 
   expect(await screen.findByText("Operational clarity, at a glance.")).toBeInTheDocument();
@@ -70,38 +172,59 @@ test("renders the overview loading state and successful real summary", async () 
 });
 
 test("renders an error state and retries the summary request", async () => {
-  setContext();
-  const fetchMock = vi
-    .spyOn(globalThis, "fetch")
-    .mockResolvedValueOnce({ ok: false } as Response)
-    .mockResolvedValueOnce(await jsonResponse(summary));
+  setToken();
+  const fetchMock = await authenticatedFetchMock(
+    { ok: false, status: 500 } as Response,
+    await jsonResponse(summary),
+  );
 
   render(<App />);
 
   expect(await screen.findByText("Overview unavailable")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
   expect(await screen.findByText("CompanyAI API")).toBeInTheDocument();
 });
 
 test.each([
   ["/calls", "Call Operations"],
   ["/settings", "Settings"],
-])("renders the %s placeholder route", async (path, title) => {
-  setContext();
+])("renders the %s protected placeholder route", async (path, title) => {
+  setToken();
   window.history.pushState({}, "", path);
+  await authenticatedFetchMock();
   render(<App />);
 
-  expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
   expect(screen.getByText("Not configured yet")).toBeInTheDocument();
-  expect(screen.getByText(/coming in a later dashboard stage/i)).toBeInTheDocument();
+});
+
+test("company selector changes the active company for protected requests", async () => {
+  setToken();
+  const fetchMock = await authenticatedFetchMock(
+    await jsonResponse(summary),
+    await jsonResponse(summary),
+  );
+
+  render(<App />);
+  expect(await screen.findByText("CompanyAI API")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Active company"), { target: { value: "company-two" } });
+
+  await waitFor(() => expect(sessionStorage.getItem("companyai.companyId")).toBe("company-two"));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+  expect(fetchMock).toHaveBeenLastCalledWith(
+    "/api/v1/companies/company-two/dashboard/summary",
+    expect.objectContaining({
+      headers: expect.objectContaining({ "X-Company-ID": "company-two" }),
+    }),
+  );
 });
 
 test("renders agent runtime tools and structured read-only result", async () => {
-  setContext();
-  vi.spyOn(globalThis, "fetch")
-    .mockResolvedValueOnce(await jsonResponse({ items: [{
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [{
       key: "dashboard.summary.read",
       display_name: "Read dashboard summary",
       description: "Return safe dashboard summary.",
@@ -119,14 +242,15 @@ test("renders agent runtime tools and structured read-only result", async () => 
       requires_approval: false,
       runtime_registered: true,
       company_enabled: true,
-    }]}))
-    .mockResolvedValueOnce(await jsonResponse({
+    }]}),
+    await jsonResponse({
       tool_key: "dashboard.summary.read",
       status: "succeeded",
       executed_at: "2026-01-01T00:00:00Z",
       audit_event_id: "audit-1",
       result: summary,
-    }));
+    }),
+  );
 
   window.history.pushState({}, "", "/agent");
   render(<App />);
@@ -136,12 +260,12 @@ test("renders agent runtime tools and structured read-only result", async () => 
   fireEvent.click(screen.getAllByRole("button", { name: "Run read-only tool" })[0]);
   expect(await screen.findByText("dashboard.summary.read")).toBeInTheDocument();
   expect(screen.getByText("audit-1")).toBeInTheDocument();
-  expect(document.body.textContent?.toLowerCase()).not.toContain("secret-bearer-token");
+  expect(document.body.textContent?.toLowerCase()).not.toContain("opaque-test-session-value");
 });
 
 test("renders agent runtime setup state when no tools are enabled", async () => {
-  setContext();
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(await jsonResponse({ items: [] }));
+  setToken();
+  await authenticatedFetchMock(await jsonResponse({ items: [] }));
 
   window.history.pushState({}, "", "/agent");
   render(<App />);
@@ -151,9 +275,9 @@ test("renders agent runtime setup state when no tools are enabled", async () => 
 });
 
 test("renders provider connections from safe catalog and company data", async () => {
-  setContext();
-  vi.spyOn(globalThis, "fetch")
-    .mockResolvedValueOnce(await jsonResponse([{
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse([{
       key: "local-test-email",
       display_name: "Local Test Email",
       category: "email",
@@ -163,8 +287,8 @@ test("renders provider connections from safe catalog and company data", async ()
       configuration_fields: [],
       capabilities: ["email.send"],
       credentials_may_expire: false,
-    }]))
-    .mockResolvedValueOnce(await jsonResponse({
+    }]),
+    await jsonResponse({
       items: [{
         id: "connection-1",
         company_id: "company-id",
@@ -184,7 +308,8 @@ test("renders provider connections from safe catalog and company data", async ()
       total: 1,
       limit: 50,
       offset: 0,
-    }));
+    }),
+  );
 
   window.history.pushState({}, "", "/providers");
   render(<App />);
@@ -196,10 +321,10 @@ test("renders provider connections from safe catalog and company data", async ()
 });
 
 test("renders inbox empty state and refresh", async () => {
-  setContext();
-  vi.spyOn(globalThis, "fetch")
-    .mockResolvedValueOnce(await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }))
-    .mockResolvedValueOnce(await jsonResponse({ items: [{
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ items: [{
       id: "campaign-1",
       company_id: "company-id",
       provider_key: "local_mock_email",
@@ -212,7 +337,8 @@ test("renders inbox empty state and refresh", async () => {
       bounce_count: 0,
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-02T00:00:00Z",
-    }], total: 1, limit: 50, offset: 0 }));
+    }], total: 1, limit: 50, offset: 0 }),
+  );
   window.history.pushState({}, "", "/email");
   render(<App />);
   expect(await screen.findByRole("heading", { name: "No imported email" })).toBeInTheDocument();
@@ -221,16 +347,16 @@ test("renders inbox empty state and refresh", async () => {
 });
 
 test("renders inbox error state", async () => {
-  setContext();
-  vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false } as Response);
+  setToken();
+  await authenticatedFetchMock({ ok: false, status: 500 } as Response);
   window.history.pushState({}, "", "/email");
   render(<App />);
   expect(await screen.findByRole("heading", { name: "Inbox unavailable" })).toBeInTheDocument();
 });
 
 test("renders exact approval content and decision actions", async () => {
-  setContext();
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(await jsonResponse({items: [{
+  setToken();
+  await authenticatedFetchMock(await jsonResponse({items: [{
     id: "approval-1", status: "pending", requester_administrator_id: "requester-1",
     created_at: "2026-01-01T00:00:00Z", recipient_email: "person@example.com",
     subject: "Re: Hello", body: "Exact plain-text reply", inbound_email_id: "email-1",
@@ -244,8 +370,8 @@ test("renders exact approval content and decision actions", async () => {
 });
 
 test("renders safe audit fields without details", async () => {
-  setContext();
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(await jsonResponse({items: [{
+  setToken();
+  await authenticatedFetchMock(await jsonResponse({items: [{
     id: "event-1", actor_type: "administrator", actor_administrator_id: "actor-1",
     action: "email.imported", resource_type: "inbound_email", resource_id: "email-1",
     created_at: "2026-01-01T00:00:00Z",
@@ -257,8 +383,8 @@ test("renders safe audit fields without details", async () => {
 });
 
 test("overview output does not render secret-bearing field names", async () => {
-  setContext();
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(await jsonResponse(summary));
+  setToken();
+  await authenticatedFetchMock(await jsonResponse(summary));
 
   const { container } = render(<App />);
   await screen.findByText("CompanyAI API");

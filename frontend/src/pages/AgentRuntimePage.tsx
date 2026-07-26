@@ -150,6 +150,23 @@ export function AgentRuntimePage() {
             <div><dt>Readiness</dt><dd>{result.result.service?.readiness ?? "Unknown"}</dd></div>
           </dl>
           {result.result.counts && <CountGrid counts={result.result.counts} />}
+          {result.result.items && (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Name</th><th>Status</th><th>Provider</th><th>Total</th></tr></thead>
+                <tbody>
+                  {result.result.items.map((item, index) => (
+                    <tr key={String(item.id ?? index)}>
+                      <td>{String(item.name ?? "Untitled")}</td>
+                      <td>{String(item.status ?? "unknown")}</td>
+                      <td>{String(item.provider_key ?? "internal")}</td>
+                      <td>{String(item.audience_count ?? "")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       )}
     </section>

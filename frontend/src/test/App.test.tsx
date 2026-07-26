@@ -110,6 +110,15 @@ test("renders agent runtime tools and structured read-only result", async () => 
       requires_approval: false,
       runtime_registered: true,
       company_enabled: true,
+    }, {
+      key: "email.campaigns.list",
+      display_name: "List mock email campaigns",
+      description: "Return deterministic mock campaigns.",
+      category: "email",
+      risk_level: "low",
+      requires_approval: false,
+      runtime_registered: true,
+      company_enabled: true,
     }]}))
     .mockResolvedValueOnce(await jsonResponse({
       tool_key: "dashboard.summary.read",
@@ -123,7 +132,8 @@ test("renders agent runtime tools and structured read-only result", async () => 
   render(<App />);
 
   expect(await screen.findByRole("heading", { name: "Agent Activity" })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Run read-only tool" }));
+  expect(screen.getByText("List mock email campaigns")).toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole("button", { name: "Run read-only tool" })[0]);
   expect(await screen.findByText("dashboard.summary.read")).toBeInTheDocument();
   expect(screen.getByText("audit-1")).toBeInTheDocument();
   expect(document.body.textContent?.toLowerCase()).not.toContain("secret-bearer-token");
@@ -187,10 +197,26 @@ test("renders provider connections from safe catalog and company data", async ()
 
 test("renders inbox empty state and refresh", async () => {
   setContext();
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }));
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }))
+    .mockResolvedValueOnce(await jsonResponse({ items: [{
+      id: "campaign-1",
+      company_id: "company-id",
+      provider_key: "local_mock_email",
+      external_campaign_id: "mock-welcome",
+      name: "Welcome sequence",
+      status: "draft",
+      audience_count: 42,
+      sent_count: 0,
+      reply_count: 0,
+      bounce_count: 0,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-02T00:00:00Z",
+    }], total: 1, limit: 50, offset: 0 }));
   window.history.pushState({}, "", "/email");
   render(<App />);
   expect(await screen.findByRole("heading", { name: "No imported email" })).toBeInTheDocument();
+  expect(screen.getByText("Welcome sequence")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
 });
 

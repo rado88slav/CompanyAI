@@ -24,3 +24,8 @@ export type AuditEvent = {
   id: string; actor_type: string; actor_administrator_id: string | null;
   action: string; resource_type: string; resource_id: string | null; created_at: string;
 };
+export type EmailCampaign = {
+  id: string; company_id: string; provider_key: string; external_campaign_id: string;
+  name: string; status: string; audience_count: number; sent_count: number;
+  reply_count: number; bounce_count: number; created_at: string; updated_at: string;
+};

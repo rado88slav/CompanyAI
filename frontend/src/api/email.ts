@@ -1,5 +1,5 @@
 import { companyApi } from "./client";
-import type { AuditEvent, EmailApproval, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal } from "../types/email";
+import type { AuditEvent, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal } from "../types/email";
 
 export const emailApi = {
   list: () => companyApi<{items: InboundEmail[]}>("/emails"),
@@ -16,4 +16,5 @@ export const emailApi = {
   deny: (id: string) => companyApi(`/email-approvals/${encodeURIComponent(id)}/reject`, {method: "POST"}),
   audit: () => companyApi<{items: AuditEvent[]}>("/activity"),
   connections: () => companyApi<{items: Array<{id: string; provider_key: string; status: string}>}>("/provider-connections"),
+  campaigns: () => companyApi<{items: EmailCampaign[]; total: number}>("/email-campaigns"),
 };

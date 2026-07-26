@@ -94,3 +94,10 @@ runtime_tool_registry.register(
         execution_mode="internal",
     )
 )
+runtime_tool_registry.register(
+    RuntimeToolDescriptor(
+        key="email.campaigns.list",
+        implementation_name="List mock email campaigns",
+        execution_mode="internal",
+    )
+)

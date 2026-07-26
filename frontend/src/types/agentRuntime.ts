@@ -30,5 +30,9 @@ export type AgentRuntimeResult = {
       resource_id: string | null;
       created_at: string;
     }>;
+    items?: Array<Record<string, unknown>>;
+    total?: number;
+    limit?: number;
+    offset?: number;
   };
 };

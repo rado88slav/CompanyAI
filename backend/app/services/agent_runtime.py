@@ -19,6 +19,23 @@ from app.schemas.agent_runtime import AgentRuntimeToolBootstrapResponse, AgentRu
 from app.schemas.dashboard import DashboardSummaryResponse
 from app.services.audit_log import AuditLogService
 from app.services.dashboard import DashboardService
+from app.services.email_campaign import MockEmailCampaignService
+
+
+TOOL_DEFINITIONS = {
+    "dashboard.summary.read": {
+        "display_name": "Read dashboard summary",
+        "description": "Return the safe read-only dashboard summary for the active company.",
+        "category": "dashboard",
+        "output_schema": {"type": "object"},
+    },
+    "email.campaigns.list": {
+        "display_name": "List mock email campaigns",
+        "description": "Return deterministic read-only mock email campaigns for the active company.",
+        "category": "email",
+        "output_schema": {"type": "object"},
+    },
+}
 
 
 class AgentRuntimeNotFoundError(Exception):
@@ -39,12 +56,14 @@ class AgentRuntimeService:
         *,
         tool_repository: ToolRegistryRepository,
         dashboard: DashboardService,
+        email_campaigns: MockEmailCampaignService,
         audit: AuditLogService,
         session: Session,
         descriptors: RuntimeToolRegistry = runtime_tool_registry,
     ) -> None:
         self._tool_repository = tool_repository
         self._dashboard = dashboard
+        self._email_campaigns = email_campaigns
         self._audit = audit
         self._session = session
         self._descriptors = descriptors
@@ -53,7 +72,7 @@ class AgentRuntimeService:
         items = []
         for tool in self._tool_repository.list_tools(
             status="active",
-            category="dashboard",
+            category=None,
             search=None,
             limit=100,
             offset=0,
@@ -80,30 +99,34 @@ class AgentRuntimeService:
             )
         return items
 
-    def bootstrap_dashboard_summary_tool(
+    def bootstrap_internal_tool(
         self,
         *,
         company_id: UUID,
         actor: Administrator,
         app_environment: str,
+        tool_key: str,
     ) -> AgentRuntimeToolBootstrapResponse:
         if app_environment != "development":
             raise AgentRuntimeUnavailableError
+        if tool_key not in TOOL_DEFINITIONS:
+            raise AgentRuntimeNotFoundError
+        definition = TOOL_DEFINITIONS[tool_key]
         now = datetime.now(UTC)
-        tool = self._tool_repository.get_tool_by_key("dashboard.summary.read")
+        tool = self._tool_repository.get_tool_by_key(tool_key)
         try:
             if tool is None:
                 tool = self._tool_repository.create_tool(
-                    key="dashboard.summary.read",
-                    display_name="Read dashboard summary",
-                    description="Return the safe read-only dashboard summary for the active company.",
-                    category="dashboard",
+                    key=tool_key,
+                    display_name=definition["display_name"],
+                    description=definition["description"],
+                    category=definition["category"],
                     risk_level="low",
                     execution_mode="internal",
                     requires_approval=False,
                     status="active",
                     input_schema={},
-                    output_schema={"type": "object"},
+                    output_schema=definition["output_schema"],
                     metadata_={"runtime": "agent_runtime"},
                     is_system=True,
                     created_by_administrator_id=actor.id,
@@ -162,6 +185,34 @@ class AgentRuntimeService:
             self._session.rollback()
             raise
 
+    def bootstrap_dashboard_summary_tool(
+        self,
+        *,
+        company_id: UUID,
+        actor: Administrator,
+        app_environment: str,
+    ) -> AgentRuntimeToolBootstrapResponse:
+        return self.bootstrap_internal_tool(
+            company_id=company_id,
+            actor=actor,
+            app_environment=app_environment,
+            tool_key="dashboard.summary.read",
+        )
+
+    def bootstrap_email_campaigns_tool(
+        self,
+        *,
+        company_id: UUID,
+        actor: Administrator,
+        app_environment: str,
+    ) -> AgentRuntimeToolBootstrapResponse:
+        return self.bootstrap_internal_tool(
+            company_id=company_id,
+            actor=actor,
+            app_environment=app_environment,
+            tool_key="email.campaigns.list",
+        )
+
     def invoke_tool(
         self,
         *,
@@ -188,10 +239,18 @@ class AgentRuntimeService:
             raise AgentRuntimeUnavailableError
         if input_data:
             raise AgentRuntimeInputError
-        if key != "dashboard.summary.read":
+        if key == "dashboard.summary.read":
+            result = self._dashboard.get_summary(company_id=company_id).model_dump(mode="json")
+        elif key == "email.campaigns.list":
+            items, total = self._email_campaigns.list_campaigns(company_id=company_id, limit=50, offset=0)
+            result = {
+                "items": [item.model_dump(mode="json") for item in items],
+                "total": total,
+                "limit": 50,
+                "offset": 0,
+            }
+        else:
             raise AgentRuntimeNotFoundError
-
-        summary = self._dashboard.get_summary(company_id=company_id)
         event = self._audit.append_company_event(
             company_id=company_id,
             actor_administrator_id=actor.id,
@@ -210,7 +269,7 @@ class AgentRuntimeService:
             status="succeeded",
             executed_at=event.created_at,
             audit_event_id=event.id,
-            result=summary.model_dump(mode="json"),
+            result=result,
         )
 
 
@@ -224,6 +283,7 @@ def get_agent_runtime_service(
             repository=DashboardRepository(session),
             settings=settings,
         ),
+        email_campaigns=MockEmailCampaignService(),
         audit=AuditLogService(AuditLogRepository(session)),
         session=session,
     )

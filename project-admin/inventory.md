@@ -42,6 +42,7 @@ Generated automatically by:
 ./backend/app/api/routes/company_settings.py
 ./backend/app/api/routes/dashboard.py
 ./backend/app/api/routes/email.py
+./backend/app/api/routes/email_campaigns.py
 ./backend/app/api/routes/health.py
 ./backend/app/api/routes/provider_connections.py
 ./backend/app/api/routes/provider_execution.py
@@ -101,6 +102,7 @@ Generated automatically by:
 ./backend/app/schemas/company_setting.py
 ./backend/app/schemas/dashboard.py
 ./backend/app/schemas/email.py
+./backend/app/schemas/email_campaign.py
 ./backend/app/schemas/provider_connection.py
 ./backend/app/schemas/provider_execution.py
 ./backend/app/schemas/tool_registry.py
@@ -116,6 +118,7 @@ Generated automatically by:
 ./backend/app/services/company_setting.py
 ./backend/app/services/dashboard.py
 ./backend/app/services/email.py
+./backend/app/services/email_campaign.py
 ./backend/app/services/provider_connection.py
 ./backend/app/services/provider_execution.py
 ./backend/app/services/tool_registry.py
@@ -153,6 +156,7 @@ Generated automatically by:
 ./backend/tests/test_credential_keyring.py
 ./backend/tests/test_dashboard.py
 ./backend/tests/test_database.py
+./backend/tests/test_email_campaigns.py
 ./backend/tests/test_email_workflow.py
 ./backend/tests/test_health.py
 ./backend/tests/test_migrations.py

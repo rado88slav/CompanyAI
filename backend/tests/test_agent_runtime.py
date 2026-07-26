@@ -145,10 +145,45 @@ class FakeDashboard:
         return summary()
 
 
+class FakeEmailCampaigns:
+    def list_campaigns(self, *, company_id, limit, offset):
+        return [
+            SimpleNamespace(
+                id=uuid4(),
+                company_id=company_id,
+                provider_key="local_mock_email",
+                external_campaign_id="mock",
+                name="Mock campaign",
+                status="draft",
+                audience_count=1,
+                sent_count=0,
+                reply_count=0,
+                bounce_count=0,
+                created_at=NOW,
+                updated_at=NOW,
+                model_dump=lambda mode="json": {
+                    "id": str(uuid4()),
+                    "company_id": str(company_id),
+                    "provider_key": "local_mock_email",
+                    "external_campaign_id": "mock",
+                    "name": "Mock campaign",
+                    "status": "draft",
+                    "audience_count": 1,
+                    "sent_count": 0,
+                    "reply_count": 0,
+                    "bounce_count": 0,
+                    "created_at": NOW.isoformat(),
+                    "updated_at": NOW.isoformat(),
+                },
+            )
+        ], 1
+
+
 def service(*, definition=None, availability=None, descriptors=None):
     return AgentRuntimeService(
         tool_repository=FakeRepository(definition=definition, availability=availability),
         dashboard=FakeDashboard(),
+        email_campaigns=FakeEmailCampaigns(),
         audit=FakeAudit(),
         session=FakeSession(),
         descriptors=descriptors or RuntimeToolRegistry(),
@@ -221,6 +256,35 @@ def test_agent_runtime_invokes_dashboard_summary_and_audits_safely() -> None:
     assert "token" not in str(result.model_dump(mode="json")).lower()
 
 
+def test_agent_runtime_invokes_mock_email_campaign_listing() -> None:
+    registry = registered_descriptors()
+    registry.register(
+        RuntimeToolDescriptor(
+            key="email.campaigns.list",
+            implementation_name="List mock email campaigns",
+            execution_mode="internal",
+        )
+    )
+    runtime = service(
+        definition=tool_definition(
+            key="email.campaigns.list",
+            display_name="List mock email campaigns",
+            category="email",
+        ),
+        availability=company_tool(),
+        descriptors=registry,
+    )
+    result = runtime.invoke_tool(
+        company_id=uuid4(),
+        tool_key="email.campaigns.list",
+        input_data={},
+        actor=administrator(),
+    )
+    assert result.status == "succeeded"
+    assert result.result["items"][0]["provider_key"] == "local_mock_email"
+    assert "secret" not in str(result.model_dump(mode="json")).lower()
+
+
 def test_agent_runtime_rejects_unexpected_input() -> None:
     runtime = service(
         definition=tool_definition(),
@@ -252,6 +316,12 @@ def test_development_bootstrap_is_idempotent_and_audited() -> None:
             actor=actor,
             app_environment="production",
         )
+    email_tool = runtime.bootstrap_email_campaigns_tool(
+        company_id=uuid4(),
+        actor=actor,
+        app_environment="development",
+    )
+    assert email_tool.tool_key == "email.campaigns.list"
 
 
 class ApiService:

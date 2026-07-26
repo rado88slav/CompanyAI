@@ -71,3 +71,24 @@ def setup_dashboard_summary_tool(
         )
     except AgentRuntimeUnavailableError as exc:
         _runtime_error(exc)
+
+
+@router.post(
+    "/companies/{company_id}/agent-runtime/tools/email-campaigns/setup",
+    response_model=AgentRuntimeToolBootstrapResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def setup_email_campaigns_tool(
+    company_id: UUID,
+    context: Annotated[ActiveCompanyContext, Depends(require_tools_manage)],
+    service: Annotated[AgentRuntimeService, Depends(get_agent_runtime_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> AgentRuntimeToolBootstrapResponse:
+    try:
+        return service.bootstrap_email_campaigns_tool(
+            company_id=company_id,
+            actor=context.administrator,
+            app_environment=settings.app_environment,
+        )
+    except (AgentRuntimeNotFoundError, AgentRuntimeUnavailableError) as exc:
+        _runtime_error(exc)

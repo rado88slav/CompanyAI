@@ -469,3 +469,4 @@ Continue Phase 3 with:
 ## Last Updated
 
 2026-07-26
+Manual preparation: restored source files after SMTP/IMAP prototype, preserved prototype patch, and created Codex handoff specification at project-admin/codex-handoff/GENERIC-SMTP-IMAP.md.

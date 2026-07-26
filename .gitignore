@@ -78,3 +78,7 @@ desktop.ini
 # Local backups
 *.bak
 *.backup
+# Local manual backups
+/backups/
+/storage/manual-backups/
+/storage/manual-volume-backups/

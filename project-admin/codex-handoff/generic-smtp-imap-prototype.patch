@@ -1,0 +1,617 @@
+diff --git a/backend/app/core/provider_connections.py b/backend/app/core/provider_connections.py
+index a52222e..7fab2f8 100644
+--- a/backend/app/core/provider_connections.py
++++ b/backend/app/core/provider_connections.py
+@@ -81,6 +81,25 @@ for _item in (
+     _descriptor("lemlist", "Lemlist", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.campaign.read", "email.send"}),
+     _descriptor("instantly", "Instantly", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.send"}),
+     _descriptor("smartlead", "Smartlead", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.send"}),
++    _descriptor(
++        "generic_smtp_imap",
++        "Generic SMTP/IMAP",
++        "email",
++        "username_password",
++        {"password"},
++        config={
++            "email_address",
++            "display_name",
++            "username",
++            "smtp_host",
++            "smtp_port",
++            "smtp_security",
++            "imap_host",
++            "imap_port",
++            "imap_security",
++        },
++        capabilities={"email.send", "email.read", "email.reply"},
++    ),
+     _descriptor("local_test_email", "Local Test Email Provider", "email", "none", set(), capabilities={"email.send", "email.read", "email.reply"}),
+     _descriptor("local_mock_email", "Local Mock Email Campaigns", "email", "none", set(), capabilities={"email.campaign.read"}),
+ ):
+diff --git a/frontend/src/api/providers.ts b/frontend/src/api/providers.ts
+index 6fb86eb..c574a72 100644
+--- a/frontend/src/api/providers.ts
++++ b/frontend/src/api/providers.ts
+@@ -1,5 +1,10 @@
+ import { companyApi } from "./client";
+-import type { ProviderConnection, ProviderDescriptor } from "../types/provider";
++import type {
++  ProviderConnection,
++  ProviderConnectionCreate,
++  ProviderCredentialCreate,
++  ProviderDescriptor,
++} from "../types/provider";
+ 
+ const AUTH_TOKEN_KEY = "companyai.accessToken";
+ 
+@@ -29,3 +34,37 @@ export function fetchProviderConnections(
+ ): Promise<{ items: ProviderConnection[]; total: number; limit: number; offset: number }> {
+   return companyApi("/provider-connections", { signal });
+ }
++
++export function createProviderConnection(
++  payload: ProviderConnectionCreate,
++): Promise<ProviderConnection> {
++  return companyApi("/provider-connections", {
++    method: "POST",
++    body: JSON.stringify(payload),
++  });
++}
++
++export function createProviderCredential(
++  connectionId: string,
++  payload: ProviderCredentialCreate,
++): Promise<unknown> {
++  return companyApi(
++    `/provider-connections/${encodeURIComponent(connectionId)}/credentials`,
++    {
++      method: "POST",
++      body: JSON.stringify(payload),
++    },
++  );
++}
++
++export function activateProviderConnection(
++  connectionId: string,
++): Promise<ProviderConnection> {
++  return companyApi(
++    `/provider-connections/${encodeURIComponent(connectionId)}/activate`,
++    {
++      method: "POST",
++    },
++  );
++}
++
+diff --git a/frontend/src/pages/ProviderConnectionsPage.tsx b/frontend/src/pages/ProviderConnectionsPage.tsx
+index 6897344..c8253d0 100644
+--- a/frontend/src/pages/ProviderConnectionsPage.tsx
++++ b/frontend/src/pages/ProviderConnectionsPage.tsx
+@@ -1,42 +1,84 @@
+-import { useCallback, useEffect, useMemo, useState } from "react";
++import {
++  type FormEvent,
++  useCallback,
++  useEffect,
++  useMemo,
++  useState,
++} from "react";
+ import { Link } from "react-router-dom";
+ 
+-import { fetchProviderConnections, fetchProviderTypes } from "../api/providers";
+-import type { ProviderConnection, ProviderDescriptor } from "../types/provider";
++import {
++  activateProviderConnection,
++  createProviderConnection,
++  createProviderCredential,
++  fetchProviderConnections,
++  fetchProviderTypes,
++} from "../api/providers";
++import type {
++  ProviderConnection,
++  ProviderDescriptor,
++} from "../types/provider";
+ 
+ function formatDate(value: string | null): string {
+   return value ? new Date(value).toLocaleString() : "Never";
+ }
+ 
+ function ProviderChips({ values }: { values: string[] }) {
+-  if (values.length === 0) return <span className="muted-text">None</span>;
++  if (values.length === 0) {
++    return <span className="muted-text">None</span>;
++  }
++
+   return (
+     <div className="chip-list">
+       {values.map((value) => (
+-        <span className="chip" key={value}>{value}</span>
++        <span className="chip" key={value}>
++          {value}
++        </span>
+       ))}
+     </div>
+   );
+ }
+ 
++function numberValue(value: string, fieldName: string): number {
++  const parsed = Number(value);
++
++  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
++    throw new Error(`${fieldName} must be a valid TCP port.`);
++  }
++
++  return parsed;
++}
++
+ export function ProviderConnectionsPage() {
+   const [descriptors, setDescriptors] = useState<ProviderDescriptor[]>([]);
+   const [connections, setConnections] = useState<ProviderConnection[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState("");
++  const [formError, setFormError] = useState("");
++  const [formMessage, setFormMessage] = useState("");
++  const [saving, setSaving] = useState(false);
++  const [showEmailForm, setShowEmailForm] = useState(false);
+ 
+   const load = useCallback(async (signal?: AbortSignal) => {
+     setLoading(true);
++
+     try {
+       const [providerTypes, providerConnections] = await Promise.all([
+         fetchProviderTypes(signal),
+         fetchProviderConnections(signal),
+       ]);
++
+       setDescriptors(providerTypes);
+       setConnections(providerConnections.items);
+       setError("");
+     } catch (requestError) {
+-      if (requestError instanceof DOMException && requestError.name === "AbortError") return;
++      if (
++        requestError instanceof DOMException &&
++        requestError.name === "AbortError"
++      ) {
++        return;
++      }
++
+       setError("Provider connection data is currently unavailable.");
+     } finally {
+       setLoading(false);
+@@ -46,6 +88,7 @@ export function ProviderConnectionsPage() {
+   useEffect(() => {
+     const controller = new AbortController();
+     void load(controller.signal);
++
+     return () => controller.abort();
+   }, [load]);
+ 
+@@ -54,6 +97,74 @@ export function ProviderConnectionsPage() {
+     [descriptors],
+   );
+ 
++  async function submitGenericMailbox(
++    event: FormEvent<HTMLFormElement>,
++  ): Promise<void> {
++    event.preventDefault();
++
++    const form = event.currentTarget;
++    const data = new FormData(form);
++
++    setSaving(true);
++    setFormError("");
++    setFormMessage("");
++
++    try {
++      const smtpPort = numberValue(
++        String(data.get("smtp_port") ?? ""),
++        "SMTP port",
++      );
++      const imapPort = numberValue(
++        String(data.get("imap_port") ?? ""),
++        "IMAP port",
++      );
++
++      const connection = await createProviderConnection({
++        provider_key: "generic_smtp_imap",
++        display_name: String(data.get("connection_name") ?? "").trim(),
++        slug: String(data.get("slug") ?? "").trim(),
++        configuration: {
++          email_address: String(data.get("email_address") ?? "").trim(),
++          display_name: String(data.get("sender_name") ?? "").trim(),
++          username: String(data.get("username") ?? "").trim(),
++          smtp_host: String(data.get("smtp_host") ?? "").trim(),
++          smtp_port: smtpPort,
++          smtp_security: String(data.get("smtp_security") ?? ""),
++          imap_host: String(data.get("imap_host") ?? "").trim(),
++          imap_port: imapPort,
++          imap_security: String(data.get("imap_security") ?? ""),
++        },
++        metadata: {
++          mailbox_type: "company_mailbox",
++          created_from: "provider_connections_dashboard",
++        },
++      });
++
++      await createProviderCredential(connection.id, {
++        secrets: {
++          password: String(data.get("password") ?? ""),
++        },
++        expires_at: null,
++      });
++
++      await activateProviderConnection(connection.id);
++
++      form.reset();
++      setShowEmailForm(false);
++      setFormMessage(
++        "The mailbox connection was created and activated successfully.",
++      );
++      await load();
++    } catch (requestError) {
++      console.error(requestError);
++      setFormError(
++        "The mailbox could not be created. Check the fields, slug and credentials.",
++      );
++    } finally {
++      setSaving(false);
++    }
++  }
++
+   if (loading) {
+     return (
+       <section className="page">
+@@ -76,7 +187,12 @@ export function ProviderConnectionsPage() {
+             <h2>Provider connections unavailable</h2>
+             <p>{error}</p>
+           </div>
+-          <button className="button" type="button" onClick={() => void load()}>
++
++          <button
++            className="button"
++            type="button"
++            onClick={() => void load()}
++          >
+             Retry
+           </button>
+         </div>
+@@ -90,38 +206,219 @@ export function ProviderConnectionsPage() {
+         <div>
+           <span className="eyebrow">Provider foundation</span>
+           <h1>Provider Connections</h1>
+-          <p>Review configured adapters and safe catalog metadata for this company.</p>
++          <p>
++            Configure company adapters without exposing credential values.
++          </p>
+         </div>
++
+         <div className="heading-actions">
+-          <Link className="button button--light" to="/documentation/providers">Learn more</Link>
+-          <button className="button" type="button" onClick={() => void load()}>
++          <Link
++            className="button button--light"
++            to="/documentation/providers"
++          >
++            Learn more
++          </Link>
++
++          <button
++            className="button button--light"
++            type="button"
++            onClick={() => setShowEmailForm((current) => !current)}
++          >
++            {showEmailForm ? "Close form" : "Add email mailbox"}
++          </button>
++
++          <button
++            className="button"
++            type="button"
++            onClick={() => void load()}
++          >
+             Refresh
+           </button>
+         </div>
+       </div>
+ 
++      {formMessage && (
++        <div className="state-panel" role="status">
++          <div>
++            <h2>Mailbox saved</h2>
++            <p>{formMessage}</p>
++          </div>
++        </div>
++      )}
++
++      {showEmailForm && (
++        <section className="activity-panel">
++          <div className="section-heading">
++            <div>
++              <span className="eyebrow">New provider connection</span>
++              <h2>Generic SMTP/IMAP mailbox</h2>
++              <p>
++                Credentials are encrypted by the backend and are never shown
++                again.
++              </p>
++            </div>
++          </div>
++
++          <form
++            className="auth-form"
++            onSubmit={(event) => void submitGenericMailbox(event)}
++          >
++            <label>
++              <span>Connection name</span>
++              <input
++                name="connection_name"
++                defaultValue="Company mailbox"
++                minLength={1}
++                maxLength={200}
++                required
++              />
++            </label>
++
++            <label>
++              <span>Connection slug</span>
++              <input
++                name="slug"
++                defaultValue="company-mailbox-1"
++                pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
++                required
++              />
++            </label>
++
++            <label>
++              <span>Email address</span>
++              <input name="email_address" type="email" required />
++            </label>
++
++            <label>
++              <span>Sender display name</span>
++              <input name="sender_name" maxLength={200} required />
++            </label>
++
++            <label>
++              <span>Username</span>
++              <input
++                name="username"
++                autoComplete="username"
++                placeholder="Usually the full email address"
++                required
++              />
++            </label>
++
++            <label>
++              <span>Password</span>
++              <input
++                name="password"
++                type="password"
++                autoComplete="new-password"
++                required
++              />
++            </label>
++
++            <label>
++              <span>SMTP host</span>
++              <input
++                name="smtp_host"
++                defaultValue="mail.agenturserver.de"
++                required
++              />
++            </label>
++
++            <label>
++              <span>SMTP port</span>
++              <input
++                name="smtp_port"
++                type="number"
++                min={1}
++                max={65535}
++                defaultValue="465"
++                required
++              />
++            </label>
++
++            <label>
++              <span>SMTP security</span>
++              <select name="smtp_security" defaultValue="ssl_tls">
++                <option value="ssl_tls">SSL/TLS</option>
++                <option value="starttls">STARTTLS</option>
++              </select>
++            </label>
++
++            <label>
++              <span>IMAP host</span>
++              <input
++                name="imap_host"
++                defaultValue="mail.agenturserver.de"
++                required
++              />
++            </label>
++
++            <label>
++              <span>IMAP port</span>
++              <input
++                name="imap_port"
++                type="number"
++                min={1}
++                max={65535}
++                defaultValue="993"
++                required
++              />
++            </label>
++
++            <label>
++              <span>IMAP security</span>
++              <select name="imap_security" defaultValue="ssl_tls">
++                <option value="ssl_tls">SSL/TLS</option>
++                <option value="starttls">STARTTLS</option>
++              </select>
++            </label>
++
++            {formError && (
++              <p className="error-text" role="alert">
++                {formError}
++              </p>
++            )}
++
++            <p className="settings-note">
++              This step stores and activates the mailbox configuration. It does
++              not send an email and does not start inbox synchronization.
++            </p>
++
++            <button className="button" type="submit" disabled={saving}>
++              {saving ? "Saving mailbox…" : "Save and activate mailbox"}
++            </button>
++          </form>
++        </section>
++      )}
++
+       <div className="metrics-grid">
+         <div className="metric-card">
+           <p className="metric-card__label">Configured connections</p>
+           <strong className="metric-card__value">{connections.length}</strong>
+           <p className="metric-card__note">Company-scoped records only</p>
+         </div>
++
+         <div className="metric-card">
+           <p className="metric-card__label">Active connections</p>
+           <strong className="metric-card__value">
+             {connections.filter((item) => item.status === "active").length}
+           </strong>
+-          <p className="metric-card__note">Ready for approved dry-run flows</p>
++          <p className="metric-card__note">Credential-backed connections</p>
+         </div>
++
+         <div className="metric-card">
+           <p className="metric-card__label">Provider types</p>
+-          <strong className="metric-card__value">{descriptors.length}</strong>
++          <strong className="metric-card__value">
++            {descriptors.length}
++          </strong>
+           <p className="metric-card__note">Trusted in-process catalog</p>
+         </div>
++
+         <div className="metric-card">
+           <p className="metric-card__label">Credential exposure</p>
+           <strong className="metric-card__value">0</strong>
+-          <p className="metric-card__note">No credential values are rendered</p>
++          <p className="metric-card__note">
++            No credential values are rendered
++          </p>
+         </div>
+       </div>
+ 
+@@ -132,6 +429,7 @@ export function ProviderConnectionsPage() {
+             <h2>Configured connections</h2>
+           </div>
+         </div>
++
+         {connections.length === 0 ? (
+           <div className="activity-empty">
+             <p>No provider connections exist for this company yet.</p>
+@@ -139,27 +437,50 @@ export function ProviderConnectionsPage() {
+         ) : (
+           <div className="provider-grid">
+             {connections.map((connection) => {
+-              const descriptor = descriptorByKey.get(connection.provider_key);
++              const descriptor = descriptorByKey.get(
++                connection.provider_key,
++              );
++
+               return (
+                 <article className="provider-card" key={connection.id}>
+                   <div className="provider-card__header">
+                     <div>
+                       <h3>{connection.display_name}</h3>
+-                      <p>{descriptor?.display_name ?? connection.provider_key}</p>
++                      <p>
++                        {descriptor?.display_name ??
++                          connection.provider_key}
++                      </p>
+                     </div>
++
+                     <span className="status-badge status-badge--neutral">
+                       {connection.status}
+                     </span>
+                   </div>
++
+                   <dl className="detail-list">
+-                    <div><dt>Slug</dt><dd>{connection.slug}</dd></div>
+-                    <div><dt>Authentication</dt><dd>{connection.authentication_type}</dd></div>
+-                    <div><dt>Updated</dt><dd>{formatDate(connection.updated_at)}</dd></div>
+-                    <div><dt>Activated</dt><dd>{formatDate(connection.activated_at)}</dd></div>
++                    <div>
++                      <dt>Slug</dt>
++                      <dd>{connection.slug}</dd>
++                    </div>
++                    <div>
++                      <dt>Authentication</dt>
++                      <dd>{connection.authentication_type}</dd>
++                    </div>
++                    <div>
++                      <dt>Updated</dt>
++                      <dd>{formatDate(connection.updated_at)}</dd>
++                    </div>
++                    <div>
++                      <dt>Activated</dt>
++                      <dd>{formatDate(connection.activated_at)}</dd>
++                    </div>
+                   </dl>
++
+                   <div>
+                     <span className="detail-label">Capabilities</span>
+-                    <ProviderChips values={descriptor?.capabilities ?? []} />
++                    <ProviderChips
++                      values={descriptor?.capabilities ?? []}
++                    />
+                   </div>
+                 </article>
+               );
+@@ -175,6 +496,7 @@ export function ProviderConnectionsPage() {
+             <h2>Available provider types</h2>
+           </div>
+         </div>
++
+         <div className="table-wrap">
+           <table>
+             <thead>
+@@ -185,6 +507,7 @@ export function ProviderConnectionsPage() {
+                 <th>Capabilities</th>
+               </tr>
+             </thead>
++
+             <tbody>
+               {descriptors.map((descriptor) => (
+                 <tr key={descriptor.key}>
+@@ -194,7 +517,9 @@ export function ProviderConnectionsPage() {
+                   </td>
+                   <td>{descriptor.category}</td>
+                   <td>{descriptor.authentication_type}</td>
+-                  <td><ProviderChips values={descriptor.capabilities} /></td>
++                  <td>
++                    <ProviderChips values={descriptor.capabilities} />
++                  </td>
+                 </tr>
+               ))}
+             </tbody>
+diff --git a/frontend/src/types/provider.ts b/frontend/src/types/provider.ts
+index 6b1fc85..e05f250 100644
+--- a/frontend/src/types/provider.ts
++++ b/frontend/src/types/provider.ts
+@@ -26,3 +26,17 @@ export type ProviderConnection = {
+   deactivated_at: string | null;
+   revoked_at: string | null;
+ };
++
++export type ProviderConnectionCreate = {
++  provider_key: string;
++  display_name: string;
++  slug: string;
++  configuration: Record<string, unknown>;
++  metadata: Record<string, unknown>;
++};
++
++export type ProviderCredentialCreate = {
++  secrets: Record<string, string>;
++  expires_at?: string | null;
++};
++

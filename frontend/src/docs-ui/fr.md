@@ -272,6 +272,10 @@ CompanyAI Local Edition Beta est conçu pour une station Windows avec Docker Des
 4. Sauvegardez avec `scripts/local/backup.sh`.
 5. Diagnostiquez avec `scripts/local/diagnose.sh`.
 > [!WARNING] Ne stockez pas les business data de façon permanente sur une simple clé USB.
+## First run
+Si aucun administrator n'existe, le dashboard affiche un setup-required state. Exécutez le local bootstrap command dans le backend container; il n'existe aucun default password.
+## Backups
+Les database backups sont manuels et checksum-protected. Optional encrypted configuration backup est disponible seulement lorsque l'opérateur fournit une passphrase pour cette commande.
 ## Sécurité
 LAN access est désactivé par défaut, les données sont dans des persistent Docker volumes, et les commandes normales stop, restart, rebuild et update préservent les business data.
 
@@ -313,7 +317,7 @@ related: dashboard,activity-center,system-status
 - Fil d’Ariane ajouté au protected dashboard shell.
 - Settings ajouté avec safe local preference storage.
 - Development activity seed command ajouté pour tester Activity Center localement.
-- Local Edition Beta foundation ajouté avec production runtime, lifecycle scripts, backup/restore foundation et backend-enforced Email Sandbox policy.
+- Local Edition Beta foundation ajouté avec production runtime, lifecycle scripts, backup/restore foundation, setup-required detection et backend-enforced Email Sandbox policy.
 ## Safety posture
 - Aucun real email send.
 - Aucun campaign launch.

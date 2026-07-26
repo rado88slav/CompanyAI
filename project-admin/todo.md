@@ -207,8 +207,10 @@
 - [x] Add offline package builder foundation with checksums.
 - [x] Add manual backup/restore foundation with guarded restore.
 - [x] Add backend-enforced Email Sandbox policy layer for local production sends.
+- [x] Add setup-required dashboard detection and single-use local first-run bootstrap CLI.
+- [x] Add optional encrypted local configuration export during backup.
 - [ ] Complete graphical first-run wizard.
-- [ ] Complete encrypted configuration backup/restore for provider credentials.
+- [ ] Complete automatic encrypted configuration restore after separate security review.
 - [ ] Complete real HVAC workstation acceptance checklist.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.

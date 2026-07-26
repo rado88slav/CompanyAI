@@ -30,6 +30,23 @@ compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --
     echo "contains_provider_credentials=false"
 } > "$BACKUP_DIR/manifest.txt"
 
-(cd "$BACKUP_DIR" && sha256sum database.dump manifest.txt > checksums.sha256)
+if [[ -n "${COMPANYAI_BACKUP_PASSPHRASE:-}" ]]; then
+    if ! command -v openssl >/dev/null 2>&1; then
+        echo "Error: openssl is required for encrypted configuration backup." >&2
+        exit 1
+    fi
+    tar -C "$PROJECT_ROOT" -cf - .env.local \
+        | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:COMPANYAI_BACKUP_PASSPHRASE -out "$BACKUP_DIR/config.enc"
+    {
+        echo "backup_version=1"
+        echo "created_utc=$STAMP"
+        echo "format=postgres-custom"
+        echo "contains_database_dump=true"
+        echo "contains_env_local=encrypted"
+        echo "contains_provider_credentials=encrypted_if_present_in_local_config"
+    } > "$BACKUP_DIR/manifest.txt"
+fi
+
+(cd "$BACKUP_DIR" && find . -maxdepth 1 -type f -not -name checksums.sha256 -print0 | sort -z | xargs -0 sha256sum > checksums.sha256)
 
 echo "Backup created: $BACKUP_DIR"

@@ -83,3 +83,9 @@ scripts/local/backup.sh
 scripts/local/restore.sh <backup-directory> RESTORE_COMPANYAI_DATABASE
 scripts/local/build-package.sh 0.1.0-beta
 scripts/local/uninstall.sh
+
+23. CompanyAI Local Edition first-run bootstrap
+docker compose --env-file .env.local -f docker-compose.local.yml exec -T backend python -m app.cli.bootstrap_first_run
+
+24. Optional encrypted configuration backup
+COMPANYAI_BACKUP_PASSPHRASE=<strong-passphrase> scripts/local/backup.sh

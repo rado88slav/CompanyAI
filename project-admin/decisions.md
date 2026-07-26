@@ -502,3 +502,26 @@ allowlists, approval requirement, one-recipient messages, hourly/daily quotas,
 subject-prefix enforcement and emergency-stop support. Development mode keeps
 the existing local dry-run email workflow available for automated and local
 validation. Rejected sandbox sends are audited with sanitized reason codes.
+
+## 038 — First-run Detection and Guarded Configuration Backup
+
+First-run setup detection is read-only and exposed at
+`GET /api/v1/first-run/status`. It returns initialization counts and the
+bootstrap method only; it never returns passwords, password hashes, tokens,
+credential keyrings or generated secrets. The dashboard uses this endpoint to
+show a setup-required state instead of implying that a default administrator
+exists.
+
+The current setup implementation intentionally uses a single-use local CLI
+bootstrap rather than a browser password form. `app.cli.bootstrap_first_run`
+reads setup values from standard input, validates a stronger first
+administrator password, creates a non-superuser administrator, creates the
+first company, adds an active owner membership and writes audit events in one
+transaction. It refuses to run once any administrator, company or membership
+exists.
+
+Backups continue to exclude `.env.local` by default. Operators may include an
+encrypted config bundle by setting `COMPANYAI_BACKUP_PASSPHRASE` for the
+backup command. Restore verifies checksums and never overwrites active
+`.env.local`; encrypted configuration is decrypted only to a support review
+folder after explicit `COMPANYAI_RESTORE_CONFIG_CONFIRMATION`.

@@ -5,6 +5,7 @@ import {
   clearSessionContext,
   fetchAvailableCompanies,
   fetchCurrentAdministrator,
+  fetchFirstRunStatus,
   hasAccessToken,
   isAuthenticationError,
   login,
@@ -51,6 +52,7 @@ function titleFromSlug(value: string): string {
 
 type SessionState =
   | { status: "bootstrapping" }
+  | { status: "setup-required"; administratorCount: number; companyCount: number }
   | { status: "anonymous"; message?: string }
   | { status: "backend-unavailable"; message: string }
   | { status: "empty-companies"; administrator: Administrator }
@@ -70,6 +72,25 @@ export function AppLayout() {
   const [loginError, setLoginError] = useState("");
 
   const bootstrap = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const setupStatus = await fetchFirstRunStatus(signal);
+      if (setupStatus.setup_required) {
+        clearSessionContext();
+        setSession({
+          status: "setup-required",
+          administratorCount: setupStatus.administrator_count,
+          companyCount: setupStatus.company_count,
+        });
+        return;
+      }
+    } catch {
+      if (signal?.aborted) return;
+      setSession({
+        status: "backend-unavailable",
+        message: "The dashboard API is unavailable. Please retry when the backend is reachable.",
+      });
+      return;
+    }
     if (!hasAccessToken()) {
       setSession({ status: "anonymous" });
       return;
@@ -295,6 +316,30 @@ export function AppLayout() {
                 Retry
               </button>
             </div>
+          )}
+
+          {session.status === "setup-required" && (
+            <section className="setup-required-panel" aria-labelledby="setup-title">
+              <div>
+                <span className="eyebrow">First-run setup</span>
+                <h1 id="setup-title">CompanyAI is not initialized yet</h1>
+                <p>
+                  Create the first company and administrator through the local
+                  secure bootstrap command before signing in.
+                </p>
+              </div>
+              <div className="setup-required-card">
+                <strong>Setup is closed automatically after the first administrator exists.</strong>
+                <code>docker compose --env-file .env.local -f docker-compose.local.yml exec -T backend python -m app.cli.bootstrap_first_run</code>
+                <p>
+                  The command reads setup fields from standard input and never prints
+                  passwords, hashes, tokens or generated secrets.
+                </p>
+                <button className="button" type="button" onClick={() => void bootstrap()}>
+                  Check again
+                </button>
+              </div>
+            </section>
           )}
 
           {session.status === "empty-companies" && (

@@ -92,6 +92,14 @@ const activity: ActivityEventList = {
   offset: 0,
 };
 
+const firstRunReady = {
+  initialized: true,
+  setup_required: false,
+  administrator_count: 1,
+  company_count: 1,
+  bootstrap_method: "local_cli",
+};
+
 function setToken(companyId = "company-id") {
   sessionStorage.setItem("companyai.accessToken", "opaque-test-session-value");
   sessionStorage.setItem("companyai.companyId", companyId);
@@ -106,7 +114,11 @@ function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 500) {
 }
 
 async function bootstrapResponses() {
-  return [await jsonResponse(administrator), await jsonResponse(companyContexts)];
+  return [
+    await jsonResponse(firstRunReady),
+    await jsonResponse(administrator),
+    await jsonResponse(companyContexts),
+  ];
 }
 
 async function authenticatedFetchMock(...responses: Response[]) {
@@ -125,7 +137,9 @@ beforeEach(() => {
 
 test("login flow stores the token without rendering it and selects an authorized company", async () => {
   vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse(firstRunReady))
     .mockResolvedValueOnce(await jsonResponse({ access_token: "opaque-login-session-value" }))
+    .mockResolvedValueOnce(await jsonResponse(firstRunReady))
     .mockResolvedValueOnce(await jsonResponse(administrator))
     .mockResolvedValueOnce(await jsonResponse(companyContexts));
 
@@ -142,6 +156,22 @@ test("login flow stores the token without rendering it and selects an authorized
   expect(document.body.textContent).not.toContain("opaque-login-session-value");
 });
 
+test("renders setup-required state before any default administrator exists", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(await jsonResponse({
+    initialized: false,
+    setup_required: true,
+    administrator_count: 0,
+    company_count: 0,
+    bootstrap_method: "local_cli",
+  }));
+
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "CompanyAI is not initialized yet" })).toBeInTheDocument();
+  expect(screen.getByText(/Create the first company and administrator/)).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("password_hash");
+});
+
 test("saved unauthorized company falls back to the first available company", async () => {
   setToken("unauthorized-company");
   await authenticatedFetchMock(await jsonResponse(summary), await jsonResponse(activity));
@@ -155,6 +185,7 @@ test("saved unauthorized company falls back to the first available company", asy
 test("empty company list renders a protected empty state", async () => {
   setToken();
   vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse(firstRunReady))
     .mockResolvedValueOnce(await jsonResponse(administrator))
     .mockResolvedValueOnce(await jsonResponse({ items: [], total: 0, limit: 100, offset: 0 }));
 
@@ -166,7 +197,9 @@ test("empty company list renders a protected empty state", async () => {
 
 test("expired session clears protected context", async () => {
   setToken();
-  vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(await jsonResponse({}, false, 401));
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse(firstRunReady))
+    .mockResolvedValueOnce(await jsonResponse({}, false, 401));
 
   render(<App />);
 
@@ -213,7 +246,7 @@ test("renders an error state and retries the summary request", async () => {
   expect(await screen.findByText("Operations dashboard unavailable")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(7));
   expect(await screen.findByText("Command the day with confidence.")).toBeInTheDocument();
 });
 
@@ -317,7 +350,7 @@ test("company selector changes the active company for protected requests", async
   fireEvent.change(screen.getByLabelText("Active company"), { target: { value: "company-two" } });
 
   await waitFor(() => expect(sessionStorage.getItem("companyai.companyId")).toBe("company-two"));
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(7));
   expect(fetchMock).toHaveBeenCalledWith(
     "/api/v1/companies/company-two/dashboard/summary",
     expect.objectContaining({
@@ -501,7 +534,7 @@ test("renders Activity Center timeline and filters safe details", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Show safe details" }));
   expect(await screen.findByText("local_test_email")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Agent" }));
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
   expect(await screen.findByRole("heading", { name: "No matching activity" })).toBeInTheDocument();
 });
 

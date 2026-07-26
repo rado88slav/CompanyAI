@@ -1508,6 +1508,45 @@ h1 {
   font-weight: 700;
 }
 
+.setup-required-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
+  gap: 24px;
+  align-items: stretch;
+  padding: 30px;
+  border: 1px solid #dfe5ee;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f8fafc, #ffffff);
+  box-shadow: 0 18px 44px rgba(16, 26, 45, 0.08);
+}
+
+.setup-required-panel h1 {
+  margin: 8px 0 10px;
+}
+
+.setup-required-panel p {
+  color: #667388;
+}
+
+.setup-required-card {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #dfe5ee;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.setup-required-card code {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  border-radius: 8px;
+  background: #101a2d;
+  color: #e5edf6;
+  font-size: 0.86rem;
+}
+
 .activity-panel,
 .empty-panel {
   margin-top: 28px;
@@ -1788,6 +1827,10 @@ h1 {
   }
 
   .sandbox-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .setup-required-panel {
     grid-template-columns: 1fr;
   }
 

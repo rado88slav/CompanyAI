@@ -44,6 +44,14 @@ export type AvailableCompanyContextList = {
   offset: number;
 };
 
+export type FirstRunStatus = {
+  initialized: boolean;
+  setup_required: boolean;
+  administrator_count: number;
+  company_count: number;
+  bootstrap_method: string;
+};
+
 export function accessToken(): string | null {
   return sessionStorage.getItem(AUTH_TOKEN_KEY);
 }
@@ -110,6 +118,12 @@ export async function login(email: string, password: string): Promise<void> {
   if (!response.ok) throw new ApiError("Sign in failed.", response.status);
   const payload = await parseJson<{ access_token: string }>(response);
   saveAccessToken(payload.access_token);
+}
+
+export async function fetchFirstRunStatus(signal?: AbortSignal): Promise<FirstRunStatus> {
+  const response = await fetch("/api/v1/first-run/status", { signal });
+  if (!response.ok) throw new ApiError("Setup status is unavailable.", response.status);
+  return parseJson<FirstRunStatus>(response);
 }
 
 export function fetchCurrentAdministrator(signal?: AbortSignal): Promise<Administrator> {

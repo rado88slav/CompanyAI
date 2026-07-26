@@ -15,6 +15,10 @@ CompanyAI Local Edition is locally hosted but treats data as real business data 
 
 Secrets live in `.env.local`, generated on the workstation. Examples contain placeholders only. Secrets must not be committed, printed in diagnostics or exposed in frontend state.
 
+## First Run
+
+The first administrator is not created by default. The setup status endpoint is read-only, and the local bootstrap command closes automatically once administrator, company or membership records exist. Passwords are hashed and are never printed by the command.
+
 ## Email
 
 Outbound email is restricted by the backend Email Sandbox. The UI is not the authority. Every send attempt must be authenticated, company-scoped, approval-gated, allowlisted, quota-limited, duplicate-protected and audited.

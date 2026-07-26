@@ -272,6 +272,10 @@ CompanyAI Local Edition Beta е предназначен за Windows workstatio
 4. Направете backup със `scripts/local/backup.sh`.
 5. Създайте диагностика със `scripts/local/diagnose.sh`.
 > [!WARNING] Не пазете business data постоянно върху обикновена USB flash drive.
+## First run
+Ако няма administrator, dashboard-ът показва setup-required state. Завършете local bootstrap command в backend container; няма default password.
+## Backups
+Database backups са manual и checksum-protected. Optional encrypted configuration backup е наличен само когато operator подаде passphrase за конкретната команда.
 ## Безопасност
 LAN access е изключен по подразбиране, данните са в persistent Docker volumes, а нормални stop, restart, rebuild и update команди пазят business data.
 
@@ -313,7 +317,7 @@ related: dashboard,activity-center,system-status
 - Breadcrumb navigation е добавена към protected dashboard shell.
 - Settings е добавен със safe local preference storage.
 - Development activity seed command е добавена за local Activity Center testing.
-- Local Edition Beta foundation е добавен с production runtime, lifecycle scripts, backup/restore foundation и backend-enforced Email Sandbox policy.
+- Local Edition Beta foundation е добавен с production runtime, lifecycle scripts, backup/restore foundation, setup-required detection и backend-enforced Email Sandbox policy.
 ## Safety posture
 - Няма real email sends.
 - Няма campaign launches.

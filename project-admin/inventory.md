@@ -14,6 +14,7 @@ Generated automatically by:
 ```text
 .
 ./.env.example
+./.env.local.example
 ./.gitignore
 ./AGENTS.md
 ./README.md
@@ -43,6 +44,7 @@ Generated automatically by:
 ./backend/app/api/routes/dashboard.py
 ./backend/app/api/routes/email.py
 ./backend/app/api/routes/email_campaigns.py
+./backend/app/api/routes/first_run.py
 ./backend/app/api/routes/health.py
 ./backend/app/api/routes/provider_connections.py
 ./backend/app/api/routes/provider_execution.py
@@ -50,6 +52,7 @@ Generated automatically by:
 ./backend/app/cli/__init__.py
 ./backend/app/cli/bootstrap_authorization_safety.py
 ./backend/app/cli/bootstrap_company_owner.py
+./backend/app/cli/bootstrap_first_run.py
 ./backend/app/cli/create_administrator.py
 ./backend/app/core/__init__.py
 ./backend/app/core/agent_security.py
@@ -104,6 +107,7 @@ Generated automatically by:
 ./backend/app/schemas/dashboard.py
 ./backend/app/schemas/email.py
 ./backend/app/schemas/email_campaign.py
+./backend/app/schemas/first_run.py
 ./backend/app/schemas/provider_connection.py
 ./backend/app/schemas/provider_execution.py
 ./backend/app/schemas/tool_registry.py
@@ -163,6 +167,7 @@ Generated automatically by:
 ./backend/tests/test_email_campaign_adapters.py
 ./backend/tests/test_email_campaigns.py
 ./backend/tests/test_email_workflow.py
+./backend/tests/test_first_run.py
 ./backend/tests/test_health.py
 ./backend/tests/test_migrations.py
 ./backend/tests/test_provider_connections.py

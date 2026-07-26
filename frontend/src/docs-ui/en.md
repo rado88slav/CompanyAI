@@ -272,6 +272,10 @@ CompanyAI Local Edition Beta is designed for a Windows workstation with Docker D
 4. Back up with `scripts/local/backup.sh`.
 5. Diagnose with `scripts/local/diagnose.sh`.
 > [!WARNING] Do not run business data permanently from an ordinary USB flash drive.
+## First run
+If no administrator exists, the dashboard shows a setup-required state. Complete the local bootstrap command inside the backend container; no default password exists.
+## Backups
+Database backups are manual and checksum-protected. Optional encrypted configuration backup is available only when the operator supplies a passphrase for that command.
 ## Safety
 LAN access is disabled by default, data lives in persistent Docker volumes, and normal stop, restart, rebuild and update commands preserve business data.
 
@@ -313,7 +317,7 @@ related: dashboard,activity-center,system-status
 - Breadcrumb navigation added to the protected dashboard shell.
 - Settings added with safe local preference storage.
 - Development activity seed command added for local Activity Center testing.
-- Local Edition Beta foundation added with production runtime, lifecycle scripts, backup/restore foundation and backend-enforced Email Sandbox policy.
+- Local Edition Beta foundation added with production runtime, lifecycle scripts, backup/restore foundation, setup-required detection and backend-enforced Email Sandbox policy.
 ## Safety posture
 - No real email sends.
 - No campaign launches.

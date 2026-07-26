@@ -4,7 +4,7 @@ CompanyAI must not create a default administrator, default password or reusable 
 
 ## Current Beta Flow
 
-This milestone keeps the existing secure administrator creation workflow and documents the required setup state. A graphical first-run wizard remains planned because it must safely generate secrets, create the first company and close permanently after initialization.
+This milestone adds a safe setup detection endpoint and a single-use local CLI bootstrap. A graphical first-run wizard remains planned because it must safely generate secrets, create the first company and close permanently after initialization.
 
 ## Required Security Properties
 
@@ -20,8 +20,17 @@ This milestone keeps the existing secure administrator creation workflow and doc
 
 1. Generate `.env.local` secrets locally.
 2. Start the Local Edition runtime.
-3. Use the existing secure administrator creation workflow from the backend container.
-4. Sign in through the dashboard.
-5. Confirm company membership and active company selection.
+3. Run `python -m app.cli.bootstrap_first_run` inside the backend container.
+4. Provide company name, company slug, administrator email, administrator full name, strong password, language and timezone through standard input.
+5. Sign in through the dashboard.
+6. Confirm company membership and active company selection.
 
 The dashboard must show authentication-required or setup-required states rather than implying a default account exists.
+
+The setup status endpoint is read-only:
+
+```text
+GET /api/v1/first-run/status
+```
+
+It returns counts and bootstrap method only. It never returns passwords, hashes, tokens or generated secrets.

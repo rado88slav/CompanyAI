@@ -87,7 +87,6 @@ test("renders an error state and retries the summary request", async () => {
 
 test.each([
   ["/agent", "Agent Activity"],
-  ["/providers", "Provider Connections"],
   ["/calls", "Call Operations"],
   ["/settings", "Settings"],
 ])("renders the %s placeholder route", async (path, title) => {
@@ -98,6 +97,51 @@ test.each([
   expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
   expect(screen.getByText("Not configured yet")).toBeInTheDocument();
   expect(screen.getByText(/coming in a later dashboard stage/i)).toBeInTheDocument();
+});
+
+test("renders provider connections from safe catalog and company data", async () => {
+  setContext();
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse([{
+      key: "local-test-email",
+      display_name: "Local Test Email",
+      category: "email",
+      authentication_type: "none",
+      required_secret_fields: [],
+      optional_secret_fields: [],
+      configuration_fields: [],
+      capabilities: ["email.send"],
+      credentials_may_expire: false,
+    }]))
+    .mockResolvedValueOnce(await jsonResponse({
+      items: [{
+        id: "connection-1",
+        company_id: "company-id",
+        provider_key: "local-test-email",
+        display_name: "Local Test Email",
+        slug: "local-test-email",
+        authentication_type: "none",
+        status: "active",
+        configuration: {},
+        metadata: {},
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+        activated_at: "2026-01-01T00:00:00Z",
+        deactivated_at: null,
+        revoked_at: null,
+      }],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    }));
+
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Provider Connections" })).toBeInTheDocument();
+  expect(screen.getAllByText("Local Test Email").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("email.send").length).toBeGreaterThan(0);
+  expect(document.body.textContent?.toLowerCase()).not.toContain("secret");
 });
 
 test("renders inbox empty state and refresh", async () => {

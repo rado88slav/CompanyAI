@@ -1,12 +1,18 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
+const runtime = globalThis as {
+  process?: { env?: Record<string, string | undefined> };
+};
+const backendTarget =
+  runtime.process?.env?.VITE_BACKEND_PROXY_TARGET ?? "http://localhost:8000";
+
 export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: backendTarget,
         changeOrigin: false,
       },
     },

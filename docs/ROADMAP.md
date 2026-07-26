@@ -20,7 +20,7 @@ The initial MVP must provide:
 - activity and audit history;
 - portable installation through Docker and Bash scripts.
 
-Current provider foundation status: Provider Connections, the dry-run-only Provider Execution foundation and the thin local-test email workflow are implemented and runtime-verified. The immutable keyring core and runtime support exist, and the real local keyring cutover is complete with active ID `legacy`. The repository and real development database heads are both `0014_email_workflow`; `0013_credential_keyring_contract` remains the verified keyring contract predecessor with `provider_credentials.encryption_key_id` as `VARCHAR(64) NOT NULL`. No credential backfill or re-encryption occurred. Dashboard Stage 1 provides the tested React, TypeScript and Vite shell, read-only Overview and authenticated company-scoped summary API; the development session now also exposes local thin email validation screens for import, proposals, approvals, local test send status and audit review. Production secret-manager provisioning, controlled re-encryption tooling, old-key retirement/key escrow, backup-retention, real mailbox import, AI drafting and live provider delivery remain open.
+Current provider foundation status: Provider Connections, the dry-run-only Provider Execution foundation and the thin local-test email workflow are implemented and runtime-verified. The immutable keyring core and runtime support exist, and the real local keyring cutover is complete with active ID `legacy`. The repository and real development database heads are both `0014_email_workflow`; `0013_credential_keyring_contract` remains the verified keyring contract predecessor with `provider_credentials.encryption_key_id` as `VARCHAR(64) NOT NULL`. No credential backfill or re-encryption occurred. Dashboard Stage 1 provides the tested React, TypeScript and Vite shell, read-only Overview, authenticated company-scoped summary API and a read-only Provider Connections module backed by the trusted provider catalog and company connection APIs. The development session also exposes local thin email validation screens for import, proposals, approvals, local test send status and audit review. Production secret-manager provisioning, controlled re-encryption tooling, old-key retirement/key escrow, backup-retention, real mailbox import, AI drafting and live provider delivery remain open.
 
 ---
 
@@ -253,7 +253,9 @@ Overview refresh, typed runtime response validation and loading, error and
 empty states. The read-only Dashboard Summary API supplies only safe service
 metadata, company-scoped counts and a bounded recent audit subset. No email or
 call integration, provider mutation, credential form, approval action or
-execution control is present. Company selection UX, authentication UX,
+execution control is present. The Provider Connections route now reads the
+trusted provider catalog and company-scoped connection metadata without
+rendering credential values or exposing mutation controls. Company selection UX, authentication UX,
 production delivery and richer module views remain later dashboard work.
 
 ## Goal

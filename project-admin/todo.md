@@ -189,6 +189,7 @@
 - [x] Add development session company context and token-based authentication setup for local validation.
 - [ ] Add production dashboard company-selection and authentication UX.
 - [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
+- [x] Add read-only Provider Connections dashboard view backed by safe catalog and company metadata APIs.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.

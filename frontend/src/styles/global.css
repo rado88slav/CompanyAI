@@ -409,6 +409,79 @@ h1 {
   font-size: 0.78rem;
 }
 
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.provider-card {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid #e0e5ec;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.provider-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.provider-card h3,
+.provider-card p {
+  margin: 0;
+}
+
+.provider-card p,
+.muted-text {
+  color: #758096;
+}
+
+.detail-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+
+.detail-list div {
+  min-width: 0;
+}
+
+.detail-list dt,
+.detail-label {
+  color: #758096;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.detail-list dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chip {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #405067;
+  background: #edf0f4;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .state-panel {
   display: flex;
   align-items: center;
@@ -519,7 +592,9 @@ h1 {
   }
 
   .metrics-grid,
-  .service-strip {
+  .service-strip,
+  .provider-grid,
+  .detail-list {
     grid-template-columns: 1fr;
   }
 

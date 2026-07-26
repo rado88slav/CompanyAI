@@ -170,6 +170,7 @@ Generated automatically by:
 ./frontend/src/api/client.ts
 ./frontend/src/api/dashboard.ts
 ./frontend/src/api/email.ts
+./frontend/src/api/providers.ts
 ./frontend/src/components/MetricCard.tsx
 ./frontend/src/components/StatusBadge.tsx
 ./frontend/src/layouts/AppLayout.tsx
@@ -181,12 +182,14 @@ Generated automatically by:
 ./frontend/src/pages/EmailInboxPage.tsx
 ./frontend/src/pages/OverviewPage.tsx
 ./frontend/src/pages/PlaceholderPage.tsx
+./frontend/src/pages/ProviderConnectionsPage.tsx
 ./frontend/src/routes/AppRoutes.tsx
 ./frontend/src/styles/global.css
 ./frontend/src/test/App.test.tsx
 ./frontend/src/test/setup.ts
 ./frontend/src/types/dashboard.ts
 ./frontend/src/types/email.ts
+./frontend/src/types/provider.ts
 ./frontend/tsconfig.app.json
 ./frontend/tsconfig.json
 ./frontend/tsconfig.node.json

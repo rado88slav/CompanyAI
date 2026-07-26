@@ -167,6 +167,8 @@ Activity Center est la timeline opérationnelle lisible. Elle normalise les audi
 ## Bonnes pratiques
 - L’utiliser comme preuve de validation.
 - Le combiner avec System Status lors d’une investigation.
+## Données de développement
+En environnement development, Activity Center peut être rempli avec des sample events déterministes via `scripts/dev/seed-activity.sh`. La commande est development-only, company-scoped, idempotente et ne crée aucun credential, provider call ou livraison externe.
 
 ---
 slug: system-status
@@ -210,6 +212,30 @@ CompanyAI est conçu autour de company isolation, authorization explicite, crede
 - Séparer local development credentials et comptes réels.
 
 ---
+slug: settings
+title: Settings
+category: Aide
+summary: Gérer les préférences locales, la session et les raccourcis documentation.
+keywords: settings, preferences, theme, notifications, profile, language
+related: getting-started,security,faq
+---
+# Settings
+Settings est le protected workspace pour account context et préférences locales sûres du dashboard. Il ne collecte pas de credentials et ne change pas les mots de passe.
+## Sections
+1. Profile affiche display name, email, role et active company.
+2. Preferences stocke localement interface language, documentation language, landing page, timezone, date format et density.
+3. Appearance stocke localement light, dark ou system mode.
+4. Notifications stocke les préférences locales pour approvals, provider health, campaigns et agent signals.
+5. Security affiche current session context et permet logout.
+6. Company defaults affiche read-only company information et dashboard preference.
+7. Documentation ouvre le built-in Documentation Center.
+> [!WARNING] Password change et MFA nécessitent un futur verified secure backend flow. Ne saisissez aucun replacement password dans un formulaire unsupported.
+## Bonnes pratiques
+- Sauvegarder après modification des preferences.
+- Utiliser Documentation language pour aligner le help content avec votre workflow.
+- Traiter Settings comme browser-local jusqu’à l’arrivée du backend preference storage.
+
+---
 slug: faq
 title: FAQ
 category: Aide
@@ -244,6 +270,8 @@ related: dashboard,activity-center,system-status
 - System Status ajouté pour health indicators only.
 - Documentation Center ajouté comme multilingual built-in help system.
 - Fil d’Ariane ajouté au protected dashboard shell.
+- Settings ajouté avec safe local preference storage.
+- Development activity seed command ajouté pour tester Activity Center localement.
 ## Safety posture
 - Aucun real email send.
 - Aucun campaign launch.

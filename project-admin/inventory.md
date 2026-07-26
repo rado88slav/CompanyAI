@@ -118,6 +118,7 @@ Generated automatically by:
 ./backend/app/services/company_membership.py
 ./backend/app/services/company_setting.py
 ./backend/app/services/dashboard.py
+./backend/app/services/development_activity_seed.py
 ./backend/app/services/email.py
 ./backend/app/services/email_campaign.py
 ./backend/app/services/email_campaign_adapters.py
@@ -158,6 +159,7 @@ Generated automatically by:
 ./backend/tests/test_credential_keyring.py
 ./backend/tests/test_dashboard.py
 ./backend/tests/test_database.py
+./backend/tests/test_development_activity_seed.py
 ./backend/tests/test_email_campaign_adapters.py
 ./backend/tests/test_email_campaigns.py
 ./backend/tests/test_email_workflow.py
@@ -204,6 +206,7 @@ Generated automatically by:
 ./frontend/src/pages/OverviewPage.tsx
 ./frontend/src/pages/PlaceholderPage.tsx
 ./frontend/src/pages/ProviderConnectionsPage.tsx
+./frontend/src/pages/SettingsPage.tsx
 ./frontend/src/pages/SystemStatusPage.tsx
 ./frontend/src/routes/AppRoutes.tsx
 ./frontend/src/styles/global.css
@@ -236,6 +239,7 @@ Generated automatically by:
 ./scripts/database/migrate.sh
 ./scripts/deploy/.gitkeep
 ./scripts/dev/.gitkeep
+./scripts/dev/seed-activity.sh
 ./scripts/docker/.gitkeep
 ./scripts/docker/logs.sh
 ./scripts/docker/restart.sh

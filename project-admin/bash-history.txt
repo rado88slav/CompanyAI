@@ -66,3 +66,6 @@ docker run --rm --network none -v "$PWD/frontend:/app" -w /app node:22-alpine np
 docker run --rm --network none -v "$PWD/frontend:/app" -w /app node:22-alpine npm test -- --run
 docker run --rm --network none -v "$PWD/frontend:/app" -w /app node:22-alpine npm run build
 docker run --rm --user root -e PIP_ROOT_USER_ACTION=ignore -e PYTHONPYCACHEPREFIX=/tmp/company-ai-pycache -e APP_SECRET_KEY=test-secret-key-with-at-least-32-characters -e ACCESS_TOKEN_EXPIRE_MINUTES=60 -e CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID=test -e CREDENTIAL_ENCRYPTION_KEYRING='{"test":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}' -e AGENT_CREDENTIAL_PEPPER=test-agent-credential-pepper-with-32-chars -e AGENT_JWT_SECRET=test-agent-jwt-secret-with-at-least-32-characters -v "$PWD/backend:/app:ro" -w /app company-ai-backend:dev sh -c 'python -m pip install --no-cache-dir -r requirements-dev.txt >/dev/null && python -m compileall -q app migrations tests && python -m pytest -p no:cacheprovider -q tests/test_audit_logging.py'
+
+21. Seed deterministic development Activity Center events
+scripts/dev/seed-activity.sh company-test

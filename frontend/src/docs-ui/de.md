@@ -167,6 +167,8 @@ Activity Center ist die lesbare operative Timeline. Audit Events werden als Card
 ## Best Practices
 - Für Validierungsnachweise verwenden.
 - Mit System Status kombinieren, wenn Sie Betriebszustand untersuchen.
+## Development Data
+In Development-Umgebungen kann Activity Center mit deterministischen Sample Events über `scripts/dev/seed-activity.sh` befüllt werden. Der Befehl ist development-only, company-scoped, idempotent und erzeugt keine Credentials, Provider Calls oder externe Zustellung.
 
 ---
 slug: system-status
@@ -210,6 +212,30 @@ CompanyAI ist auf Company Isolation, explizite Autorisierung, sichere Credential
 - Lokale Development Credentials von echten Konten trennen.
 
 ---
+slug: settings
+title: Settings
+category: Hilfe
+summary: Lokale Dashboard Preferences, Session Actions und Documentation Shortcuts verwalten.
+keywords: settings, preferences, theme, notifications, profile, language
+related: getting-started,security,faq
+---
+# Settings
+Settings ist der protected workspace für Account Context und sichere lokale Dashboard Preferences. Es sammelt keine Credentials und ändert keine Passwörter.
+## Sections
+1. Profile zeigt Display Name, E-Mail, Rolle und aktives Unternehmen.
+2. Preferences speichert Interface Language, Documentation Language, Landing Page, Timezone, Date Format und Density lokal.
+3. Appearance speichert light, dark oder system mode lokal.
+4. Notifications speichert lokale Preferences für Approvals, Provider Health, Campaigns und Agent Signals.
+5. Security zeigt current session context und bietet Logout.
+6. Company defaults zeigt read-only company information und dashboard preference.
+7. Documentation öffnet das built-in Documentation Center.
+> [!WARNING] Password Change und MFA benötigen einen künftigen verified secure backend flow. Geben Sie keine Ersatzpasswörter in unsupported forms ein.
+## Best Practices
+- Nach Preference-Änderungen speichern.
+- Documentation Language passend zum Workflow wählen.
+- Settings als browser-local behandeln, bis Backend Preference Storage existiert.
+
+---
 slug: faq
 title: FAQ
 category: Hilfe
@@ -244,6 +270,8 @@ related: dashboard,activity-center,system-status
 - System Status wurde für Health Indicators only ergänzt.
 - Documentation Center wurde als multilingual built-in help system ergänzt.
 - Breadcrumb Navigation wurde zur protected dashboard shell ergänzt.
+- Settings wurde mit safe local preference storage ergänzt.
+- Development activity seed command wurde für lokales Activity Center Testing ergänzt.
 ## Safety Posture
 - Keine realen E-Mail-Sends.
 - Keine Campaign Launches.

@@ -12,10 +12,10 @@ import { ProviderConnectionsPage } from "../pages/ProviderConnectionsPage";
 import { ActivityCenterPage } from "../pages/ActivityCenterPage";
 import { SystemStatusPage } from "../pages/SystemStatusPage";
 import { DocumentationCenterPage } from "../pages/DocumentationCenterPage";
+import { SettingsPage } from "../pages/SettingsPage";
 
 const placeholders = [
   ["/calls", "Call Operations", "Coordinate calling platforms in a future stage."],
-  ["/settings", "Settings", "Configure dashboard preferences in a future stage."],
 ] as const;
 
 export function AppRoutes() {
@@ -33,6 +33,7 @@ export function AppRoutes() {
         <Route path="/documentation/:slug" element={<DocumentationCenterPage />} />
         <Route path="/audit" element={<AuditPage />} />
         <Route path="/providers" element={<ProviderConnectionsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         {placeholders.map(([path, title, description]) => (
           <Route
             key={path}

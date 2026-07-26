@@ -167,6 +167,8 @@ Activity Center is the readable operational timeline. It normalizes audit events
 ## Best practices
 - Use it for validation evidence.
 - Pair it with System Status when investigating operational state.
+## Development data
+Development environments can populate Activity Center with deterministic sample events by running `scripts/dev/seed-activity.sh`. The command is development-only, company-scoped, idempotent and creates no credentials, provider calls or external delivery.
 
 ---
 slug: system-status
@@ -210,6 +212,30 @@ CompanyAI is designed around company isolation, explicit authorization, safe cre
 - Keep local development credentials separate from real accounts.
 
 ---
+slug: settings
+title: Settings
+category: Help
+summary: Manage local dashboard preferences, session actions and documentation shortcuts.
+keywords: settings, preferences, theme, notifications, profile, language
+related: getting-started,security,faq
+---
+# Settings
+Settings is the protected workspace for account context and safe local dashboard preferences. It does not collect credentials or change passwords.
+## Sections
+1. Profile shows display name, email, role and active company.
+2. Preferences stores interface language, documentation language, landing page, timezone, date format and density locally.
+3. Appearance stores light, dark or system mode locally.
+4. Notifications stores local preferences for approvals, provider health, campaigns and agent signals.
+5. Security shows current session context and lets you log out.
+6. Company defaults shows read-only company information and dashboard preference.
+7. Documentation opens the built-in Documentation Center.
+> [!WARNING] Password change and MFA require a future verified secure backend flow. Do not type replacement passwords into any unsupported form.
+## Best practices
+- Save after changing preferences.
+- Use Documentation language to keep help content aligned with your workflow.
+- Treat settings as browser-local until backend preference storage exists.
+
+---
 slug: faq
 title: FAQ
 category: Help
@@ -244,6 +270,8 @@ related: dashboard,activity-center,system-status
 - System Status added for health indicators only.
 - Documentation Center added as a multilingual built-in help system.
 - Breadcrumb navigation added to the protected dashboard shell.
+- Settings added with safe local preference storage.
+- Development activity seed command added for local Activity Center testing.
 ## Safety posture
 - No real email sends.
 - No campaign launches.

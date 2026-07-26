@@ -341,7 +341,7 @@ export function AppLayout() {
           {session.status === "authenticated" && (
             <ActiveCompanyProvider value={activeCompany}>
               <div key={session.activeCompanyId}>
-                <Outlet />
+                <Outlet context={{ administrator: session.administrator }} />
               </div>
             </ActiveCompanyProvider>
           )}

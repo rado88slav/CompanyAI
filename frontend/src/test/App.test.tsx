@@ -118,6 +118,7 @@ async function authenticatedFetchMock(...responses: Response[]) {
 
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
   vi.restoreAllMocks();
   window.history.pushState({}, "", "/");
 });
@@ -218,7 +219,6 @@ test("renders an error state and retries the summary request", async () => {
 
 test.each([
   ["/calls", "Call Operations"],
-  ["/settings", "Settings"],
 ])("renders the %s protected placeholder route", async (path, title) => {
   setToken();
   window.history.pushState({}, "", path);
@@ -227,6 +227,29 @@ test.each([
 
   expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
   expect(screen.getByText("Not configured yet")).toBeInTheDocument();
+});
+
+test("renders Settings sections and persists safe local preferences", async () => {
+  setToken();
+  await authenticatedFetchMock();
+  window.history.pushState({}, "", "/settings");
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Tune the dashboard to the way you work." })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Profile" })).toBeInTheDocument();
+  expect(screen.getByDisplayValue("admin@example.test")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Preferences" }));
+  fireEvent.change(screen.getAllByDisplayValue("English")[0], { target: { value: "bg" } });
+  expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  expect(localStorage.getItem("companyai.settings.preferences")).toContain("\"interfaceLanguage\":\"bg\"");
+  expect(document.body.textContent?.toLowerCase()).not.toContain("opaque-test-session-value");
+
+  fireEvent.click(screen.getByRole("button", { name: "Security" }));
+  expect(screen.getByText("Password changes and MFA need a verified secure backend flow before they can be offered. CompanyAI will not collect replacement passwords in this dashboard until that flow exists.")).toBeInTheDocument();
 });
 
 test("renders protected System Status health indicators", async () => {

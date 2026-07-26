@@ -28,107 +28,111 @@ Generated automatically.
    Description: Apply or inspect Company AI Alembic database migrations through Docker.
    Status: executable
 
-7. scripts/docker/logs.sh
+7. scripts/dev/seed-activity.sh
+   Description: Seed deterministic development-only Activity Center events.
+   Status: executable
+
+8. scripts/docker/logs.sh
    Description: Display Company AI Docker Compose logs for all services or a selected service.
    Status: executable
 
-8. scripts/docker/restart.sh
+9. scripts/docker/restart.sh
    Description: Restart all Company AI Docker Compose services safely.
    Status: executable
 
-9. scripts/docker/start.sh
+10. scripts/docker/start.sh
    Description: Start the Company AI Docker Compose environment and display service status.
    Status: executable
 
-10. scripts/docker/status.sh
+11. scripts/docker/status.sh
    Description: Display the current status of the Company AI Docker Compose services.
    Status: executable
 
-11. scripts/docker/stop.sh
+12. scripts/docker/stop.sh
    Description: Stop the Company AI Docker Compose services without deleting containers, networks or data.
    Status: executable
 
-12. scripts/maintenance/update-inventory.sh
+13. scripts/maintenance/update-inventory.sh
    Description: Generate the project inventory and Bash scripts index.
    Status: executable
 
-13. scripts/maintenance/update-project-status.sh
+14. scripts/maintenance/update-project-status.sh
    Description: Update project progress, tasks, architecture decisions and inventory.
    Status: executable
 
-14. scripts/maintenance/validate-agent-compose.sh
+15. scripts/maintenance/validate-agent-compose.sh
    Description: Validate tracked Agent Authentication Docker Compose propagation without resolving secrets.
    Status: executable
 
-15. scripts/setup.sh
+16. scripts/setup.sh
    Description: Create the initial project structure and base files.
    Status: executable
 
-16. scripts/setup/add-active-company-context.sh
+17. scripts/setup/add-active-company-context.sh
    Description: Add stateless superuser-selected Active Company Context and Company Settings isolation.
    Status: executable
 
-17. scripts/setup/add-agent-identity.sh
+18. scripts/setup/add-agent-identity.sh
    Description: Add the complete Agent Identity and Internal Agent Authentication module.
    Status: executable
 
-18. scripts/setup/add-approval-manager.sh
+19. scripts/setup/add-approval-manager.sh
    Description: Add the complete Approval Manager and Authorization Policies backend module.
    Status: executable
 
-19. scripts/setup/add-audit-logging.sh
+20. scripts/setup/add-audit-logging.sh
    Description: Generate the complete append-only Audit Logging foundation.
    Status: executable
 
-20. scripts/setup/add-authentication-foundation.sh
+21. scripts/setup/add-authentication-foundation.sh
    Description: Add administrator accounts, secure authentication and protected administration API access.
    Status: executable
 
-21. scripts/setup/add-backend-database.sh
+22. scripts/setup/add-backend-database.sh
    Description: Add SQLAlchemy and PostgreSQL connectivity to the Company AI FastAPI backend.
    Status: executable
 
-22. scripts/setup/add-company-domain.sh
+23. scripts/setup/add-company-domain.sh
    Description: Add the Company domain model, migration, service layer and API to Company AI.
    Status: executable
 
-23. scripts/setup/add-company-management.sh
+24. scripts/setup/add-company-management.sh
    Description: Add company update, activation and deactivation operations.
    Status: executable
 
-24. scripts/setup/add-company-memberships.sh
+25. scripts/setup/add-company-memberships.sh
    Description: Add the complete Company Memberships and Roles backend module.
    Status: executable
 
-25. scripts/setup/add-company-settings.sh
+26. scripts/setup/add-company-settings.sh
    Description: Add company-owned settings storage, API operations and migration.
    Status: executable
 
-26. scripts/setup/add-database-migrations.sh
+27. scripts/setup/add-database-migrations.sh
    Description: Add Alembic database migrations and Bash migration tools to the Company AI backend.
    Status: executable
 
-27. scripts/setup/add-provider-connections.sh
+28. scripts/setup/add-provider-connections.sh
    Description: Add the complete Provider Connections foundation.
    Status: executable
 
-28. scripts/setup/add-provider-execution.sh
+29. scripts/setup/add-provider-execution.sh
    Description: Add the Provider Execution foundation.
    Status: executable
 
-29. scripts/setup/add-tool-registry.sh
+30. scripts/setup/add-tool-registry.sh
    Description: Add the secure Tool Registry foundation.
    Status: executable
 
-30. scripts/setup/create-backend.sh
+31. scripts/setup/create-backend.sh
    Description: Generate the initial Company AI FastAPI backend structure and Docker configuration.
    Status: executable
 
-31. scripts/setup/create-env.sh
+32. scripts/setup/create-env.sh
    Description: Create a secure local .env file with generated passwords and keys.
    Status: executable
 
-32. scripts/tests/test-create-env.sh
+33. scripts/tests/test-create-env.sh
    Description: Validate create-env.sh safely in an isolated temporary project.
    Status: executable
 

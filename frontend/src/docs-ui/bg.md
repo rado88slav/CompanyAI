@@ -167,6 +167,8 @@ Activity Center е четимата operational timeline страница. Тя 
 ## Добри практики
 - Използвайте за validation evidence.
 - Комбинирайте със System Status при investigation.
+## Development data
+В development среда Activity Center може да се попълни с deterministic sample events чрез `scripts/dev/seed-activity.sh`. Командата е development-only, company-scoped, idempotent и не създава credentials, provider calls или external delivery.
 
 ---
 slug: system-status
@@ -210,6 +212,30 @@ CompanyAI е проектиран около company isolation, explicit authori
 - Дръжте local development credentials отделно от real accounts.
 
 ---
+slug: settings
+title: Settings
+category: Помощ
+summary: Управление на local dashboard preferences, session actions и documentation shortcuts.
+keywords: settings, preferences, theme, notifications, profile, language
+related: getting-started,security,faq
+---
+# Settings
+Settings е protected workspace за account context и безопасни local dashboard preferences. Не събира credentials и не сменя passwords.
+## Sections
+1. Profile показва display name, email, role и active company.
+2. Preferences пази interface language, documentation language, landing page, timezone, date format и density локално.
+3. Appearance пази light, dark или system mode локално.
+4. Notifications пази local preferences за approvals, provider health, campaigns и agent signals.
+5. Security показва current session context и позволява logout.
+6. Company defaults показва read-only company information и dashboard preference.
+7. Documentation отваря built-in Documentation Center.
+> [!WARNING] Password change и MFA изискват бъдещ verified secure backend flow. Не въвеждайте replacement passwords в unsupported form.
+## Добри практики
+- Save след промяна на preferences.
+- Използвайте Documentation language, за да съвпада help content с workflow-а ви.
+- Третирайте settings като browser-local, докато няма backend preference storage.
+
+---
 slug: faq
 title: FAQ
 category: Помощ
@@ -244,6 +270,8 @@ related: dashboard,activity-center,system-status
 - System Status е добавен за health indicators only.
 - Documentation Center е добавен като multilingual built-in help system.
 - Breadcrumb navigation е добавена към protected dashboard shell.
+- Settings е добавен със safe local preference storage.
+- Development activity seed command е добавена за local Activity Center testing.
 ## Safety posture
 - Няма real email sends.
 - Няма campaign launches.

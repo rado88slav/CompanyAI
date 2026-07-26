@@ -458,3 +458,21 @@ The breadcrumb change is presentation-only. It does not change authentication,
 active-company selection, authorization, provider behavior, email behavior,
 agent runtime access or any mutation boundary. The Documentation Center was
 updated in the same slice because navigation changes are user-visible.
+
+## 036 — Settings and Development Activity Seed Data
+
+The protected Settings route is now a real dashboard module rather than a
+placeholder. It uses the authenticated layout context for administrator and
+active-company data, and stores preferences locally in browser storage until a
+backend preference architecture exists. Profile and company fields are
+read-only where no secure change flow exists. Security settings explain that
+password change and MFA require a future verified backend flow; no token,
+hash, password or credential value is displayed or collected.
+
+Development Activity Center sample data is created only through the explicit
+`scripts/dev/seed-activity.sh` command. The script executes inside the backend
+container, refuses to run outside `APP_ENV=development`, targets a company slug,
+and inserts deterministic company-scoped audit events with stable UUIDs. Re-runs
+skip existing seed IDs, so no duplicates are created. The events contain only
+safe development metadata and perform no provider calls, email delivery,
+campaign launch, phone call, paid action or external request.

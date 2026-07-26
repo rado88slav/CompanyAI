@@ -54,6 +54,7 @@ _SAFE_DETAIL_KEYS = frozenset(
         "operation",
         "dry_run",
         "provider_message_id",
+        "seed_key",
     }
 )
 

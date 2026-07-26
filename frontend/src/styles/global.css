@@ -1283,6 +1283,171 @@ h1 {
   font-weight: 850;
 }
 
+.settings-page {
+  display: grid;
+  gap: 20px;
+}
+
+.settings-save {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.settings-nav,
+.settings-panel {
+  border: 1px solid #dfe5ee;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.settings-nav button {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: #526076;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-weight: 820;
+}
+
+.settings-nav button:hover,
+.settings-nav button.is-active {
+  color: #12352f;
+  background: #e7f8f5;
+}
+
+.settings-panel {
+  min-height: 520px;
+  padding: 26px;
+}
+
+.settings-panel h2 {
+  margin-bottom: 18px;
+  color: #17243a;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.settings-field {
+  display: grid;
+  gap: 7px;
+}
+
+.settings-field span,
+.settings-toggle span {
+  color: #526076;
+  font-weight: 820;
+}
+
+.settings-field input,
+.settings-field select {
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  color: #17243a;
+  background: #fff;
+  font: inherit;
+}
+
+.settings-field input[readonly] {
+  color: #667388;
+  background: #f8fafc;
+}
+
+.settings-field small,
+.settings-note {
+  color: #667388;
+}
+
+.settings-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 12px;
+  border: 1px solid #dfe5ee;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.settings-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.segmented-control {
+  display: inline-flex;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid #dfe5ee;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.segmented-control button {
+  min-width: 92px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 8px;
+  color: #526076;
+  background: transparent;
+  font: inherit;
+  font-weight: 850;
+}
+
+.segmented-control button.is-active {
+  color: #fff;
+  background: #182c48;
+}
+
+.settings-callout,
+.settings-card-link {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid #dfe5ee;
+  border-radius: 12px;
+  color: #29415f;
+  background: #f8fafc;
+}
+
+.settings-card-link {
+  margin: 0;
+}
+
+.settings-card-link p {
+  color: #667388;
+}
+
 .activity-panel,
 .empty-panel {
   margin-top: 28px;
@@ -1558,6 +1723,10 @@ h1 {
     grid-template-columns: 200px minmax(0, 1fr);
   }
 
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
   .docs-toc {
     position: static;
     grid-column: 1 / -1;
@@ -1627,6 +1796,19 @@ h1 {
   .docs-tree,
   .docs-toc {
     position: static;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-save,
+  .segmented-control {
+    width: 100%;
+  }
+
+  .segmented-control {
+    display: grid;
   }
 
   .ops-timeline li {

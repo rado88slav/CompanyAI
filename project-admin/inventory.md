@@ -198,6 +198,7 @@ Generated automatically by:
 ./frontend/src/pages/OverviewPage.tsx
 ./frontend/src/pages/PlaceholderPage.tsx
 ./frontend/src/pages/ProviderConnectionsPage.tsx
+./frontend/src/pages/SystemStatusPage.tsx
 ./frontend/src/routes/AppRoutes.tsx
 ./frontend/src/styles/global.css
 ./frontend/src/test/App.test.tsx

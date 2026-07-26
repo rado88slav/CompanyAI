@@ -409,3 +409,18 @@ activity instead of treating the audit log as the primary operational view.
 No mutation action, real email send, campaign launch, provider write, phone
 call, paid action, arbitrary shell access or arbitrary external HTTP access was
 introduced.
+
+## 033 — Read-only System Status Page
+
+The dashboard now exposes a protected `/system-status` route for health
+indicators only. The page uses the existing authenticated dashboard summary
+client, so it inherits the same bearer session, active-company context,
+company-scoped request header and backend authorization boundary as Overview.
+
+The page presents Backend, Database, Queue, Storage, Providers, Agent Runtime,
+Lemlist, Future Telephony and Future AI Providers as read-only status cards.
+Current runtime signals come from the existing dashboard summary; planned or
+not-provisioned capabilities are clearly marked as limited instead of being
+presented as live services. There are no mutation controls, provider writes,
+real email sends, campaign launches, phone calls, paid actions, external AI
+calls, arbitrary shell access or arbitrary HTTP tools.

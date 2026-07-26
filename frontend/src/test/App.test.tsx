@@ -229,6 +229,27 @@ test.each([
   expect(screen.getByText("Not configured yet")).toBeInTheDocument();
 });
 
+test("renders protected System Status health indicators", async () => {
+  setToken();
+  const fetchMock = await authenticatedFetchMock(await jsonResponse(summary));
+  window.history.pushState({}, "", "/system-status");
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Operational health without the noise." })).toBeInTheDocument();
+  expect(screen.getAllByText("Company Test").length).toBeGreaterThan(0);
+  expect(screen.getByRole("heading", { name: "Backend" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Database" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Lemlist" })).toBeInTheDocument();
+  expect(screen.getByText("No call placement or paid telephony action is enabled")).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/v1/companies/company-id/dashboard/summary",
+    expect.objectContaining({
+      method: "GET",
+      headers: expect.objectContaining({ "X-Company-ID": "company-id" }),
+    }),
+  );
+});
+
 test("company selector changes the active company for protected requests", async () => {
   setToken();
   const fetchMock = await authenticatedFetchMock(

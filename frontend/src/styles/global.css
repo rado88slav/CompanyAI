@@ -914,6 +914,85 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.system-status {
+  display: grid;
+  gap: 20px;
+}
+
+.system-status-hero h1 {
+  max-width: 760px;
+}
+
+.system-status-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid #dfe5ee;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.system-status-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: #17243a;
+  font-size: 1.1rem;
+}
+
+.system-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.system-status-card {
+  min-height: 190px;
+  padding: 18px;
+  border: 1px solid #e0e5ec;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(20, 34, 56, 0.04);
+}
+
+.system-status-card--green {
+  border-top: 4px solid #24a078;
+}
+
+.system-status-card--yellow {
+  border-top: 4px solid #d5a238;
+}
+
+.system-status-card--red {
+  border-top: 4px solid #d15a51;
+}
+
+.system-status-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #667388;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.system-status-card h2 {
+  margin: 20px 0 8px;
+  color: #17243a;
+  font-size: 1.05rem;
+}
+
+.system-status-card strong {
+  color: #29415f;
+}
+
+.system-status-card p {
+  margin: 10px 0 0;
+  color: #667388;
+}
+
 .activity-panel,
 .empty-panel {
   margin-top: 28px;
@@ -1180,6 +1259,10 @@ h1 {
   .health-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .system-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -1219,8 +1302,14 @@ h1 {
   .detail-list,
   .compact-metrics,
   .health-grid,
-  .summary-grid {
+  .summary-grid,
+  .system-status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .system-status-summary {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .ops-timeline li {

@@ -190,7 +190,7 @@
 - [x] Add production dashboard company-selection and authentication UX.
 - [x] Polish the dashboard homepage into an operations control center.
 - [x] Create Activity Center unified timeline.
-- [ ] Create read-only System Status page.
+- [x] Create read-only System Status page.
 - [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
 - [x] Add read-only Provider Connections dashboard view backed by safe catalog and company metadata APIs.
 - [x] Add first safe Agent Runtime dashboard view and deterministic read-only internal tool invocation.

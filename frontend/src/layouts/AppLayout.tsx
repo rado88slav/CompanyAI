@@ -19,6 +19,7 @@ import { ActiveCompanyProvider } from "../context/ActiveCompanyContext";
 const navigation = [
   { to: "/", label: "Overview", icon: "O", end: true },
   { to: "/activity", label: "Activity", icon: "T" },
+  { to: "/system-status", label: "System Status", icon: "H" },
   { to: "/agent", label: "Agent Activity", icon: "A" },
   { to: "/providers", label: "Provider Connections", icon: "P" },
   { to: "/email", label: "Email Operations", icon: "E" },

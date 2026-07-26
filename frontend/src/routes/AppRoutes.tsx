@@ -10,6 +10,7 @@ import { AuditPage } from "../pages/AuditPage";
 import { AgentRuntimePage } from "../pages/AgentRuntimePage";
 import { ProviderConnectionsPage } from "../pages/ProviderConnectionsPage";
 import { ActivityCenterPage } from "../pages/ActivityCenterPage";
+import { SystemStatusPage } from "../pages/SystemStatusPage";
 
 const placeholders = [
   ["/calls", "Call Operations", "Coordinate calling platforms in a future stage."],
@@ -26,6 +27,7 @@ export function AppRoutes() {
         <Route path="/email/:emailId" element={<EmailDetailPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/activity" element={<ActivityCenterPage />} />
+        <Route path="/system-status" element={<SystemStatusPage />} />
         <Route path="/audit" element={<AuditPage />} />
         <Route path="/providers" element={<ProviderConnectionsPage />} />
         {placeholders.map(([path, title, description]) => (

@@ -211,9 +211,10 @@ def test_internal_tool_api_uses_authenticated_identity_and_hides_missing_tools()
     assert missing.status_code == 404
 
 
-def test_tool_routes_are_registered_without_execution_endpoint() -> None:
+def test_tool_routes_are_registered_without_unrestricted_execution_endpoint() -> None:
     paths = app.openapi()["paths"]
     expected = {"/api/v1/tools", "/api/v1/tools/{tool_id}", "/api/v1/companies/{company_id}/tools", "/api/v1/companies/{company_id}/agents/{agent_id}/tools", "/api/v1/internal/tools", "/api/v1/internal/tools/{tool_key}"}
     assert expected <= set(paths)
+    assert "/api/v1/companies/{company_id}/agent-runtime/tools/{tool_key}/invoke" in paths
     assert not any(path.endswith("/execute") or "tool-execution" in path for path in paths)
     assert all("delete" not in operations for path, operations in paths.items() if "/tools" in path or "/tool-grants" in path)

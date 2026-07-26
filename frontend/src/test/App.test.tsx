@@ -86,7 +86,6 @@ test("renders an error state and retries the summary request", async () => {
 });
 
 test.each([
-  ["/agent", "Agent Activity"],
   ["/calls", "Call Operations"],
   ["/settings", "Settings"],
 ])("renders the %s placeholder route", async (path, title) => {
@@ -97,6 +96,48 @@ test.each([
   expect(screen.getByRole("heading", { name: title })).toBeInTheDocument();
   expect(screen.getByText("Not configured yet")).toBeInTheDocument();
   expect(screen.getByText(/coming in a later dashboard stage/i)).toBeInTheDocument();
+});
+
+test("renders agent runtime tools and structured read-only result", async () => {
+  setContext();
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse({ items: [{
+      key: "dashboard.summary.read",
+      display_name: "Read dashboard summary",
+      description: "Return safe dashboard summary.",
+      category: "dashboard",
+      risk_level: "low",
+      requires_approval: false,
+      runtime_registered: true,
+      company_enabled: true,
+    }]}))
+    .mockResolvedValueOnce(await jsonResponse({
+      tool_key: "dashboard.summary.read",
+      status: "succeeded",
+      executed_at: "2026-01-01T00:00:00Z",
+      audit_event_id: "audit-1",
+      result: summary,
+    }));
+
+  window.history.pushState({}, "", "/agent");
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "Agent Activity" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Run read-only tool" }));
+  expect(await screen.findByText("dashboard.summary.read")).toBeInTheDocument();
+  expect(screen.getByText("audit-1")).toBeInTheDocument();
+  expect(document.body.textContent?.toLowerCase()).not.toContain("secret-bearer-token");
+});
+
+test("renders agent runtime setup state when no tools are enabled", async () => {
+  setContext();
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(await jsonResponse({ items: [] }));
+
+  window.history.pushState({}, "", "/agent");
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "No runtime tools enabled" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Enable local tool" })).toBeInTheDocument();
 });
 
 test("renders provider connections from safe catalog and company data", async () => {

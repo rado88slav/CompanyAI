@@ -78,6 +78,7 @@ class AuditAction(StrEnum):
     COMPANY_TOOL_DISABLED = "company_tool.disabled"
     AGENT_TOOL_GRANTED = "agent_tool.granted"
     AGENT_TOOL_REVOKED = "agent_tool.revoked"
+    AGENT_TOOL_INVOKED = "agent_tool.invoked"
     PROVIDER_CONNECTION_CREATED = "provider_connection.created"
     PROVIDER_CONNECTION_UPDATED = "provider_connection.updated"
     PROVIDER_CONNECTION_ACTIVATED = "provider_connection.activated"

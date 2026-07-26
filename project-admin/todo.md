@@ -190,6 +190,7 @@
 - [ ] Add production dashboard company-selection and authentication UX.
 - [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
 - [x] Add read-only Provider Connections dashboard view backed by safe catalog and company metadata APIs.
+- [x] Add first safe Agent Runtime dashboard view and deterministic read-only internal tool invocation.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.

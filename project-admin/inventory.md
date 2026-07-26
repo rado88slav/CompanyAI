@@ -31,6 +31,7 @@ Generated automatically by:
 ./backend/app/api/router.py
 ./backend/app/api/routes/__init__.py
 ./backend/app/api/routes/agent_authentication.py
+./backend/app/api/routes/agent_runtime.py
 ./backend/app/api/routes/agents.py
 ./backend/app/api/routes/approvals.py
 ./backend/app/api/routes/authentication.py
@@ -90,6 +91,7 @@ Generated automatically by:
 ./backend/app/repositories/tool_registry.py
 ./backend/app/schemas/__init__.py
 ./backend/app/schemas/agent.py
+./backend/app/schemas/agent_runtime.py
 ./backend/app/schemas/approval.py
 ./backend/app/schemas/audit_log.py
 ./backend/app/schemas/authentication.py
@@ -104,6 +106,7 @@ Generated automatically by:
 ./backend/app/schemas/tool_registry.py
 ./backend/app/services/__init__.py
 ./backend/app/services/agent_identity.py
+./backend/app/services/agent_runtime.py
 ./backend/app/services/approval_manager.py
 ./backend/app/services/audit_log.py
 ./backend/app/services/authentication.py
@@ -138,6 +141,7 @@ Generated automatically by:
 ./backend/requirements.txt
 ./backend/tests/__init__.py
 ./backend/tests/test_agent_identity.py
+./backend/tests/test_agent_runtime.py
 ./backend/tests/test_approval_manager.py
 ./backend/tests/test_audit_logging.py
 ./backend/tests/test_authentication.py
@@ -167,6 +171,7 @@ Generated automatically by:
 ./frontend/package-lock.json
 ./frontend/package.json
 ./frontend/src/App.tsx
+./frontend/src/api/agentRuntime.ts
 ./frontend/src/api/client.ts
 ./frontend/src/api/dashboard.ts
 ./frontend/src/api/email.ts
@@ -175,6 +180,7 @@ Generated automatically by:
 ./frontend/src/components/StatusBadge.tsx
 ./frontend/src/layouts/AppLayout.tsx
 ./frontend/src/main.tsx
+./frontend/src/pages/AgentRuntimePage.tsx
 ./frontend/src/pages/ApprovalsPage.tsx
 ./frontend/src/pages/AuditPage.tsx
 ./frontend/src/pages/DevelopmentSessionPage.tsx
@@ -187,6 +193,7 @@ Generated automatically by:
 ./frontend/src/styles/global.css
 ./frontend/src/test/App.test.tsx
 ./frontend/src/test/setup.ts
+./frontend/src/types/agentRuntime.ts
 ./frontend/src/types/dashboard.ts
 ./frontend/src/types/email.ts
 ./frontend/src/types/provider.ts

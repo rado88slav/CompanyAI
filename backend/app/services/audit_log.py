@@ -76,7 +76,7 @@ class AuditLogService:
             normalized_action = AuditAction(action).value
         except ValueError as exc:
             raise ValueError("Unsupported company audit action.") from exc
-        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_credential", "agent_permission", "company_tool", "agent_tool_grant", "provider_connection", "provider_credential", "provider_execution", "inbound_email", "email_reply_proposal", "outbound_email"}:
+        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_credential", "agent_permission", "tool_definition", "company_tool", "agent_tool_grant", "provider_connection", "provider_credential", "provider_execution", "inbound_email", "email_reply_proposal", "outbound_email"}:
             raise ValueError("Unsupported company audit resource_type.")
         _validate_safe_details(details)
         if actor_administrator_id is not None and actor_agent_id is not None:

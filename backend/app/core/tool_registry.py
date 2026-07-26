@@ -87,3 +87,10 @@ class RuntimeToolRegistry:
 
 
 runtime_tool_registry = RuntimeToolRegistry()
+runtime_tool_registry.register(
+    RuntimeToolDescriptor(
+        key="dashboard.summary.read",
+        implementation_name="Read dashboard summary",
+        execution_mode="internal",
+    )
+)

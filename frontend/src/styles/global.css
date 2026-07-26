@@ -482,6 +482,36 @@ h1 {
   font-weight: 700;
 }
 
+.compact-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.compact-metric {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e0e5ec;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.compact-metric span {
+  display: block;
+  color: #758096;
+  font-size: 0.74rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.compact-metric strong {
+  display: block;
+  margin-top: 6px;
+  color: #17243a;
+  font-size: 1.35rem;
+}
+
 .state-panel {
   display: flex;
   align-items: center;
@@ -594,7 +624,8 @@ h1 {
   .metrics-grid,
   .service-strip,
   .provider-grid,
-  .detail-list {
+  .detail-list,
+  .compact-metrics {
     grid-template-columns: 1fr;
   }
 

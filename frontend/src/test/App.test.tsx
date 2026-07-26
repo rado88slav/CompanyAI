@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import { App } from "../App";
+import type { ActivityEventList } from "../types/activity";
 import type { DashboardSummary } from "../types/dashboard";
 
 const administrator = {
@@ -68,6 +69,29 @@ const summary: DashboardSummary = {
   recent_audit_events: [],
 };
 
+const activity: ActivityEventList = {
+  items: [{
+    id: "activity-1",
+    company_id: "company-id",
+    occurred_at: "2026-01-01T00:00:00Z",
+    category: "provider",
+    source: "provider_connection",
+    action: "provider_connection.created",
+    title: "Provider Connection Created",
+    summary: "Provider operation created on provider connection.",
+    status: "recorded",
+    severity: "info",
+    actor_display: "Administrator",
+    entity_type: "provider_connection",
+    entity_id: "connection-1",
+    safe_details: { provider_key: "local_test_email", status: "active" },
+    correlation_id: "connection-1",
+  }],
+  total: 1,
+  limit: 4,
+  offset: 0,
+};
+
 function setToken(companyId = "company-id") {
   sessionStorage.setItem("companyai.accessToken", "opaque-test-session-value");
   sessionStorage.setItem("companyai.companyId", companyId);
@@ -119,7 +143,7 @@ test("login flow stores the token without rendering it and selects an authorized
 
 test("saved unauthorized company falls back to the first available company", async () => {
   setToken("unauthorized-company");
-  await authenticatedFetchMock(await jsonResponse(summary));
+  await authenticatedFetchMock(await jsonResponse(summary), await jsonResponse(activity));
 
   render(<App />);
 
@@ -159,6 +183,7 @@ test("renders the overview loading state and successful real summary", async () 
       resolveRequest = resolve;
     }),
   );
+  fetchMock.mockResolvedValueOnce(await jsonResponse(activity));
 
   render(<App />);
 
@@ -169,7 +194,7 @@ test("renders the overview loading state and successful real summary", async () 
   expect(screen.getByRole("heading", { name: "All critical services" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Active workspace" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Jump into work" })).toBeInTheDocument();
-  expect(screen.getByText("No activity yet")).toBeInTheDocument();
+  expect(screen.getByText("Provider Connection Created")).toBeInTheDocument();
   expect(screen.getByText("3 approval requests awaiting review.")).toBeInTheDocument();
 });
 
@@ -177,7 +202,9 @@ test("renders an error state and retries the summary request", async () => {
   setToken();
   const fetchMock = await authenticatedFetchMock(
     { ok: false, status: 500 } as Response,
+    await jsonResponse({ items: [], total: 0, limit: 4, offset: 0 }),
     await jsonResponse(summary),
+    await jsonResponse(activity),
   );
 
   render(<App />);
@@ -185,7 +212,7 @@ test("renders an error state and retries the summary request", async () => {
   expect(await screen.findByText("Operations dashboard unavailable")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
   expect(await screen.findByText("Command the day with confidence.")).toBeInTheDocument();
 });
 
@@ -206,7 +233,9 @@ test("company selector changes the active company for protected requests", async
   setToken();
   const fetchMock = await authenticatedFetchMock(
     await jsonResponse(summary),
+    await jsonResponse(activity),
     await jsonResponse(summary),
+    await jsonResponse(activity),
   );
 
   render(<App />);
@@ -214,8 +243,8 @@ test("company selector changes the active company for protected requests", async
   fireEvent.change(screen.getByLabelText("Active company"), { target: { value: "company-two" } });
 
   await waitFor(() => expect(sessionStorage.getItem("companyai.companyId")).toBe("company-two"));
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
-  expect(fetchMock).toHaveBeenLastCalledWith(
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+  expect(fetchMock).toHaveBeenCalledWith(
     "/api/v1/companies/company-two/dashboard/summary",
     expect.objectContaining({
       headers: expect.objectContaining({ "X-Company-ID": "company-two" }),
@@ -373,20 +402,33 @@ test("renders exact approval content and decision actions", async () => {
 
 test("renders safe audit fields without details", async () => {
   setToken();
-  await authenticatedFetchMock(await jsonResponse({items: [{
-    id: "event-1", actor_type: "administrator", actor_administrator_id: "actor-1",
-    action: "email.imported", resource_type: "inbound_email", resource_id: "email-1",
-    created_at: "2026-01-01T00:00:00Z",
-  }]}));
+  await authenticatedFetchMock(await jsonResponse(activity));
   window.history.pushState({}, "", "/audit");
   render(<App />);
-  expect(await screen.findByText("email.imported")).toBeInTheDocument();
+  expect(await screen.findByText("provider_connection.created")).toBeInTheDocument();
   expect(screen.queryByText("details")).not.toBeInTheDocument();
+});
+
+test("renders Activity Center timeline and filters safe details", async () => {
+  setToken();
+  const fetchMock = await authenticatedFetchMock(
+    await jsonResponse(activity),
+    await jsonResponse({ ...activity, items: [] }),
+  );
+  window.history.pushState({}, "", "/activity");
+  render(<App />);
+  expect(await screen.findByRole("heading", { name: "Everything that happened, in one place." })).toBeInTheDocument();
+  expect(await screen.findByText("Provider Connection Created")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Show safe details" }));
+  expect(await screen.findByText("local_test_email")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Agent" }));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+  expect(await screen.findByRole("heading", { name: "No matching activity" })).toBeInTheDocument();
 });
 
 test("overview output does not render secret-bearing field names", async () => {
   setToken();
-  await authenticatedFetchMock(await jsonResponse(summary));
+  await authenticatedFetchMock(await jsonResponse(summary), await jsonResponse(activity));
 
   const { container } = render(<App />);
   await screen.findByText("Command the day with confidence.");

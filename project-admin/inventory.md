@@ -91,6 +91,7 @@ Generated automatically by:
 ./backend/app/repositories/provider_execution.py
 ./backend/app/repositories/tool_registry.py
 ./backend/app/schemas/__init__.py
+./backend/app/schemas/activity.py
 ./backend/app/schemas/agent.py
 ./backend/app/schemas/agent_runtime.py
 ./backend/app/schemas/approval.py
@@ -177,6 +178,7 @@ Generated automatically by:
 ./frontend/package-lock.json
 ./frontend/package.json
 ./frontend/src/App.tsx
+./frontend/src/api/activity.ts
 ./frontend/src/api/agentRuntime.ts
 ./frontend/src/api/client.ts
 ./frontend/src/api/dashboard.ts
@@ -187,6 +189,7 @@ Generated automatically by:
 ./frontend/src/context/ActiveCompanyContext.tsx
 ./frontend/src/layouts/AppLayout.tsx
 ./frontend/src/main.tsx
+./frontend/src/pages/ActivityCenterPage.tsx
 ./frontend/src/pages/AgentRuntimePage.tsx
 ./frontend/src/pages/ApprovalsPage.tsx
 ./frontend/src/pages/AuditPage.tsx
@@ -199,6 +202,7 @@ Generated automatically by:
 ./frontend/src/styles/global.css
 ./frontend/src/test/App.test.tsx
 ./frontend/src/test/setup.ts
+./frontend/src/types/activity.ts
 ./frontend/src/types/agentRuntime.ts
 ./frontend/src/types/dashboard.ts
 ./frontend/src/types/email.ts

@@ -189,7 +189,7 @@
 - [x] Add development session company context and token-based authentication setup for local validation.
 - [x] Add production dashboard company-selection and authentication UX.
 - [x] Polish the dashboard homepage into an operations control center.
-- [ ] Create Activity Center unified timeline.
+- [x] Create Activity Center unified timeline.
 - [ ] Create read-only System Status page.
 - [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
 - [x] Add read-only Provider Connections dashboard view backed by safe catalog and company metadata APIs.

@@ -17,14 +17,15 @@ import {
 import { ActiveCompanyProvider } from "../context/ActiveCompanyContext";
 
 const navigation = [
-  { to: "/", label: "Overview", end: true },
-  { to: "/agent", label: "Agent Activity" },
-  { to: "/providers", label: "Provider Connections" },
-  { to: "/email", label: "Email Operations" },
-  { to: "/calls", label: "Call Operations" },
-  { to: "/approvals", label: "Approvals" },
-  { to: "/audit", label: "Audit Log" },
-  { to: "/settings", label: "Settings" },
+  { to: "/", label: "Overview", icon: "O", end: true },
+  { to: "/activity", label: "Activity", icon: "T" },
+  { to: "/agent", label: "Agent Activity", icon: "A" },
+  { to: "/providers", label: "Provider Connections", icon: "P" },
+  { to: "/email", label: "Email Operations", icon: "E" },
+  { to: "/calls", label: "Call Operations", icon: "C" },
+  { to: "/approvals", label: "Approvals", icon: "Q" },
+  { to: "/audit", label: "Audit Log", icon: "L" },
+  { to: "/settings", label: "Settings", icon: "S" },
 ];
 
 type SessionState =
@@ -178,7 +179,8 @@ export function AppLayout() {
                 isActive ? "navigation__link is-active" : "navigation__link"
               }
             >
-              {item.label}
+              <span aria-hidden="true">{item.icon}</span>
+              <strong>{item.label}</strong>
             </NavLink>
           ))}
         </nav>

@@ -385,3 +385,27 @@ bootstrap calls in child pages and keeps future company-scoped modules aligned
 with the existing company selector. The next UX milestone should be the
 Activity Center: one polished chronological timeline for agent actions,
 approvals, provider events and email events.
+
+## 032 — Read-only Activity Center
+
+Company activity now has a dedicated normalized read-only API at
+`GET /api/v1/companies/{company_id}/activity` and a protected dashboard route
+at `/activity`. The API still uses existing administrator authentication,
+active-company context and company activity read authorization before returning
+data. It supports bounded pagination plus safe filters for event type, source,
+severity, actor and date range.
+
+Activity responses are normalized into stable event cards instead of exposing
+raw audit log rows. The schema includes category, source, action, title,
+summary, status, severity, actor display, entity references, correlation ID and
+an allowlisted `safe_details` object. Raw audit `details`, credential fields,
+provider payloads, tokens, hashes, key material and secret-like keys are not
+serialized for the dashboard.
+
+The Activity Center groups events by date, adds category filters, severity
+filtering, loading/error/empty states and safe-detail expansion. The Overview
+homepage now links to the Activity Center and displays the latest normalized
+activity instead of treating the audit log as the primary operational view.
+No mutation action, real email send, campaign launch, provider write, phone
+call, paid action, arbitrary shell access or arbitrary external HTTP access was
+introduced.

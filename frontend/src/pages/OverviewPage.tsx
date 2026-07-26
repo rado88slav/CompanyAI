@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { fetchActivity } from "../api/activity";
 import { fetchDashboardSummary } from "../api/dashboard";
 import { useActiveCompany } from "../context/ActiveCompanyContext";
-import type { DashboardAuditEvent, DashboardSummary } from "../types/dashboard";
+import type { ActivityEvent } from "../types/activity";
+import type { DashboardSummary } from "../types/dashboard";
 
 type Tone = "green" | "yellow" | "red";
 
@@ -13,14 +15,6 @@ const quickActions = [
   { to: "/email", label: "Email Campaigns", detail: "Open campaign visibility", icon: "E" },
   { to: "/approvals", label: "Pending Approvals", detail: "Review queued decisions", icon: "Q" },
 ] as const;
-
-function eventLabel(event: DashboardAuditEvent) {
-  return event.action.replaceAll("_", " ").replaceAll(".", " / ");
-}
-
-function resourceLabel(event: DashboardAuditEvent) {
-  return event.resource_type.replaceAll("_", " ");
-}
 
 function healthTone(summary: DashboardSummary, area: string): Tone {
   if (area === "providers" && summary.counts.provider_connections === 0) return "yellow";
@@ -80,6 +74,7 @@ function SummaryTile({
 export function OverviewPage() {
   const activeCompany = useActiveCompany();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [requestVersion, setRequestVersion] = useState(0);
@@ -92,11 +87,18 @@ export function OverviewPage() {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    fetchDashboardSummary(controller.signal)
-      .then(setSummary)
+    Promise.all([
+      fetchDashboardSummary(controller.signal),
+      fetchActivity({ limit: 4, offset: 0 }, controller.signal),
+    ])
+      .then(([summaryValue, activityValue]) => {
+        setSummary(summaryValue);
+        setActivity(activityValue.items);
+      })
       .catch((reason: unknown) => {
         if (!controller.signal.aborted) {
           setSummary(null);
+          setActivity([]);
           setError(
             reason instanceof Error
               ? reason.message
@@ -225,24 +227,24 @@ export function OverviewPage() {
                 <span className="eyebrow">Recent activity</span>
                 <h2 id="activity-title">Operational timeline</h2>
               </div>
-              <Link className="text-link" to="/audit">Open audit log</Link>
+              <Link className="text-link" to="/activity">View all activity</Link>
             </div>
-            {summary.recent_audit_events.length === 0 ? (
+            {activity.length === 0 ? (
               <div className="activity-empty activity-empty--polished">
                 <h3>No activity yet</h3>
                 <p>New agent, approval, provider and email events will appear here.</p>
               </div>
             ) : (
               <ul className="ops-timeline">
-                {summary.recent_audit_events.map((event) => (
+                {activity.map((event) => (
                   <li key={event.id}>
                     <span className="timeline-marker" aria-hidden="true" />
                     <div>
-                      <strong>{eventLabel(event)}</strong>
-                      <span>{resourceLabel(event)}</span>
+                      <strong>{event.title}</strong>
+                      <span>{event.summary}</span>
                     </div>
-                    <time dateTime={event.created_at}>
-                      {new Date(event.created_at).toLocaleString()}
+                    <time dateTime={event.occurred_at}>
+                      {new Date(event.occurred_at).toLocaleString()}
                     </time>
                   </li>
                 ))}

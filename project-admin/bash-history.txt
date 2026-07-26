@@ -60,3 +60,9 @@ docker run --rm --network none -v "$PWD/frontend:/app" -w /app node:22-alpine np
 
 19. Vite proxy smoke through local Docker Node image
 docker run --rm --add-host host.docker.internal:host-gateway -p 5173:5173 -v "$PWD/frontend:/app" -w /app -e VITE_BACKEND_PROXY_TARGET=http://host.docker.internal:8000 node:22-alpine npm run dev -- --host 0.0.0.0 --port 5173
+
+20. Activity Center validation commands
+docker run --rm --network none -v "$PWD/frontend:/app" -w /app node:22-alpine npm run typecheck
+docker run --rm --network none -v "$PWD/frontend:/app" -w /app node:22-alpine npm test -- --run
+docker run --rm --network none -v "$PWD/frontend:/app" -w /app node:22-alpine npm run build
+docker run --rm --user root -e PIP_ROOT_USER_ACTION=ignore -e PYTHONPYCACHEPREFIX=/tmp/company-ai-pycache -e APP_SECRET_KEY=test-secret-key-with-at-least-32-characters -e ACCESS_TOKEN_EXPIRE_MINUTES=60 -e CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID=test -e CREDENTIAL_ENCRYPTION_KEYRING='{"test":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}' -e AGENT_CREDENTIAL_PEPPER=test-agent-credential-pepper-with-32-chars -e AGENT_JWT_SECRET=test-agent-jwt-secret-with-at-least-32-characters -v "$PWD/backend:/app:ro" -w /app company-ai-backend:dev sh -c 'python -m pip install --no-cache-dir -r requirements-dev.txt >/dev/null && python -m compileall -q app migrations tests && python -m pytest -p no:cacheprovider -q tests/test_audit_logging.py'

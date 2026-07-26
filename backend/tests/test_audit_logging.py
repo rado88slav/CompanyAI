@@ -18,6 +18,7 @@ from app.models.company import CompanyStatus
 from app.repositories.audit_log import AuditLogRepository
 from app.schemas.audit_log import AuditLogResponse
 from app.schemas.company_context import ActiveCompanyContext
+from app.schemas.activity import ActivityEventResponse
 from app.schemas.company import CompanyCreate, CompanyUpdate
 from app.services.audit_log import AuditLogService, get_audit_log_service
 from app.services.company import (
@@ -405,6 +406,7 @@ class FakeActivityService:
     def __init__(self, company_id: UUID, actor_id: UUID) -> None:
         self.company_id = company_id
         self.actor_id = actor_id
+        self.last_filters: dict[str, Any] = {}
 
     def list_company_activity(
         self,
@@ -412,20 +414,41 @@ class FakeActivityService:
         company_id: UUID,
         limit: int,
         offset: int,
+        event_type: str | None = None,
+        source: str | None = None,
+        severity: str | None = None,
+        actor: str | None = None,
+        date_from=None,
+        date_to=None,
     ) -> tuple[list[SimpleNamespace], int]:
         assert company_id == self.company_id
+        self.last_filters = {
+            "limit": limit,
+            "offset": offset,
+            "event_type": event_type,
+            "source": source,
+            "severity": severity,
+            "actor": actor,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
         events = [
-            SimpleNamespace(
+            ActivityEventResponse(
                 id=uuid4(),
-                scope="company",
                 company_id=company_id,
-                actor_type="administrator",
-                actor_administrator_id=self.actor_id,
+                occurred_at=NOW - timedelta(minutes=sequence),
+                category="system",
+                source="company",
                 action="company.updated",
-                resource_type="company",
-                resource_id=company_id,
-                details={"sequence": sequence},
-                created_at=NOW - timedelta(minutes=sequence),
+                title="Company Updated",
+                summary="Company activity was updated.",
+                status="recorded",
+                severity="info",
+                actor_display="Administrator",
+                entity_type="company",
+                entity_id=company_id,
+                safe_details={"sequence": sequence},
+                correlation_id=str(company_id),
             )
             for sequence in range(3)
         ]
@@ -462,7 +485,83 @@ def test_matching_company_activity_returns_pagination_contract() -> None:
     assert response.json()["total"] == 3
     assert response.json()["limit"] == 2
     assert response.json()["offset"] == 1
-    assert [item["details"]["sequence"] for item in response.json()["items"]] == [1, 2]
+    assert [item["safe_details"]["sequence"] for item in response.json()["items"]] == [1, 2]
+    assert response.json()["items"][0]["category"] == "system"
+    assert response.json()["items"][0]["title"] == "Company Updated"
+
+
+def test_company_activity_passes_safe_filters_to_service() -> None:
+    company_id = uuid4()
+    actor_id = uuid4()
+    administrator = SimpleNamespace(
+        id=actor_id,
+        is_active=True,
+        is_superuser=True,
+    )
+    context = ActiveCompanyContext(
+        administrator=administrator,  # type: ignore[arg-type]
+        company=SimpleNamespace(id=company_id),  # type: ignore[arg-type]
+        membership=None,
+        is_platform_superuser=True,
+    )
+    service = FakeActivityService(company_id, actor_id)
+    app.dependency_overrides[require_current_administrator] = lambda: administrator
+    app.dependency_overrides[require_matching_active_company] = lambda: context
+    app.dependency_overrides[get_audit_log_service] = lambda: service
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                f"/api/v1/companies/{company_id}/activity"
+                "?event_type=provider_connection&source=provider&severity=info"
+                "&actor=administrator&date_from=2026-01-01T00:00:00Z"
+                "&date_to=2026-01-02T00:00:00Z&limit=2&offset=1"
+            )
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 200
+    assert service.last_filters["event_type"] == "provider_connection"
+    assert service.last_filters["source"] == "provider"
+    assert service.last_filters["severity"] == "info"
+    assert service.last_filters["actor"] == "administrator"
+    assert service.last_filters["limit"] == 2
+    assert service.last_filters["offset"] == 1
+    assert service.last_filters["date_from"].isoformat() == "2026-01-01T00:00:00+00:00"
+    assert service.last_filters["date_to"].isoformat() == "2026-01-02T00:00:00+00:00"
+
+
+def test_activity_mapping_exposes_only_allowlisted_safe_details() -> None:
+    company_id = uuid4()
+    event = SimpleNamespace(
+        id=uuid4(),
+        company_id=company_id,
+        created_at=NOW,
+        actor_type="administrator",
+        action="provider_connection.updated",
+        resource_type="provider_connection",
+        resource_id=uuid4(),
+        details={
+            "provider_key": "local_test_email",
+            "status": "active",
+            "api_key": "never-render",
+            "raw_payload": {"nested": "omitted"},
+        },
+    )
+    repository = SimpleNamespace(
+        list_for_company=lambda **_kwargs: [event],
+        count_for_company=lambda **_kwargs: 1,
+    )
+    service = AuditLogService(repository)  # type: ignore[arg-type]
+    items, total = service.list_company_activity(
+        company_id=company_id,
+        limit=50,
+        offset=0,
+    )
+    assert total == 1
+    assert items[0].safe_details == {
+        "provider_key": "local_test_email",
+        "status": "active",
+    }
+    assert items[0].category == "provider"
 
 
 def test_company_activity_without_authentication_is_unauthorized() -> None:

@@ -110,11 +110,29 @@ a:focus-visible {
 }
 
 .navigation__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 11px 13px;
   border-radius: 8px;
   color: #aeb9c9;
   text-decoration: none;
   transition: color 160ms ease, background 160ms ease;
+}
+
+.navigation__link span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.navigation__link strong {
+  font-size: 0.9rem;
 }
 
 .navigation__link:hover {
@@ -373,6 +391,16 @@ h1 {
 .status-badge--neutral {
   color: #526076;
   background: #edf0f4;
+}
+
+.status-badge--warning {
+  color: #755118;
+  background: #fff1cf;
+}
+
+.status-badge--danger {
+  color: #8a2525;
+  background: #ffe1df;
 }
 
 .metrics-grid {
@@ -703,6 +731,189 @@ h1 {
   color: #17243a;
 }
 
+.activity-center {
+  display: grid;
+  gap: 20px;
+}
+
+.activity-hero h1 {
+  max-width: 780px;
+}
+
+.activity-filterbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px;
+  border: 1px solid #dfe5ee;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.filter-chip,
+.link-button {
+  border: 0;
+  background: transparent;
+  font-weight: 800;
+}
+
+.filter-chip {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #dfe5ee;
+  border-radius: 999px;
+  color: #526076;
+  background: #f8fafc;
+}
+
+.filter-chip.is-active {
+  color: #12352f;
+  border-color: #9cded2;
+  background: #e7f8f5;
+}
+
+.activity-filterbar select {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #dfe5ee;
+  border-radius: 8px;
+  color: #526076;
+  background: #fff;
+  font: inherit;
+}
+
+.timeline-groups {
+  display: grid;
+  gap: 24px;
+}
+
+.timeline-group {
+  display: grid;
+  gap: 12px;
+}
+
+.timeline-group h2 {
+  margin: 0;
+  color: #667388;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.activity-feed {
+  display: grid;
+  gap: 12px;
+}
+
+.activity-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #e0e5ec;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(20, 34, 56, 0.04);
+}
+
+.activity-card--warning {
+  border-color: #ead7a8;
+}
+
+.activity-card--error {
+  border-color: #efc8c8;
+}
+
+.activity-card__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 10px;
+  color: #12352f;
+  background: #dff6f1;
+  font-weight: 900;
+}
+
+.activity-card__body {
+  min-width: 0;
+}
+
+.activity-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.activity-card h3,
+.activity-card p {
+  margin: 0;
+}
+
+.activity-card h3 {
+  color: #17243a;
+  font-size: 1rem;
+}
+
+.activity-card p,
+.activity-card time {
+  color: #667388;
+}
+
+.activity-card time {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+}
+
+.activity-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.source-badge {
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: #526076;
+  background: #edf0f4;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.activity-card__details {
+  margin-top: 12px;
+}
+
+.link-button {
+  padding: 0;
+  color: #176b5e;
+}
+
+.activity-card__details dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.activity-card__details dt {
+  color: #768196;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.activity-card__details dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .activity-panel,
 .empty-panel {
   margin-top: 28px;
@@ -1022,6 +1233,15 @@ h1 {
 
   .activity-list li {
     grid-template-columns: auto 1fr;
+  }
+
+  .activity-card,
+  .activity-card__details dl {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-card__header {
+    flex-direction: column;
   }
 
   .activity-list time {

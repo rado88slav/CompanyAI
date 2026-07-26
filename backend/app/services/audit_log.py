@@ -1,5 +1,6 @@
 """Application service for append-only audit events."""
 
+from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from app.models.audit_log import (
     AuditScope,
 )
 from app.repositories.audit_log import AuditLogRepository
+from app.schemas.activity import ActivityEventResponse
 
 _FORBIDDEN_DETAIL_KEY_PARTS = frozenset(
     {
@@ -26,6 +28,32 @@ _FORBIDDEN_DETAIL_KEY_PARTS = frozenset(
         "secret",
         "signing_key",
         "token",
+    }
+)
+
+_SAFE_DETAIL_KEYS = frozenset(
+    {
+        "connection_id",
+        "provider_key",
+        "status",
+        "development_only",
+        "live_delivery",
+        "tool_key",
+        "category",
+        "risk_level",
+        "requires_approval",
+        "inbound_email_id",
+        "reply_proposal_id",
+        "approval_request_id",
+        "outbound_email_id",
+        "recipient_domain",
+        "subject_present",
+        "changed",
+        "role",
+        "is_active",
+        "operation",
+        "dry_run",
+        "provider_message_id",
     }
 )
 
@@ -49,6 +77,89 @@ def _validate_safe_details(value: Any, *, path: str = "details") -> None:
     if value is None or isinstance(value, (str, int, float, bool)):
         return
     raise ValueError(f"{path} contains a non-JSON value.")
+
+
+def _category(resource_type: str, action: str) -> str:
+    if resource_type.startswith("approval") or resource_type.startswith("authorization"):
+        return "approval"
+    if resource_type.startswith("provider"):
+        return "provider"
+    if resource_type.startswith("email") or resource_type in {"inbound_email", "outbound_email"}:
+        return "email"
+    if resource_type.startswith("agent") or action.startswith("agent"):
+        return "agent"
+    if resource_type == "company":
+        return "system"
+    return "system"
+
+
+def _status(action: str) -> str:
+    suffix = action.rsplit(".", maxsplit=1)[-1]
+    if suffix in {"failed", "denied", "cancelled", "revoked"}:
+        return suffix
+    if suffix in {"succeeded", "sent", "approved", "activated", "authenticated"}:
+        return "succeeded"
+    if suffix in {"created", "updated", "submitted", "drafted", "requested", "reserved", "started"}:
+        return "recorded"
+    return "recorded"
+
+
+def _severity(action: str) -> str:
+    suffix = action.rsplit(".", maxsplit=1)[-1]
+    if suffix == "failed":
+        return "error"
+    if suffix in {"denied", "cancelled", "revoked"}:
+        return "warning"
+    return "info"
+
+
+def _humanize(value: str) -> str:
+    return value.replace("_", " ").replace(".", " ").title()
+
+
+def _summary(event: AuditLog, category: str) -> str:
+    resource = _humanize(event.resource_type)
+    action = event.action.rsplit(".", maxsplit=1)[-1].replace("_", " ")
+    if category == "agent":
+        return f"Agent activity was {action} for this company."
+    if category == "approval":
+        return f"Approval workflow {action} on {resource.lower()}."
+    if category == "provider":
+        return f"Provider operation {action} on {resource.lower()}."
+    if category == "email":
+        return f"Email workflow {action} on {resource.lower()}."
+    return f"{resource} activity was {action}."
+
+
+def _safe_details(details: dict[str, Any]) -> dict[str, str | int | float | bool | None]:
+    safe: dict[str, str | int | float | bool | None] = {}
+    for key, value in details.items():
+        if key not in _SAFE_DETAIL_KEYS:
+            continue
+        if value is None or isinstance(value, (str, int, float, bool)):
+            safe[key] = value
+    return safe
+
+
+def _map_activity_event(event: AuditLog) -> ActivityEventResponse:
+    category = _category(event.resource_type, event.action)
+    return ActivityEventResponse(
+        id=event.id,
+        company_id=event.company_id,
+        occurred_at=event.created_at,
+        category=category,
+        source=event.action.split(".", maxsplit=1)[0],
+        action=event.action,
+        title=f"{_humanize(event.action)}",
+        summary=_summary(event, category),
+        status=_status(event.action),
+        severity=_severity(event.action),
+        actor_display=_humanize(event.actor_type),
+        entity_type=event.resource_type,
+        entity_id=event.resource_id,
+        safe_details=_safe_details(event.details),
+        correlation_id=str(event.resource_id) if event.resource_id else None,
+    )
 
 
 class AuditLogService:
@@ -104,16 +215,36 @@ class AuditLogService:
         company_id: UUID,
         limit: int,
         offset: int,
-    ) -> tuple[list[AuditLog], int]:
+        event_type: str | None = None,
+        source: str | None = None,
+        severity: str | None = None,
+        actor: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> tuple[list[ActivityEventResponse], int]:
         """Return one isolated page of company activity."""
 
         events = self._repository.list_for_company(
             company_id=company_id,
             limit=limit,
             offset=offset,
+            event_type=event_type,
+            source=source,
+            severity=severity,
+            actor=actor,
+            date_from=date_from,
+            date_to=date_to,
         )
-        total = self._repository.count_for_company(company_id=company_id)
-        return events, total
+        total = self._repository.count_for_company(
+            company_id=company_id,
+            event_type=event_type,
+            source=source,
+            severity=severity,
+            actor=actor,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        return [_map_activity_event(event) for event in events], total
 
     def append_platform_event(self, *, actor_administrator_id: UUID, action: str, resource_type: str, resource_id: UUID | None, details: dict[str, Any]) -> AuditLog:
         """Append a controlled platform event without committing."""

@@ -119,6 +119,7 @@ Generated automatically by:
 ./backend/app/services/dashboard.py
 ./backend/app/services/email.py
 ./backend/app/services/email_campaign.py
+./backend/app/services/email_campaign_adapters.py
 ./backend/app/services/provider_connection.py
 ./backend/app/services/provider_execution.py
 ./backend/app/services/tool_registry.py
@@ -156,6 +157,7 @@ Generated automatically by:
 ./backend/tests/test_credential_keyring.py
 ./backend/tests/test_dashboard.py
 ./backend/tests/test_database.py
+./backend/tests/test_email_campaign_adapters.py
 ./backend/tests/test_email_campaigns.py
 ./backend/tests/test_email_workflow.py
 ./backend/tests/test_health.py

@@ -192,6 +192,8 @@
 - [x] Add read-only Provider Connections dashboard view backed by safe catalog and company metadata APIs.
 - [x] Add first safe Agent Runtime dashboard view and deterministic read-only internal tool invocation.
 - [x] Add deterministic mock email campaign listing with Tool Registry-backed Agent Runtime invocation.
+- [x] Add first Lemlist read-only campaign adapter contract with fake transport tests.
+- [ ] Add credential-backed read-only Lemlist transport after approved secure credential provisioning.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.

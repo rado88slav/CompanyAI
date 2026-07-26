@@ -78,7 +78,7 @@ for _item in (
     _descriptor("telnyx", "Telnyx", "telephony", "api_key", {"api_key"}, config={"connection_id"}, capabilities={"telephony.call", "telephony.sms", "telephony.number"}),
     _descriptor("microsoft_365", "Microsoft 365", "email", "oauth2_client_credentials", {"client_secret"}, config={"tenant_id", "client_id"}, capabilities={"email.send", "email.read", "email.reply"}, expires=True),
     _descriptor("google_workspace", "Google Workspace", "email", "service_account", {"service_account_json"}, config={"delegated_user"}, capabilities={"email.send", "email.read", "email.reply"}, expires=True),
-    _descriptor("lemlist", "Lemlist", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.send"}),
+    _descriptor("lemlist", "Lemlist", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.campaign.read", "email.send"}),
     _descriptor("instantly", "Instantly", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.send"}),
     _descriptor("smartlead", "Smartlead", "outreach", "api_key", {"api_key"}, capabilities={"outreach.campaign", "outreach.contact", "email.send"}),
     _descriptor("local_test_email", "Local Test Email Provider", "email", "none", set(), capabilities={"email.send", "email.read", "email.reply"}),

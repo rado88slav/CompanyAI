@@ -352,3 +352,20 @@ client. Changing the active company remounts the protected route outlet, which
 forces pages to reload against the new company context. The dashboard still
 contains no credential-entry form and exposes no real send, launch, call,
 arbitrary shell or arbitrary HTTP action.
+
+## 030 — Lemlist Read-only Campaign Adapter Contract
+
+Lemlist campaign reads start as an adapter contract plus fake transport tests,
+not a live network integration. The adapter accepts provider-neutral
+`ExternalCampaignRecord` values from an injected read-only transport and
+normalizes them into `EmailCampaignSummary` records with company-scoped
+deterministic UUIDs. It does not know how to decrypt credentials, open sockets
+or mutate provider state.
+
+The trusted provider descriptor for `lemlist` now advertises
+`email.campaign.read` alongside the existing outreach/email capabilities. Agent
+Runtime remains provider-agnostic; Lemlist-specific normalization lives in the
+email campaign adapter layer. A credential-backed live transport is blocked
+until a real development credential is supplied through the approved encrypted
+provider credential flow. No API key, secret, live campaign read, send, launch
+or paid provider action was added in this milestone.

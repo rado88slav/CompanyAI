@@ -35,6 +35,7 @@ def test_immutable_builtin_descriptors_include_local_test_email() -> None:
     assert {x.key for x in provider_registry.all()} == {"retell","twilio","telnyx","microsoft_365","google_workspace","lemlist","instantly","smartlead","local_test_email","local_mock_email"}
     assert provider_registry.require("local_test_email").required_secret_fields == frozenset()
     assert provider_registry.require("local_mock_email").required_secret_fields == frozenset()
+    assert "email.campaign.read" in provider_registry.require("lemlist").capabilities
     with pytest.raises(AttributeError): provider_registry.require("retell").key = "changed"  # type: ignore[misc]
 
 

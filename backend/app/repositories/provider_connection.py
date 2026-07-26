@@ -25,6 +25,11 @@ class ProviderConnectionRepository:
         if for_update: statement = statement.with_for_update()
         return self._session.scalar(statement)
 
+    def connection_by_slug(self, *, company_id: UUID, slug: str, for_update: bool = False) -> ProviderConnection | None:
+        statement = select(ProviderConnection).where(ProviderConnection.company_id == company_id, ProviderConnection.slug == slug)
+        if for_update: statement = statement.with_for_update()
+        return self._session.scalar(statement)
+
     def list_connections(self, *, company_id: UUID, limit: int, offset: int) -> list[ProviderConnection]:
         return list(self._session.scalars(select(ProviderConnection).where(ProviderConnection.company_id == company_id).order_by(ProviderConnection.created_at.desc(), ProviderConnection.id.desc()).limit(limit).offset(offset)).all())
 

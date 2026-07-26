@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.dependencies.authentication import require_current_administrator
 from app.api.dependencies.company_authorization import require_providers_manage, require_providers_read
+from app.core.config import Settings, get_settings
 from app.core.provider_connections import provider_registry
 from app.models.administrator import Administrator
 from app.schemas.company_context import ActiveCompanyContext
@@ -39,6 +40,25 @@ def get_provider_type(provider_key: str, _actor: Annotated[Administrator, Depend
 def create_connection(company_id: UUID, data: ProviderConnectionCreate, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderConnectionResponse:
     try: return ProviderConnectionResponse.model_validate(service.create_connection(company_id=company_id, data=data, actor=context.administrator))
     except (ProviderConflictError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc: _error(exc)
+
+
+@router.post("/companies/{company_id}/provider-connections/local-test-email/setup", response_model=ProviderConnectionResponse)
+def setup_local_test_email_connection(
+    company_id: UUID,
+    context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)],
+    service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ProviderConnectionResponse:
+    try:
+        return ProviderConnectionResponse.model_validate(
+            service.setup_local_test_email_connection(
+                company_id=company_id,
+                actor=context.administrator,
+                app_environment=settings.app_environment,
+            )
+        )
+    except (ProviderConflictError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc:
+        _error(exc)
 
 
 @router.get("/companies/{company_id}/provider-connections", response_model=ProviderConnectionListResponse)

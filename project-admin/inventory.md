@@ -176,6 +176,7 @@ Generated automatically by:
 ./frontend/src/main.tsx
 ./frontend/src/pages/ApprovalsPage.tsx
 ./frontend/src/pages/AuditPage.tsx
+./frontend/src/pages/DevelopmentSessionPage.tsx
 ./frontend/src/pages/EmailDetailPage.tsx
 ./frontend/src/pages/EmailInboxPage.tsx
 ./frontend/src/pages/OverviewPage.tsx

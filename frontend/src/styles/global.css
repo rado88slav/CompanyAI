@@ -169,6 +169,14 @@ a:focus-visible {
   font-weight: 700;
 }
 
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .content {
   padding: 46px clamp(24px, 4vw, 52px) 64px;
 }

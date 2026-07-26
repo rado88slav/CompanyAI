@@ -1,4 +1,8 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
+
+import { clearSessionContext, hasSessionContext } from "../api/client";
+import { DevelopmentSessionPage } from "../pages/DevelopmentSessionPage";
 
 const navigation = [
   { to: "/", label: "Overview", end: true },
@@ -12,6 +16,11 @@ const navigation = [
 ];
 
 export function AppLayout() {
+  const [sessionReady, setSessionReady] = useState(hasSessionContext());
+  function clearSession() {
+    clearSessionContext();
+    setSessionReady(false);
+  }
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Primary navigation">
@@ -47,10 +56,13 @@ export function AppLayout() {
             <span className="eyebrow">Business operations</span>
             <p>Observe systems without triggering actions.</p>
           </div>
-          <span className="topbar__mode">Read-only foundation</span>
+          <div className="topbar__actions">
+            <span className="topbar__mode">Development session</span>
+            {sessionReady && <button type="button" className="button button--light" onClick={clearSession}>Clear session</button>}
+          </div>
         </header>
         <main className="content" id="main-content">
-          <Outlet />
+          {sessionReady ? <Outlet /> : <DevelopmentSessionPage onReady={() => setSessionReady(true)} />}
         </main>
       </div>
     </div>

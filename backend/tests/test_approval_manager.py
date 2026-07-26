@@ -18,6 +18,7 @@ from app.schemas.company_context import ActiveCompanyContext
 from app.api.dependencies.company_authorization import require_approvals_read, require_authorization_policies_read, require_authorization_usage_read
 from app.services.approval_manager import ApprovalManagerService, get_approval_manager_service
 from app.services.authorization_evaluator import AuthorizationEvaluatorService, _matches, _specificity
+from app.services.audit_log import _validate_safe_details
 from app.cli.bootstrap_authorization_safety import SAFETY_DEFAULTS
 
 
@@ -102,6 +103,12 @@ def test_action_actor_identity_is_explicit() -> None:
 ])
 def test_audit_action_is_normalized_and_controlled(action: str) -> None:
     assert AuditAction(action).value == action
+
+
+def test_approval_audit_details_avoid_forbidden_authorization_key() -> None:
+    _validate_safe_details({"approval_mode": "approve_single_action"})
+    with pytest.raises(ValueError):
+        _validate_safe_details({"authorization_mode": "approve_single_action"})
 
 
 def test_policy_contains_required_security_constraints() -> None:

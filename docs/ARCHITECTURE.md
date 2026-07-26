@@ -841,3 +841,22 @@ submission and unique outbound/execution identities prevent duplicate delivery.
 The Local Test Email Provider makes no network call and sends no real email.
 Audit details exclude bodies and credentials. AI generation, live provider
 authentication, HTML, attachments and bulk workflows are not implemented.
+
+Local browser validation uses a development session setup screen in the
+dashboard. It stores an administrator bearer token and active company UUID only
+in `sessionStorage`, hides the token after save, provides a clear action and
+does not bypass backend authentication, role permissions or approval checks.
+
+`POST /api/v1/companies/{company_id}/provider-connections/local-test-email/setup`
+is the only purpose-built Local Test Email Provider setup path. It is
+administrator-authenticated, company-scoped, requires provider-management
+permission, accepts no credential payload, creates no credential record, is
+idempotent and fails closed outside development/test environments.
+
+The first approved local development E2E validation completed against the
+running application and real development database at `0014_email_workflow`. It
+created reserved `example.test` evidence for one inbound message, one reply
+proposal, one approval, one explicit local test send, one provider execution
+and one attempt. Duplicate import and duplicate send protection were verified.
+No live provider, real email address, credential, secret or external email
+delivery was used.

@@ -35,6 +35,20 @@ function jsonResponse(body: unknown, ok = true) {
   } as Response);
 }
 
+test("development session setup stores context without echoing the bearer token", async () => {
+  sessionStorage.clear();
+  render(<App />);
+
+  expect(screen.getByRole("heading", { name: "Browser session" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Administrator bearer token"), { target: { value: "secret-bearer-token" } });
+  fireEvent.change(screen.getByLabelText("Active company ID"), { target: { value: "0138bfbe-80af-4304-ad91-14d1914a9869" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save session" }));
+
+  expect(sessionStorage.getItem("companyai.accessToken")).toBe("secret-bearer-token");
+  expect(document.body.textContent).not.toContain("secret-bearer-token");
+  expect(screen.getByRole("button", { name: "Clear session" })).toBeInTheDocument();
+});
+
 test("renders the overview loading state and successful real summary", async () => {
   setContext();
   let resolveRequest!: (response: Response) => void;
@@ -77,6 +91,7 @@ test.each([
   ["/calls", "Call Operations"],
   ["/settings", "Settings"],
 ])("renders the %s placeholder route", async (path, title) => {
+  setContext();
   window.history.pushState({}, "", path);
   render(<App />);
 

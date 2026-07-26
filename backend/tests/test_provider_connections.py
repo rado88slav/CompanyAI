@@ -15,7 +15,7 @@ from app.main import app
 from app.models.audit_log import AuditAction
 from app.models.provider_connection import ProviderConnection, ProviderCredential
 from app.schemas.provider_connection import ProviderConnectionCreate, ProviderCredentialCreate
-from app.services.provider_connection import ProviderConnectionService
+from app.services.provider_connection import ProviderConnectionService, ProviderLifecycleError
 
 
 def _encryption_service(
@@ -286,6 +286,54 @@ def test_provider_rbac_audit_and_safe_openapi() -> None:
     schema = str(app.openapi())
     for field in ("encryption_key_id", "encryption_revision", "encrypted_payload", "'nonce'", "keyring"):
         assert field not in schema
+
+
+def test_local_test_email_setup_is_development_only_idempotent_and_credentialless() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    repository = Mock()
+    repository.connection_by_slug.side_effect = [
+        None,
+        ProviderConnection(
+            id=connection_id,
+            company_id=company_id,
+            provider_key="local_test_email",
+            display_name="Local Test Email Provider",
+            slug="local-test-email",
+            authentication_type="none",
+            status="active",
+            configuration={},
+            metadata_={"development_only": True, "live_delivery": False},
+            created_by_administrator_id=actor_id,
+            activated_by_administrator_id=actor_id,
+        ),
+    ]
+    repository.create_connection.side_effect = lambda **values: ProviderConnection(id=connection_id, **values)
+    audit = Mock()
+    session = Mock()
+    service = ProviderConnectionService(repository, audit, session, _encryption_service())
+
+    first = service.setup_local_test_email_connection(company_id=company_id, actor=SimpleNamespace(id=actor_id), app_environment="development")
+    second = service.setup_local_test_email_connection(company_id=company_id, actor=SimpleNamespace(id=actor_id), app_environment="development")
+
+    assert first.id == second.id == connection_id
+    assert first.provider_key == "local_test_email"
+    assert first.status == "active"
+    assert first.authentication_type == "none"
+    assert first.configuration == {}
+    assert first.metadata_ == {"development_only": True, "live_delivery": False}
+    assert repository.create_credential.call_count == 0
+    assert repository.active_credential.call_count == 0
+    assert audit.append_company_event.call_count == 1
+    details = audit.append_company_event.call_args.kwargs["details"]
+    assert details["development_only"] is True
+    assert details["live_delivery"] is False
+
+
+@pytest.mark.parametrize("environment", ["production", "staging"])
+def test_local_test_email_setup_fails_closed_outside_non_production(environment: str) -> None:
+    service = ProviderConnectionService(Mock(), Mock(), Mock(), _encryption_service())
+    with pytest.raises(ProviderLifecycleError):
+        service.setup_local_test_email_connection(company_id=uuid4(), actor=SimpleNamespace(id=uuid4()), app_environment=environment)
 
 
 def test_credential_rotation_uses_v2_key_metadata_and_safe_audit() -> None:

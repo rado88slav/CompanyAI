@@ -1,6 +1,20 @@
 const AUTH_TOKEN_KEY = "companyai.accessToken";
 const COMPANY_ID_KEY = "companyai.companyId";
 
+export function hasSessionContext(): boolean {
+  return Boolean(sessionStorage.getItem(AUTH_TOKEN_KEY) && sessionStorage.getItem(COMPANY_ID_KEY));
+}
+
+export function saveSessionContext(token: string, id: string): void {
+  sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+  sessionStorage.setItem(COMPANY_ID_KEY, id);
+}
+
+export function clearSessionContext(): void {
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(COMPANY_ID_KEY);
+}
+
 export function companyId(): string {
   const value = sessionStorage.getItem(COMPANY_ID_KEY);
   if (!value) throw new Error("An active company context is required.");

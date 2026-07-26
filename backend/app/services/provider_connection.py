@@ -60,6 +60,59 @@ class ProviderConnectionService:
         except Exception:
             self._session.rollback(); raise
 
+    def setup_local_test_email_connection(self, *, company_id: UUID, actor: Administrator, app_environment: str) -> ProviderConnection:
+        if app_environment not in {"development", "test"}:
+            raise ProviderLifecycleError
+        descriptor = provider_registry.require("local_test_email")
+        item = self._repository.connection_by_slug(company_id=company_id, slug="local-test-email", for_update=True)
+        if item is not None:
+            if (
+                item.provider_key != descriptor.key
+                or item.authentication_type != descriptor.authentication_type
+                or item.status == "revoked"
+                or item.configuration
+            ):
+                raise ProviderConflictError
+            changed = False
+            if item.display_name != "Local Test Email Provider":
+                item.display_name = "Local Test Email Provider"
+                item.updated_by_administrator_id = actor.id
+                changed = True
+            if item.status != "active":
+                item.status = "active"
+                item.activated_at = datetime.now(UTC)
+                item.activated_by_administrator_id = actor.id
+                item.deactivated_at = item.deactivated_by_administrator_id = None
+                changed = True
+            if changed:
+                self._repository.save_connection(item)
+                self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CONNECTION_ACTIVATED, resource_id=item.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "status": item.status, "development_only": True})
+                self._session.commit()
+            return item
+        try:
+            item = self._repository.create_connection(
+                company_id=company_id,
+                provider_key=descriptor.key,
+                display_name="Local Test Email Provider",
+                slug="local-test-email",
+                authentication_type=descriptor.authentication_type,
+                status="active",
+                configuration={},
+                metadata_={"development_only": True, "live_delivery": False},
+                created_by_administrator_id=actor.id,
+                activated_by_administrator_id=actor.id,
+                activated_at=datetime.now(UTC),
+            )
+            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CONNECTION_CREATED, resource_id=item.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "status": item.status, "development_only": True, "live_delivery": False})
+            self._session.commit()
+            return item
+        except IntegrityError as exc:
+            self._session.rollback()
+            raise ProviderConflictError from exc
+        except Exception:
+            self._session.rollback()
+            raise
+
     def list_connections(self, *, company_id: UUID, limit: int, offset: int) -> tuple[list[ProviderConnection], int]:
         return self._repository.list_connections(company_id=company_id, limit=limit, offset=offset), self._repository.count_connections(company_id=company_id)
 

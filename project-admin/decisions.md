@@ -369,3 +369,19 @@ email campaign adapter layer. A credential-backed live transport is blocked
 until a real development credential is supplied through the approved encrypted
 provider credential flow. No API key, secret, live campaign read, send, launch
 or paid provider action was added in this milestone.
+
+## 031 — Product-quality Operations Homepage
+
+The dashboard homepage is now optimized for operational clarity rather than
+administrative CRUD. It uses the existing authenticated company context and
+read-only dashboard summary API to render health cards, company summary,
+recent activity, quick actions and informational notifications. The page does
+not add backend writes, provider mutations, real sends, campaign launches,
+phone calls, paid actions or arbitrary external access.
+
+The active company is provided to dashboard pages through a small frontend
+context owned by the authenticated layout. This avoids duplicating company
+bootstrap calls in child pages and keeps future company-scoped modules aligned
+with the existing company selector. The next UX milestone should be the
+Activity Center: one polished chronological timeline for agent actions,
+approvals, provider events and email events.

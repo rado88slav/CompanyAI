@@ -162,13 +162,15 @@ test("renders the overview loading state and successful real summary", async () 
 
   render(<App />);
 
-  expect(await screen.findByText("Loading current operations")).toBeInTheDocument();
+  expect(await screen.findByText("Loading operations dashboard")).toBeInTheDocument();
   resolveRequest(await jsonResponse(summary));
 
-  expect(await screen.findByText("Operational clarity, at a glance.")).toBeInTheDocument();
-  expect(screen.getByText("Provider connections")).toBeInTheDocument();
-  expect(screen.getByText("No audit events have been recorded for this company yet.")).toBeInTheDocument();
-  expect(screen.getByText("test")).toBeInTheDocument();
+  expect(await screen.findByText("Command the day with confidence.")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "All critical services" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Active workspace" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Jump into work" })).toBeInTheDocument();
+  expect(screen.getByText("No activity yet")).toBeInTheDocument();
+  expect(screen.getByText("3 approval requests awaiting review.")).toBeInTheDocument();
 });
 
 test("renders an error state and retries the summary request", async () => {
@@ -180,11 +182,11 @@ test("renders an error state and retries the summary request", async () => {
 
   render(<App />);
 
-  expect(await screen.findByText("Overview unavailable")).toBeInTheDocument();
+  expect(await screen.findByText("Operations dashboard unavailable")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
-  expect(await screen.findByText("CompanyAI API")).toBeInTheDocument();
+  expect(await screen.findByText("Command the day with confidence.")).toBeInTheDocument();
 });
 
 test.each([
@@ -208,7 +210,7 @@ test("company selector changes the active company for protected requests", async
   );
 
   render(<App />);
-  expect(await screen.findByText("CompanyAI API")).toBeInTheDocument();
+  expect(await screen.findByText("Command the day with confidence.")).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("Active company"), { target: { value: "company-two" } });
 
   await waitFor(() => expect(sessionStorage.getItem("companyai.companyId")).toBe("company-two"));
@@ -387,7 +389,7 @@ test("overview output does not render secret-bearing field names", async () => {
   await authenticatedFetchMock(await jsonResponse(summary));
 
   const { container } = render(<App />);
-  await screen.findByText("CompanyAI API");
+  await screen.findByText("Command the day with confidence.");
 
   const rendered = container.textContent?.toLowerCase() ?? "";
   for (const forbidden of [

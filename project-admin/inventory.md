@@ -184,6 +184,7 @@ Generated automatically by:
 ./frontend/src/api/providers.ts
 ./frontend/src/components/MetricCard.tsx
 ./frontend/src/components/StatusBadge.tsx
+./frontend/src/context/ActiveCompanyContext.tsx
 ./frontend/src/layouts/AppLayout.tsx
 ./frontend/src/main.tsx
 ./frontend/src/pages/AgentRuntimePage.tsx

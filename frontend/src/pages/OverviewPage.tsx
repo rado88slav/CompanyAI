@@ -1,25 +1,84 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { fetchDashboardSummary } from "../api/dashboard";
-import { MetricCard } from "../components/MetricCard";
-import { StatusBadge } from "../components/StatusBadge";
-import type { DashboardSummary } from "../types/dashboard";
+import { useActiveCompany } from "../context/ActiveCompanyContext";
+import type { DashboardAuditEvent, DashboardSummary } from "../types/dashboard";
 
-const metricLabels = [
-  ["provider_connections", "Provider connections", "Configured connections"],
-  ["enabled_provider_connections", "Enabled connections", "Ready connections"],
-  ["provider_credentials", "Provider credentials", "Stored credential versions"],
-  ["pending_approvals", "Pending approvals", "Awaiting review"],
-  ["provider_executions", "Provider executions", "Recorded executions"],
-  ["failed_provider_executions", "Failed executions", "Needs attention"],
-  ["audit_events", "Audit events", "Recorded events"],
+type Tone = "green" | "yellow" | "red";
+
+const quickActions = [
+  { to: "/agent", label: "Run Agent", detail: "Use safe read-only tools", icon: "A" },
+  { to: "/providers", label: "Providers", detail: "Review connected adapters", icon: "P" },
+  { to: "/email", label: "Email Campaigns", detail: "Open campaign visibility", icon: "E" },
+  { to: "/approvals", label: "Pending Approvals", detail: "Review queued decisions", icon: "Q" },
 ] as const;
 
-function formatEventAction(action: string) {
-  return action.replaceAll("_", " ").replaceAll(".", " · ");
+function eventLabel(event: DashboardAuditEvent) {
+  return event.action.replaceAll("_", " ").replaceAll(".", " / ");
+}
+
+function resourceLabel(event: DashboardAuditEvent) {
+  return event.resource_type.replaceAll("_", " ");
+}
+
+function healthTone(summary: DashboardSummary, area: string): Tone {
+  if (area === "providers" && summary.counts.provider_connections === 0) return "yellow";
+  if (area === "email" && summary.counts.provider_connections === 0) return "yellow";
+  if (area === "agent" && summary.counts.failed_provider_executions > 0) return "yellow";
+  return "green";
+}
+
+function statusText(tone: Tone) {
+  if (tone === "green") return "Healthy";
+  if (tone === "yellow") return "Needs setup";
+  return "Attention";
+}
+
+function HealthCard({
+  title,
+  value,
+  detail,
+  tone,
+}: {
+  title: string;
+  value: string;
+  detail: string;
+  tone: Tone;
+}) {
+  return (
+    <article className={`ops-card ops-card--${tone}`}>
+      <div className="ops-card__topline">
+        <span className={`health-dot health-dot--${tone}`} aria-hidden="true" />
+        <span>{statusText(tone)}</span>
+      </div>
+      <strong>{title}</strong>
+      <p>{value}</p>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+}) {
+  return (
+    <article className="summary-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
 }
 
 export function OverviewPage() {
+  const activeCompany = useActiveCompany();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,33 +110,52 @@ export function OverviewPage() {
     return () => controller.abort();
   }, [requestVersion]);
 
+  const notifications = useMemo(() => {
+    if (!summary) return [];
+    const items = [
+      summary.counts.pending_approvals > 0
+        ? `${summary.counts.pending_approvals} approval request${summary.counts.pending_approvals === 1 ? "" : "s"} awaiting review.`
+        : "No pending approvals for this company.",
+      summary.counts.provider_connections > 0
+        ? `${summary.counts.enabled_provider_connections} provider connection${summary.counts.enabled_provider_connections === 1 ? "" : "s"} active.`
+        : "No provider connections configured yet.",
+      summary.counts.audit_events > 0
+        ? "Recent operational activity is available in the audit trail."
+        : "No audit events have been recorded for this company yet.",
+    ];
+    return items;
+  }, [summary]);
+
   return (
-    <section className="page" aria-labelledby="overview-title">
-      <div className="page-heading page-heading--split">
+    <section className="page overview-control" aria-labelledby="overview-title">
+      <div className="overview-hero">
         <div>
-          <span className="eyebrow">Live overview</span>
-          <h1 id="overview-title">Operational clarity, at a glance.</h1>
-          <p>Read-only signals from the active company and backend service.</p>
+          <span className="eyebrow">Operations center</span>
+          <h1 id="overview-title">Command the day with confidence.</h1>
+          <p>
+            Live, read-only operational signals for{" "}
+            <strong>{activeCompany?.company.name ?? "the active company"}</strong>.
+          </p>
         </div>
         <button className="button" type="button" onClick={refresh} disabled={loading}>
-          Refresh overview
+          Refresh
         </button>
       </div>
 
       {loading && (
-        <div className="state-panel" role="status">
+        <div className="state-panel overview-state" role="status">
           <span className="spinner" aria-hidden="true" />
           <div>
-            <h2>Loading current operations</h2>
-            <p>Requesting a safe summary from the backend.</p>
+            <h2>Loading operations dashboard</h2>
+            <p>Gathering health, provider, approval, email and activity signals.</p>
           </div>
         </div>
       )}
 
       {!loading && error && (
-        <div className="state-panel state-panel--error" role="alert">
+        <div className="state-panel state-panel--error overview-state" role="alert">
           <div>
-            <h2>Overview unavailable</h2>
+            <h2>Operations dashboard unavailable</h2>
             <p>{error}</p>
           </div>
           <button className="button button--light" type="button" onClick={refresh}>
@@ -87,58 +165,81 @@ export function OverviewPage() {
       )}
 
       {!loading && summary && (
-        <>
-          <div className="service-strip" aria-label="Service status">
-            <div>
-              <span className="eyebrow">Backend service</span>
-              <strong>CompanyAI API</strong>
-            </div>
-            <StatusBadge label={summary.service.status} tone="positive" />
-            <div>
-              <span className="service-strip__label">Database</span>
-              <strong>{summary.service.readiness}</strong>
-            </div>
-            <div>
-              <span className="service-strip__label">Environment</span>
-              <strong>{summary.service.environment}</strong>
-            </div>
-            <div>
-              <span className="service-strip__label">Version</span>
-              <strong>{summary.service.version}</strong>
-            </div>
-          </div>
-
-          <div className="metrics-grid">
-            {metricLabels.map(([key, label, note]) => (
-              <MetricCard
-                key={key}
-                label={label}
-                value={summary.counts[key]}
-                note={note}
-              />
-            ))}
-          </div>
-
-          <section className="activity-panel" aria-labelledby="activity-title">
-            <div className="section-heading">
+        <div className="ops-layout">
+          <section className="ops-section ops-section--wide" aria-labelledby="system-health-title">
+            <div className="ops-section__heading">
               <div>
-                <span className="eyebrow">Audit trail</span>
-                <h2 id="activity-title">Latest activity</h2>
+                <span className="eyebrow">System health</span>
+                <h2 id="system-health-title">All critical services</h2>
               </div>
-              <StatusBadge label="Read only" tone="neutral" />
+              <span className="status-badge status-badge--positive">Live</span>
+            </div>
+            <div className="health-grid">
+              <HealthCard title="Backend" value={summary.service.status} detail={summary.service.version} tone="green" />
+              <HealthCard title="Database" value={summary.service.readiness} detail="Primary application store" tone="green" />
+              <HealthCard title="Agent" value="Read-only runtime" detail={`${summary.counts.provider_executions} executions recorded`} tone={healthTone(summary, "agent")} />
+              <HealthCard title="Providers" value={`${summary.counts.enabled_provider_connections}/${summary.counts.provider_connections} active`} detail="Company-scoped adapters" tone={healthTone(summary, "providers")} />
+              <HealthCard title="Email" value="Campaign visibility" detail="No live sends enabled" tone={healthTone(summary, "email")} />
+              <HealthCard title="Storage" value="Protected" detail="No credential values exposed" tone="green" />
+            </div>
+          </section>
+
+          <section className="ops-section" aria-labelledby="company-summary-title">
+            <div className="ops-section__heading">
+              <div>
+                <span className="eyebrow">Company summary</span>
+                <h2 id="company-summary-title">Active workspace</h2>
+              </div>
+            </div>
+            <div className="summary-grid">
+              <SummaryTile label="Company" value={activeCompany?.company.name ?? "Selected"} detail={activeCompany?.membership_role ?? "Platform access"} />
+              <SummaryTile label="Providers" value={summary.counts.provider_connections} detail="Configured connections" />
+              <SummaryTile label="Approvals" value={summary.counts.pending_approvals} detail="Awaiting decision" />
+              <SummaryTile label="Audit Events" value={summary.counts.audit_events} detail="Recorded activity" />
+            </div>
+          </section>
+
+          <section className="ops-section" aria-labelledby="quick-actions-title">
+            <div className="ops-section__heading">
+              <div>
+                <span className="eyebrow">Quick actions</span>
+                <h2 id="quick-actions-title">Jump into work</h2>
+              </div>
+            </div>
+            <div className="quick-action-grid">
+              {quickActions.map((item) => (
+                <Link className="quick-action" to={item.to} key={item.to}>
+                  <span aria-hidden="true">{item.icon}</span>
+                  <div>
+                    <strong>{item.label}</strong>
+                    <small>{item.detail}</small>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          <section className="ops-section ops-section--wide" aria-labelledby="activity-title">
+            <div className="ops-section__heading">
+              <div>
+                <span className="eyebrow">Recent activity</span>
+                <h2 id="activity-title">Operational timeline</h2>
+              </div>
+              <Link className="text-link" to="/audit">Open audit log</Link>
             </div>
             {summary.recent_audit_events.length === 0 ? (
-              <div className="activity-empty">
-                <p>No audit events have been recorded for this company yet.</p>
+              <div className="activity-empty activity-empty--polished">
+                <h3>No activity yet</h3>
+                <p>New agent, approval, provider and email events will appear here.</p>
               </div>
             ) : (
-              <ul className="activity-list">
+              <ul className="ops-timeline">
                 {summary.recent_audit_events.map((event) => (
                   <li key={event.id}>
-                    <span className="activity-list__marker" aria-hidden="true" />
+                    <span className="timeline-marker" aria-hidden="true" />
                     <div>
-                      <strong>{formatEventAction(event.action)}</strong>
-                      <span>{event.resource_type.replaceAll("_", " ")}</span>
+                      <strong>{eventLabel(event)}</strong>
+                      <span>{resourceLabel(event)}</span>
                     </div>
                     <time dateTime={event.created_at}>
                       {new Date(event.created_at).toLocaleString()}
@@ -148,7 +249,24 @@ export function OverviewPage() {
               </ul>
             )}
           </section>
-        </>
+
+          <section className="ops-section" aria-labelledby="notifications-title">
+            <div className="ops-section__heading">
+              <div>
+                <span className="eyebrow">Notifications</span>
+                <h2 id="notifications-title">Recent signals</h2>
+              </div>
+            </div>
+            <div className="notification-list">
+              {notifications.map((item) => (
+                <div className="notification" key={item}>
+                  <span className="health-dot health-dot--green" aria-hidden="true" />
+                  <p>{item}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
       )}
     </section>
   );

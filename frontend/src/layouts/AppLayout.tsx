@@ -14,6 +14,7 @@ import {
   type AvailableCompanyContext,
   type Administrator,
 } from "../api/client";
+import { ActiveCompanyProvider } from "../context/ActiveCompanyContext";
 
 const navigation = [
   { to: "/", label: "Overview", end: true },
@@ -293,9 +294,11 @@ export function AppLayout() {
           )}
 
           {session.status === "authenticated" && (
-            <div key={session.activeCompanyId}>
-              <Outlet />
-            </div>
+            <ActiveCompanyProvider value={activeCompany}>
+              <div key={session.activeCompanyId}>
+                <Outlet />
+              </div>
+            </ActiveCompanyProvider>
           )}
         </main>
       </div>

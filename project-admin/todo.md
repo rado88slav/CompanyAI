@@ -188,6 +188,9 @@
 - [x] Add polished placeholder routes without fake metrics or operational claims.
 - [x] Add development session company context and token-based authentication setup for local validation.
 - [x] Add production dashboard company-selection and authentication UX.
+- [x] Polish the dashboard homepage into an operations control center.
+- [ ] Create Activity Center unified timeline.
+- [ ] Create read-only System Status page.
 - [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
 - [x] Add read-only Provider Connections dashboard view backed by safe catalog and company metadata APIs.
 - [x] Add first safe Agent Runtime dashboard view and deterministic read-only internal tool invocation.
@@ -235,7 +238,7 @@ Phase 3 is complete when:
 
 ## Later Phases
 
-- [ ] Phase 4 — Dashboard Foundation
+- [x] Phase 4 — Dashboard Foundation
 - [ ] Phase 5 — Task and Agent Runtime
 - [ ] Phase 6 — AI Provider Integration
 - [ ] Phase 7 — Approval and Permission System

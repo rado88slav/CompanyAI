@@ -167,7 +167,7 @@
 - [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
 - [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.
 - [x] Verify the empty Provider Execution schema, authenticated registry and company-scoped listing against the rebuilt backend.
-- [ ] Review and commit the Provider Execution foundation after explicit approval.
+- [x] Review and commit the Provider Execution foundation after explicit approval.
 
 ### 11. Development Seed Data
 
@@ -186,7 +186,9 @@
 - [x] Implement Dashboard Stage 1 with React, TypeScript, Vite and React Router.
 - [x] Add the authenticated read-only company Dashboard Summary API and tested Overview.
 - [x] Add polished placeholder routes without fake metrics or operational claims.
-- [ ] Add dashboard company-selection and authentication UX.
+- [x] Add development session company context and token-based authentication setup for local validation.
+- [ ] Add production dashboard company-selection and authentication UX.
+- [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.
@@ -260,4 +262,4 @@ The following features must not delay the MVP:
 
 ## Last Updated
 
-2026-07-22
+2026-07-26

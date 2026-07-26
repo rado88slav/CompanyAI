@@ -306,7 +306,7 @@ Provider Execution uses the existing Authorization Evaluator and Authorization U
 
 Agent execution requires both an exact active Tool Registry grant and an independently valid Approval Manager authorization. Administrator and agent identities are derived from authenticated request context. Authorization policy lineage is stored through a restrictive foreign key, authorization usage is linked to the same-company execution, and audit events preserve the real administrator or agent actor without payloads or secrets.
 
-Migration `0011_provider_execution` follows `0010_provider_connections` and is an applied predecessor of current database head `0013_credential_keyring_contract`. PostgreSQL verification confirmed the two execution tables, their restrictive foreign keys, checks, uniqueness constraints and indexes; both tables contain zero rows. The rebuilt backend is healthy and database-ready. Authenticated runtime checks return exactly 22 operations across 8 providers and an empty company-scoped execution page; OpenAPI contains 74 paths, including 9 Provider Execution paths. The implementation remains dry-run-only, live adapters fail closed, and no real provider credential, approval, execution, attempt or external provider call was created during verification.
+Migration `0011_provider_execution` follows `0010_provider_connections` and is an applied predecessor of current database head `0014_email_workflow`. PostgreSQL verification confirmed the two execution tables, their restrictive foreign keys, checks, uniqueness constraints and indexes; both tables were empty at Provider Execution foundation verification time. The rebuilt backend was healthy and database-ready. Authenticated runtime checks returned exactly 22 operations across 8 providers and an empty company-scoped execution page; OpenAPI contained 74 paths, including 9 Provider Execution paths. The implementation remains dry-run-only, live adapters fail closed, and no real provider credential, approval, execution, attempt or external provider call was created during Provider Execution foundation verification.
 
 ## 027 — Dashboard Stage 1 read-only foundation
 
@@ -325,5 +325,7 @@ execution history and safe audit events. Dashboard routes `/email`,
 `/email/:emailId`, `/approvals` and `/audit` use company-scoped APIs.
 
 The Local Test Email Provider needs no credential, makes no network call and
-sends no real email. Schema-only migration `0014_email_workflow` follows
-`0013` and remains unapplied. The real database was not queried or modified.
+sends no real email. Migration `0014_email_workflow` follows `0013`, is applied
+to the real local development database, and was validated through the first
+approved local E2E. The historical E2E records are intentionally retained as
+local validation evidence; token files were removed during approved cleanup.

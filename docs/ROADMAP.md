@@ -20,7 +20,7 @@ The initial MVP must provide:
 - activity and audit history;
 - portable installation through Docker and Bash scripts.
 
-Current provider foundation status: Provider Connections and the dry-run-only Provider Execution foundation are implemented and runtime-verified. The immutable keyring core and runtime support exist, and the real local keyring cutover is complete with active ID `legacy`. The repository and real development database heads are both `0013_credential_keyring_contract`; its fail-closed NULL precondition passed while `provider_credentials` was empty, and the verified `encryption_key_id` contract is `VARCHAR(64) NOT NULL`. No backfill or re-encryption occurred, and no real credential, approval or execution was created. The backend image rebuild and container recreation are complete. Mandatory credential-keyring backend work blocking initial dashboard development is complete. Dashboard Stage 1 now provides a tested React, TypeScript and Vite shell, read-only Overview and authenticated company-scoped summary API; future module routes are placeholders only. Production secret-manager provisioning, controlled re-encryption tooling, old-key retirement/key escrow and backup-retention remain open.
+Current provider foundation status: Provider Connections, the dry-run-only Provider Execution foundation and the thin local-test email workflow are implemented and runtime-verified. The immutable keyring core and runtime support exist, and the real local keyring cutover is complete with active ID `legacy`. The repository and real development database heads are both `0014_email_workflow`; `0013_credential_keyring_contract` remains the verified keyring contract predecessor with `provider_credentials.encryption_key_id` as `VARCHAR(64) NOT NULL`. No credential backfill or re-encryption occurred. Dashboard Stage 1 provides the tested React, TypeScript and Vite shell, read-only Overview and authenticated company-scoped summary API; the development session now also exposes local thin email validation screens for import, proposals, approvals, local test send status and audit review. Production secret-manager provisioning, controlled re-encryption tooling, old-key retirement/key escrow, backup-retention, real mailbox import, AI drafting and live provider delivery remain open.
 
 ---
 
@@ -213,7 +213,7 @@ Implement the multi-company foundation before adding business integrations.
 
 The Company Memberships and Roles foundation was committed as `d311521 Add company memberships and roles`. The Approval Manager foundation has been implemented ahead of its later integration phase and committed as `da9386c Add approval manager and authorization policies`; that commit was pushed to `origin/main`, and local `main`, `origin/main` and `origin/HEAD` were verified at `da9386c`. Migration `0007_approval_manager` is applied locally, and authenticated read-only listing is verified for requests, policies and usages. Safety defaults use the reserved `any` policy scope across concrete resource scopes without weakening `company_id` isolation. The first approved platform bootstrap ran before the backend image was rebuilt and created six legacy `company`/null policies plus six matching create audit events. Read-only verification detected the mismatch; the backend was rebuilt and the bootstrap was hardened. The explicitly approved controlled repair then atomically preserved the six legacy policies as revoked and created six active `any`/null replacements. Independent verification confirmed 12 policies, 12 create events, six revoke events and the strict one-active-policy-per-action invariant. Requests, decisions and usages remain empty, and no external runtime action was executed. Internal HTTP routes remain disabled until Agent Identity exists.
 
-This subsequent documentation synchronization is a separate uncommitted working-tree change pending review.
+This historical documentation synchronization was completed in a later repository update.
 
 The Agent Identity and Internal Agent Authentication foundation is committed as `201268b Add agent identity and internal authentication`. It introduces company-owned agents, one-time HMAC-protected machine credentials, short-lived separately signed agent JWTs, exact revocable permissions, lifecycle and audit management, administrator APIs and internal authentication endpoints. Static migration `0008_agent_identity` follows `0007` and is applied locally; at that foundation's verification point the real database was at `0008`, and all three agent tables contained zero rows. Backend Compose propagates all six Agent Authentication settings through tracked placeholders. Agent Runtime and provider integrations remain outside that foundation.
 
@@ -727,9 +727,10 @@ Remaining in Phase 3:
 
 - audit logging;
 - repeatable development seed automation.
-Provider Execution's dry-run architecture, persistence and Approval Manager integration are implemented and runtime-verified. Approval-required operations use evaluator decisions and atomic usage reservations; agent execution also requires an exact Tool Registry grant. Migration `0011_provider_execution` is an applied predecessor of current database head `0013_credential_keyring_contract`, and both execution tables remain empty. Live adapters, real provider onboarding and external calls remain deferred pending explicit approval.
+Provider Execution's dry-run architecture, persistence and Approval Manager integration are implemented and runtime-verified. Approval-required operations use evaluator decisions and atomic usage reservations; agent execution also requires an exact Tool Registry grant. Migration `0011_provider_execution` is an applied predecessor of current database head `0014_email_workflow`; the first local email E2E later created historical provider execution rows for the Local Test Email Provider only. Live adapters, real provider onboarding and external calls remain deferred pending explicit approval.
 
-The first thin email workflow is implemented with unapplied schema-only
-migration `0014_email_workflow`. It validates manual drafting, exact-content
-approval, deterministic local test delivery, idempotency and safe auditing.
-Live mailbox import, AI drafting and real provider sending remain Phase 9 work.
+The first thin email workflow is implemented with applied schema migration
+`0014_email_workflow`. It validates manual drafting, exact-content approval,
+deterministic local test delivery, idempotency and safe auditing through the
+Local Test Email Provider. Live mailbox import, AI drafting and real provider
+sending remain Phase 9 work.

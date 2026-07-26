@@ -22,7 +22,7 @@ cat > "${ADMIN_DIR}/progress.md" <<'EOF'
 
 The Company domain, Company Settings, administrator authentication, Active Company Context, Audit Logging, Company Memberships and Roles, and Approval Manager foundations are operational locally. Company Memberships and Roles was committed as `d311521 Add company memberships and roles`. Approval Manager and Authorization Policies was committed as `da9386c Add approval manager and authorization policies` and pushed successfully to `origin/main`; local `main`, `origin/main` and `origin/HEAD` were verified at `da9386c` immediately after the push.
 
-The working tree was clean immediately after that push. This subsequent project-status synchronization is a new documentation-only working-tree change pending its own review and commit.
+The latest local thin email E2E validation support was committed and pushed as `214c5a2 Complete local thin email E2E validation support`; local `main`, `origin/main` and `origin/HEAD` were verified at that commit with a clean working tree.
 
 Some non-blocking work from Phase 1 and Phase 2 remains in the backlog, including the initial agent container, dashboard container, structured logging and additional system endpoints.
 
@@ -201,7 +201,7 @@ Completed:
 - Approval Manager and Authorization Policies committed as `da9386c Add approval manager and authorization policies`;
 - commit `da9386c` pushed successfully to `origin/main`;
 - local `main`, `origin/main` and `origin/HEAD` verified at `da9386c`, with a clean working tree immediately after the push;
-- this later documentation synchronization remains a separate uncommitted change pending review;
+- the later documentation synchronization was completed in a repository update;
 - first-class company-owned Agent Identity foundation with persistent agents, credentials and exact permissions;
 - administrator identity and agent identity remain cryptographically and semantically separate;
 - versioned one-time machine credentials use HMAC-SHA256 with a dedicated server-side pepper;
@@ -228,15 +228,19 @@ Remaining:
 
 ## Automated Verification
 
-Latest backend verification:
+Latest verification:
 
-    292 passed, 1 warning
+    frontend App tests: 12 passed
+    backend compile/OpenAPI smoke: passed
+    Alembic current: 0014_email_workflow (head)
 
-The warning is a non-blocking Starlette `TestClient` deprecation warning.
+The full backend pytest suite is not recorded as the latest run because the
+currently available local test image lacked one runtime dependency and the
+runtime image lacked `pytest` without installing development requirements.
 
 Alembic migration chain:
 
-    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity -> 0009_tool_registry -> 0010_provider_connections -> 0011_provider_execution (head, applied to the real development database)
+    <base> -> 0001_initial -> 0002_companies -> 0003_company_settings -> 0004_administrators -> 0005_audit_logs -> 0006_company_memberships -> 0007_approval_manager -> 0008_agent_identity -> 0009_tool_registry -> 0010_provider_connections -> 0011_provider_execution -> 0012_credential_keyring_expand -> 0013_credential_keyring_contract -> 0014_email_workflow (head, applied to the real development database)
 
 ---
 
@@ -390,14 +394,14 @@ The real company will later be created as a separate Company Context without cha
 - Agent migration `0008_agent_identity`: applied locally; the database was at this revision when Agent Identity was verified
 - Real agent data: `agents`, `agent_credentials` and `agent_permissions` each contain zero rows
 - Internal agent authentication: Compose propagation and rebuilt runtime verification are complete; invalid raw credentials and invalid agent JWTs return HTTP 401
-- Tool Registry: implemented and automatically verified, uncommitted
+- Tool Registry: implemented, automatically verified and committed
 - Provider Connections: implemented and runtime-verified; eight trusted descriptors, metadata-only APIs and AES-256-GCM credential storage foundation are present
 - Provider Connections migration `0010_provider_connections`: applied locally; the database was at this revision when both empty provider tables were verified
 - Provider Connections runtime: healthy backend, database readiness reachable, 65 OpenAPI paths with 10 Provider Connections paths, authenticated company-scoped listing returns HTTP 200, and no external calls or plaintext retrieval API exist
 - Provider Connections validation: complete backend suite, focused tests, compilation, security scan and deterministic generator verification passed; generated_matches_current=yes and whitespace validation passed
-- Credential keyring contract migration `0013_credential_keyring_contract`: repository and real development database head; its fail-closed NULL precondition passed while `provider_credentials` was empty, and verified `encryption_key_id` is `VARCHAR(64) NOT NULL` with no backfill or re-encryption
+- Credential keyring contract migration `0013_credential_keyring_contract`: applied predecessor of current head; its fail-closed NULL precondition passed while `provider_credentials` was empty, and verified `encryption_key_id` is `VARCHAR(64) NOT NULL` with no backfill or re-encryption
 - Provider Execution: dry-run-only foundation implemented with Approval Manager evaluator decisions, atomic authorization usage reservation/consumption, administrator and agent approval-backed execution, exact Tool Registry grants for agents, and complete lifecycle audit actions
-- Provider Execution migration and schema: `0011_provider_execution` is an applied predecessor of current head `0013_credential_keyring_contract`; its PostgreSQL constraints and indexes are verified, and `provider_executions` and `provider_execution_attempts` each contain zero rows
+- Provider Execution migration and schema: `0011_provider_execution` is an applied predecessor of current head `0014_email_workflow`; its PostgreSQL constraints and indexes were verified during the foundation phase, and later local E2E validation created historical Local Test Email Provider execution evidence
 - Provider Execution runtime: rebuilt backend is healthy and database-ready; authenticated registry returns exactly 22 operations across 8 providers, company-scoped listing returns an empty `50/0` page, and OpenAPI exposes 74 total paths including 9 Provider Execution paths
 - Provider Execution safety: no real connection, credential, approval, execution or attempt was created; no external provider operation ran; live mode remains fail-closed
 - Development credential key: `CREDENTIAL_ENCRYPTION_KEY` was safely rotated while `provider_credentials` contained zero rows; the force-recreated backend uses the rotated key and passed health and database-readiness checks
@@ -418,8 +422,10 @@ The real company will later be created as a separate Company Context without cha
 - Repository runtime keyring support is implemented: `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON are validated once before FastAPI creation and shared with Provider Connections; standalone or mixed legacy configuration is rejected.
 - New credentials use key-ID-bound encryption version 2, the configured active key ID and revision `0`; previous configured keys are decryption-only. Version-1 rows with NULL key IDs require an explicit `legacy` keyring entry.
 - Local secret provisioning and the running backend are cut over to the keyring contract. The backend image rebuild and container recreation with migration 0013 are complete, and runtime keyring health remains verified.
-- Repository and real database heads are `0013_credential_keyring_contract`. Its fail-closed NULL precondition passed because `provider_credentials` contained zero rows; verified `encryption_key_id` is `VARCHAR(64) NOT NULL`, with no backfill or re-encryption.
-- Mandatory credential-keyring backend work blocking initial dashboard development is complete. Dashboard Stage 1 now provides the tested React/TypeScript/Vite shell, read-only Overview and authenticated company-scoped summary API; future modules remain placeholders. Production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention remain open.
+- Repository and real database heads are `0014_email_workflow`. Migration `0013_credential_keyring_contract` remains the applied keyring contract predecessor; its fail-closed NULL precondition passed because `provider_credentials` contained zero rows, and verified `encryption_key_id` is `VARCHAR(64) NOT NULL`, with no backfill or re-encryption.
+- Mandatory credential-keyring backend work blocking initial dashboard development is complete. Dashboard Stage 1 provides the tested React/TypeScript/Vite shell, read-only Overview and authenticated company-scoped summary API; the development session now includes local thin email validation screens. Production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow, backup-retention, production dashboard authentication and live provider integrations remain open.
+- Thin local-test email workflow: implemented, committed and pushed as `214c5a2 Complete local thin email E2E validation support`; the real local E2E covered Local Test Email Provider setup, idempotent setup, import, duplicate import rejection, proposal creation/edit/submit, post-submit edit blocking, approval by a separate administrator, explicit deterministic local test send, duplicate-send protection, provider execution/attempt persistence, immutable approved outbound snapshot, inbox/detail sent status, audit events, health, readiness, Alembic current and no external email delivery.
+- Retained local E2E evidence: CompanyTest `0138bfbe-80af-4304-ad91-14d1914a9869`, requester administrator `7723d6f1-fbc7-4c77-a217-338f84e95007`, approver administrator `4824fd95-3d03-44b4-95c2-d109f13890ab`, provider connection `fd4e4bb1-8a8c-4363-9869-8eeddcdb4409`, inbound email `7999408b-21e1-4831-be41-7bfba61d0176`, reply proposal `64233291-3a39-44eb-b475-b823390d22e8`, approval request `77012c14-6209-4140-b110-cc9c0a2ce8b4`, outbound email `c76163b3-c9c2-41c5-a274-0de535788e17`, provider execution `e9932017-a428-4ce9-84c7-514a72b28c1a`, provider execution attempt `ee690071-4bbb-4a40-b9bc-b0c530a3056d` and deterministic provider message ID `local-test-2c802d000f0201cc56f205a4`.
 - Dashboard Summary uses one aggregate count statement plus one bounded deterministic recent-audit query, existing read permissions and explicit safe schemas. It performs no writes, credential decryption, provider execution or external call.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
 - `scripts/setup/create-env.sh --force` must not be used for key-only rotation because it replaces the entire `.env` file.
@@ -431,8 +437,8 @@ The real company will later be created as a separate Company Context without cha
 - Automated tests: passing
 - Company Memberships Git commit: `d311521 Add company memberships and roles`
 - Approval Manager Git commit: `da9386c Add approval manager and authorization policies`
-- Remote synchronization: `da9386c` pushed to `origin/main`; local `main`, `origin/main` and `origin/HEAD` verified at that commit
-- Post-push state: working tree was clean; the current documentation synchronization is a new uncommitted change
+- Remote synchronization: latest pushed commit is `214c5a2 Complete local thin email E2E validation support`; local `main`, `origin/main` and `origin/HEAD` were verified at that commit with a clean working tree
+- Post-push state: working tree was clean before this documentation synchronization
 
 ---
 
@@ -440,17 +446,17 @@ The real company will later be created as a separate Company Context without cha
 
 Continue Phase 3 with:
 
-1. review the uncommitted but runtime-verified Provider Connections and Provider Execution foundations;
-2. design production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention procedures before production use;
-3. define Dashboard Stage 2 company/authentication UX and richer read-only module views before implementation;
-4. add dashboard deployment/container integration only after separate explicit approval;
-5. commit and push only after explicit approval.
+1. design production secret-manager provisioning, controlled re-encryption, old-key retirement/key escrow and backup-retention procedures before production use;
+2. define production Dashboard Stage 2 company/authentication UX and richer read-only module views;
+3. add dashboard deployment/container integration only after separate explicit approval;
+4. define the next email-management increment after the completed local thin email E2E;
+5. commit and push this documentation synchronization after review.
 
 ---
 
 ## Last Updated
 
-2026-07-24
+2026-07-26
 EOF
 
 cat > "${ADMIN_DIR}/todo.md" <<'EOF'
@@ -623,7 +629,7 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [x] Implement the dry-run-only Provider Execution foundation with Approval Manager authorization and agent Tool Registry grant enforcement.
 - [x] Apply migration `0011_provider_execution` to the real development database after explicit approval.
 - [x] Verify the empty Provider Execution schema, authenticated registry and company-scoped listing against the rebuilt backend.
-- [ ] Review and commit the Provider Execution foundation after explicit approval.
+- [x] Review and commit the Provider Execution foundation after explicit approval.
 
 ### 11. Development Seed Data
 
@@ -642,7 +648,9 @@ cat > "${ADMIN_DIR}/todo.md" <<'EOF'
 - [x] Implement Dashboard Stage 1 with React, TypeScript, Vite and React Router.
 - [x] Add the authenticated read-only company Dashboard Summary API and tested Overview.
 - [x] Add polished placeholder routes without fake metrics or operational claims.
-- [ ] Add dashboard company-selection and authentication UX.
+- [x] Add development session company context and token-based authentication setup for local validation.
+- [ ] Add production dashboard company-selection and authentication UX.
+- [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.
@@ -716,7 +724,7 @@ The following features must not delay the MVP:
 
 ## Last Updated
 
-2026-07-22
+2026-07-26
 EOF
 
 cat > "${ADMIN_DIR}/decisions.md" <<'EOF'
@@ -1028,7 +1036,7 @@ Provider Execution uses the existing Authorization Evaluator and Authorization U
 
 Agent execution requires both an exact active Tool Registry grant and an independently valid Approval Manager authorization. Administrator and agent identities are derived from authenticated request context. Authorization policy lineage is stored through a restrictive foreign key, authorization usage is linked to the same-company execution, and audit events preserve the real administrator or agent actor without payloads or secrets.
 
-Migration `0011_provider_execution` follows `0010_provider_connections` and is an applied predecessor of current database head `0013_credential_keyring_contract`. PostgreSQL verification confirmed the two execution tables, their restrictive foreign keys, checks, uniqueness constraints and indexes; both tables contain zero rows. The rebuilt backend is healthy and database-ready. Authenticated runtime checks return exactly 22 operations across 8 providers and an empty company-scoped execution page; OpenAPI contains 74 paths, including 9 Provider Execution paths. The implementation remains dry-run-only, live adapters fail closed, and no real provider credential, approval, execution, attempt or external provider call was created during verification.
+Migration `0011_provider_execution` follows `0010_provider_connections` and is an applied predecessor of current database head `0014_email_workflow`. PostgreSQL verification confirmed the two execution tables, their restrictive foreign keys, checks, uniqueness constraints and indexes; both tables were empty at Provider Execution foundation verification time. The rebuilt backend was healthy and database-ready. Authenticated runtime checks returned exactly 22 operations across 8 providers and an empty company-scoped execution page; OpenAPI contained 74 paths, including 9 Provider Execution paths. The implementation remains dry-run-only, live adapters fail closed, and no real provider credential, approval, execution, attempt or external provider call was created during Provider Execution foundation verification.
 
 ## 027 — Dashboard Stage 1 read-only foundation
 
@@ -1047,8 +1055,10 @@ execution history and safe audit events. Dashboard routes `/email`,
 `/email/:emailId`, `/approvals` and `/audit` use company-scoped APIs.
 
 The Local Test Email Provider needs no credential, makes no network call and
-sends no real email. Schema-only migration `0014_email_workflow` follows
-`0013` and remains unapplied. The real database was not queried or modified.
+sends no real email. Migration `0014_email_workflow` follows `0013`, is applied
+to the real local development database, and was validated through the first
+approved local E2E. The historical E2E records are intentionally retained as
+local validation evidence; token files were removed during approved cleanup.
 EOF
 
 printf '%s\n' "Project administration documents updated."

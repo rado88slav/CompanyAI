@@ -171,6 +171,7 @@ class SingleMessagePreviewRequest(SingleMessageTestBase):
 
 class SingleMessageApprovalRequest(SingleMessageTestBase):
     mode: SingleMessageMode = SingleMessageMode.SIMULATION
+    preview_payload_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     confirmation_text: str = Field(min_length=1, max_length=80)
 
     @model_validator(mode="after")
@@ -224,6 +225,7 @@ class SingleMessagePreviewResponse(BaseModel):
     live_send_available: bool
     disabled_features: list[str]
     mode: SingleMessageMode = SingleMessageMode.SIMULATION
+    policy_checks: dict[str, bool] = Field(default_factory=dict)
 
 
 class SingleMessageApprovalResponse(SingleMessagePreviewResponse):
@@ -264,3 +266,28 @@ class SingleMessageRecipientAllowlistUpdate(BaseModel):
         if "*" in normalized or normalized.startswith("@"):
             raise ValueError("Only exact recipient email addresses are allowed.")
         return normalized
+
+
+class SingleMessageApprovalReview(BaseModel):
+    id: UUID
+    provider_execution_id: UUID
+    requester_administrator_id: UUID | None
+    status: str
+    requested_action: str
+    mode: SingleMessageMode
+    sender_email: str
+    recipient_email: str
+    subject: str
+    body: str
+    payload_digest: str
+    idempotency_key: str
+    created_at: datetime
+    decision_due_at: datetime | None = None
+    self_approval_blocked: bool = False
+
+
+class SingleMessageApprovalReviewList(BaseModel):
+    items: list[SingleMessageApprovalReview]
+    total: int
+    limit: int
+    offset: int

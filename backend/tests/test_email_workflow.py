@@ -17,6 +17,7 @@ from app.schemas.approval import AuthorizationConditionsV1
 from app.schemas.email import ReplyProposalWrite, SingleMessageApprovalRequest, SingleMessageLiveExecutionRequest, SingleMessagePreviewRequest, SingleMessageSimulationRequest, TestInboundEmailImport as InboundImportSchema
 from app.services.email import EmailConflictError, EmailForbiddenError, EmailSandboxRejectedError, EmailWorkflowService, content_digest, reply_subject, single_message_digest
 from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY, MailboxSendOutcomeUncertainError, MailboxSendResult
+from app.services.audit_log import AuditLogService
 
 
 def test_import_schema_normalizes_email_and_rejects_unsupported_input():
@@ -423,6 +424,37 @@ def test_single_message_recipient_allowlist_rolls_back_when_audit_fails():
     assert service.smtp_live_transport.calls == []
 
 
+def test_one_test_email_audit_shapes_use_supported_contracts():
+    class CapturingAuditRepository:
+        def __init__(self):
+            self.events = []
+
+        def create(self, **values):
+            self.events.append(values)
+            return SimpleNamespace(**values)
+
+    repository = CapturingAuditRepository()
+    audit = AuditLogService(repository)  # type: ignore[arg-type]
+    company_id, actor_id, resource_id = uuid4(), uuid4(), uuid4()
+    events = [
+        ("email_automation.settings_updated", "email_automation", None, {"operation": "single_message_recipient_allowlist_updated", "changed": True, "recipient_count": 1}),
+        ("email_single_message.simulated", "email_single_message_test", None, {"message_digest": "a" * 64, "simulation_only": True, "live_send_available": False}),
+        ("email_single_message.approval_requested", "email_single_message_test", resource_id, {"provider_execution_id": str(resource_id), "approval_request_id": str(uuid4()), "message_digest": "b" * 64, "simulation_only": False, "live_send_available": True}),
+        ("provider_execution.requested", "provider_execution", resource_id, {"provider_key": "generic_smtp_imap", "operation_key": "send_email", "execution_mode": "live", "simulation_only": False, "live_send_available": True}),
+        ("provider_execution.authorized", "provider_execution", resource_id, {"policy_id": str(uuid4()), "usage_id": str(uuid4()), "operation_key": "send_email", "live_send_available": True}),
+        ("provider_execution.started", "provider_execution", resource_id, {"operation_key": "send_email", "attempt_number": 1, "live_send_available": True}),
+        ("provider_execution.failed", "provider_execution", resource_id, {"operation_key": "send_email", "status": "failed_before_send", "category": "connection_failed", "message_digest": "c" * 64, "live_send_available": True}),
+    ]
+
+    for action, resource_type, item_id, details in events:
+        audit.append_company_event(company_id=company_id, actor_administrator_id=actor_id, action=action, resource_type=resource_type, resource_id=item_id, details=details)
+
+    serialized = repr(repository.events)
+    assert "allowed@example.test" not in serialized
+    assert "Exact single-message body" not in serialized
+    assert "password" not in serialized
+
+
 def _single_message_service(monkeypatch, *, connection=None, credential=None, existing=None, policy=None, sent_count=0, live_transport=None):
     from app.core.config import get_settings
 
@@ -475,6 +507,19 @@ def _single_message_payload(connection_id):
         body="One controlled message body.",
         idempotency_key="single-test-001",
     )
+
+
+def _single_message_approval_payload(connection_id, *, mode="simulation"):
+    values = _single_message_payload(connection_id).model_dump()
+    values["mode"] = mode
+    preview_digest = single_message_digest(
+        provider_connection_id=connection_id,
+        sender_email="sender@example.test",
+        recipient_email=values["recipient_email"],
+        subject=values["subject"],
+        body=values["body"],
+    )
+    return SingleMessageApprovalRequest(**values, preview_payload_digest=preview_digest, confirmation_text="CONFIRM ONE TEST EMAIL")
 
 
 def test_single_message_preview_rejects_untested_mailbox(monkeypatch):
@@ -543,7 +588,7 @@ def test_single_message_preview_enforces_working_hours(monkeypatch):
 def test_single_message_request_approval_records_dry_run_execution(monkeypatch):
     company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
     service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id))
-    payload = SingleMessageApprovalRequest(**_single_message_payload(connection_id).model_dump(), confirmation_text="CONFIRM ONE TEST EMAIL")
+    payload = _single_message_approval_payload(connection_id)
 
     result = service.request_single_message_approval(company_id=company_id, data=payload, actor=SimpleNamespace(id=actor_id))
 
@@ -552,25 +597,33 @@ def test_single_message_request_approval_records_dry_run_execution(monkeypatch):
     assert execution.status == "pending_authorization"
     assert execution.provider_key == "generic_smtp_imap"
     assert execution.request_payload["payload_schema"] == "email_single_message_test.v1"
-    assert "body" not in execution.request_payload
+    assert execution.request_payload["body"] == "One controlled message body."
     assert service.approval_service.requests[-1].requested_conditions.payload_digest == result.payload_digest
 
 
 def test_single_message_live_approval_records_live_execution_without_body(monkeypatch):
     company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
     service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id))
-    values = _single_message_payload(connection_id).model_dump()
-    values["mode"] = "live_test"
-    payload = SingleMessageApprovalRequest(**values, confirmation_text="CONFIRM ONE TEST EMAIL")
+    payload = _single_message_approval_payload(connection_id, mode="live_test")
 
     result = service.request_single_message_approval(company_id=company_id, data=payload, actor=SimpleNamespace(id=actor_id))
 
     execution = service.executions.items[result.provider_execution_id]
     assert execution.execution_mode == "live"
     assert execution.request_payload["mode"] == "live_test"
-    assert "body" not in execution.request_payload
+    assert execution.request_payload["body"] == "One controlled message body."
     assert result.live_send_available is True
     assert result.simulation_only is False
+
+
+def test_single_message_request_approval_rejects_stale_preview_digest(monkeypatch):
+    company_id, connection_id = uuid4(), uuid4()
+    service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id))
+    values = _single_message_payload(connection_id).model_dump()
+    payload = SingleMessageApprovalRequest(**values, preview_payload_digest="0" * 64, confirmation_text="CONFIRM ONE TEST EMAIL")
+
+    with pytest.raises(EmailConflictError):
+        service.request_single_message_approval(company_id=company_id, data=payload, actor=SimpleNamespace(id=uuid4()))
 
 
 def test_single_message_simulation_rejects_missing_approval(monkeypatch):

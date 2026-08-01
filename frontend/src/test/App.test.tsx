@@ -1155,6 +1155,23 @@ test("runs controlled single-message preview approval and simulation UI", async 
       approval_request_id: "approval-1",
       status: "pending_authorization",
     }, true, 201),
+    await jsonResponse({ items: [{
+      id: "approval-1",
+      provider_execution_id: "execution-1",
+      requester_administrator_id: "other-admin",
+      status: "approved",
+      requested_action: "provider.execute.generic_smtp_imap.send_email",
+      mode: "simulation",
+      sender_email: "sender@example.test",
+      recipient_email: "allowed@example.test",
+      subject: "[COMPANYAI TEST] Controlled mailbox test",
+      body: "This is a controlled CompanyAI single-message test preview.",
+      payload_digest: "a".repeat(64),
+      idempotency_key: "single-test-ui",
+      created_at: "2026-01-01T00:00:00Z",
+      decision_due_at: null,
+      self_approval_blocked: false,
+    }], total: 1, limit: 50, offset: 0 }),
     await jsonResponse({
       provider_execution_id: "execution-1",
       status: "succeeded",
@@ -1175,6 +1192,9 @@ test("runs controlled single-message preview approval and simulation UI", async 
   expect(screen.getByText("sender@example.test")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Request approval" }));
   expect(await screen.findByText(/Approval approval-1/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Execute simulation" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh approval status" }));
+  expect(await screen.findByText("Approval status: approved.")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Execute simulation" }));
   expect(await screen.findByText("Simulation succeeded; external action: no.")).toBeInTheDocument();
   expect(document.body.textContent).not.toContain("password");
@@ -1191,17 +1211,51 @@ test("renders inbox error state", async () => {
 
 test("renders exact approval content and decision actions", async () => {
   setToken();
-  await authenticatedFetchMock(await jsonResponse({items: [{
-    id: "approval-1", status: "pending", requester_administrator_id: "requester-1",
-    created_at: "2026-01-01T00:00:00Z", recipient_email: "person@example.com",
-    subject: "Re: Hello", body: "Exact plain-text reply", inbound_email_id: "email-1",
-    inbound_subject: "Hello", requested_action: "email.reply.send",
-  }]}));
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({items: [{
+      id: "approval-1", status: "pending", requester_administrator_id: "requester-1",
+      created_at: "2026-01-01T00:00:00Z", recipient_email: "person@example.com",
+      subject: "Re: Hello", body: "Exact plain-text reply", inbound_email_id: "email-1",
+      inbound_subject: "Hello", requested_action: "email.reply.send",
+    }]}),
+  );
   window.history.pushState({}, "", "/approvals");
   render(<App />);
   expect(await screen.findByText("Exact plain-text reply")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Approve exact reply" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument();
+});
+
+test("renders single-message live approval and explains self-approval block", async () => {
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [{
+      id: "approval-1",
+      provider_execution_id: "execution-1",
+      requester_administrator_id: "admin-1",
+      status: "pending",
+      requested_action: "provider.execute.generic_smtp_imap.send_email",
+      mode: "live_test",
+      sender_email: "sender@example.test",
+      recipient_email: "allowed@example.test",
+      subject: "[COMPANYAI TEST] Controlled mailbox test",
+      body: "Exact single-message body",
+      payload_digest: "a".repeat(64),
+      idempotency_key: "single-test-ui",
+      created_at: "2026-01-01T00:00:00Z",
+      decision_due_at: null,
+      self_approval_blocked: true,
+    }], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({items: []}),
+  );
+  window.history.pushState({}, "", "/approvals?request=approval-1");
+  render(<App />);
+  expect(await screen.findByText("Exact single-message body")).toBeInTheDocument();
+  expect(screen.getByText("LIVE TEST · pending")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Approve exact message" })).toBeDisabled();
+  expect(screen.getByText("Approval must be completed by another authorized administrator.")).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("password");
 });
 
 test("renders safe audit fields without details", async () => {

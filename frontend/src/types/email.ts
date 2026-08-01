@@ -128,12 +128,38 @@ export type SingleMessagePreview = SingleMessageTestPayload & {
   live_send_available: boolean;
   disabled_features: string[];
   mode: "simulation" | "live_test";
+  policy_checks: Record<string, boolean>;
 };
 
 export type SingleMessageApproval = SingleMessagePreview & {
   provider_execution_id: string;
   approval_request_id: string;
   status: string;
+};
+
+export type SingleMessageApprovalReview = {
+  id: string;
+  provider_execution_id: string;
+  requester_administrator_id: string | null;
+  status: "pending" | "approved" | "denied" | "expired" | "cancelled" | string;
+  requested_action: string;
+  mode: "simulation" | "live_test";
+  sender_email: string;
+  recipient_email: string;
+  subject: string;
+  body: string;
+  payload_digest: string;
+  idempotency_key: string;
+  created_at: string;
+  decision_due_at: string | null;
+  self_approval_blocked: boolean;
+};
+
+export type SingleMessageApprovalReviewList = {
+  items: SingleMessageApprovalReview[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type SingleMessageSimulation = {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { emailApi } from "../api/email";
@@ -18,6 +18,9 @@ export function EmailInboxPage() {
   const [workerSimulation, setWorkerSimulation] = useState<WorkerSimulation | null>(null);
   const [singlePreview, setSinglePreview] = useState<SingleMessagePreview | null>(null);
   const [singleApproval, setSingleApproval] = useState<SingleMessageApproval | null>(null);
+  const [singleApprovalStatus, setSingleApprovalStatus] = useState("");
+  const [singleActionBusy, setSingleActionBusy] = useState("");
+  const [singleError, setSingleError] = useState("");
   const [singleMode, setSingleMode] = useState<"simulation" | "live_test">("simulation");
   const [liveConfirmation, setLiveConfirmation] = useState("");
   const [allowlist, setAllowlist] = useState<SingleMessageRecipientAllowlist | null>(null);
@@ -34,6 +37,17 @@ export function EmailInboxPage() {
   const [mailboxes, setMailboxes] = useState<Array<{id: string; provider_key: string; display_name: string; status: string}>>([]);
   const [message, setMessage] = useState("");
   const [state, setState] = useState<"loading"|"ready"|"error">("loading");
+  const currentPreviewKey = useMemo(() => JSON.stringify({...singleForm, mode: singleMode}), [singleForm, singleMode]);
+  const previewKey = singlePreview ? JSON.stringify({
+    provider_connection_id: singlePreview.provider_connection_id,
+    recipient_email: singlePreview.recipient_email,
+    subject: singlePreview.subject,
+    body: singlePreview.body,
+    idempotency_key: singlePreview.idempotency_key,
+    mode: singlePreview.mode,
+  }) : "";
+  const previewIsCurrent = Boolean(singlePreview && previewKey === currentPreviewKey);
+  const approvalIsApproved = singleApprovalStatus === "approved";
   const load = useCallback(() => {
     setState("loading");
     Promise.all([emailApi.list(), emailApi.campaigns(), emailApi.schedule(), emailApi.connections(), emailApi.singleMessageRecipientAllowlist()])
@@ -49,6 +63,21 @@ export function EmailInboxPage() {
       .catch(() => setState("error"));
   }, []);
   useEffect(load, [load]);
+  function invalidateSingleMessageState() {
+    setSinglePreview(null);
+    setSingleApproval(null);
+    setSingleApprovalStatus("");
+    setLiveConfirmation("");
+    setSingleError("");
+  }
+  function updateSingleForm(mutator: (current: SingleMessageTestPayload) => SingleMessageTestPayload) {
+    invalidateSingleMessageState();
+    setSingleForm(mutator);
+  }
+  function changeSingleMode(mode: "simulation" | "live_test") {
+    invalidateSingleMessageState();
+    setSingleMode(mode);
+  }
   function updateSchedule(mutator: (current: CampaignScheduleSettings) => CampaignScheduleSettings) {
     setSchedule((current) => current ? mutator(current) : current);
   }
@@ -73,30 +102,83 @@ export function EmailInboxPage() {
   }
   async function previewSingleMessage() {
     setMessage("");
-    const value = await emailApi.previewSingleMessage({...singleForm, mode: singleMode});
-    setSinglePreview(value);
-    setSingleApproval(null);
-    setMessage("Single-message preview ready.");
+    setSingleError("");
+    setSingleActionBusy("preview");
+    try {
+      const value = await emailApi.previewSingleMessage({...singleForm, mode: singleMode});
+      setSinglePreview(value);
+      setSingleApproval(null);
+      setSingleApprovalStatus("");
+      setMessage("Single-message preview ready.");
+    } catch (error) {
+      setSingleError(error instanceof ApiError ? error.message : "Single-message preview could not be completed.");
+    } finally {
+      setSingleActionBusy("");
+    }
   }
   async function requestSingleApproval() {
+    if (!singlePreview || !previewIsCurrent) return;
     setMessage("");
-    const value = await emailApi.requestSingleMessageApproval({...singleForm, mode: singleMode});
-    setSinglePreview(value);
-    setSingleApproval(value);
-    setMessage(singleMode === "live_test" ? "Approval request created for one LIVE TEST email." : "Approval request created for one simulated test email.");
+    setSingleError("");
+    setSingleActionBusy("approval");
+    try {
+      const value = await emailApi.requestSingleMessageApproval({...singleForm, mode: singleMode}, singlePreview.payload_digest);
+      setSinglePreview(value);
+      setSingleApproval(value);
+      setSingleApprovalStatus("pending");
+      setMessage(singleMode === "live_test" ? "Approval request created for one LIVE TEST email." : "Approval request created for one simulated test email.");
+    } catch (error) {
+      setSingleError(error instanceof ApiError ? error.message : "Approval request could not be created.");
+    } finally {
+      setSingleActionBusy("");
+    }
+  }
+  async function refreshSingleApprovalStatus() {
+    if (!singleApproval) return;
+    setSingleError("");
+    setSingleActionBusy("approval-status");
+    try {
+      const approvals = await emailApi.singleMessageApprovals();
+      const current = approvals.items.find((item) => item.id === singleApproval.approval_request_id);
+      if (!current) {
+        setSingleApprovalStatus("not found");
+        setSingleError("Approval request is not available for this company.");
+      } else {
+        setSingleApprovalStatus(current.status);
+        setMessage(`Approval status: ${current.status}.`);
+      }
+    } catch (error) {
+      setSingleError(error instanceof ApiError ? error.message : "Approval status could not be refreshed.");
+    } finally {
+      setSingleActionBusy("");
+    }
   }
   async function executeSingleSimulation() {
-    if (!singleApproval) return;
+    if (!singleApproval || !approvalIsApproved || !previewIsCurrent) return;
     setMessage("");
-    const value = await emailApi.executeSingleMessageSimulation(singleApproval.provider_execution_id);
-    setMessage(`Simulation ${value.status}; external action: ${value.external_action_taken ? "yes" : "no"}.`);
+    setSingleActionBusy("simulation");
+    try {
+      const value = await emailApi.executeSingleMessageSimulation(singleApproval.provider_execution_id);
+      setMessage(`Simulation ${value.status}; external action: ${value.external_action_taken ? "yes" : "no"}.`);
+    } catch (error) {
+      setSingleError(error instanceof ApiError ? error.message : "Simulation could not be executed.");
+    } finally {
+      setSingleActionBusy("");
+    }
   }
   async function executeSingleLive() {
-    if (!singleApproval || liveConfirmation !== "SEND ONE TEST EMAIL") return;
+    if (!singleApproval || !approvalIsApproved || !previewIsCurrent || liveConfirmation !== "SEND ONE TEST EMAIL") return;
     setMessage("");
-    const value = await emailApi.executeSingleMessageLive(singleApproval.provider_execution_id, singleForm.subject, singleForm.body);
-    setMessage(`LIVE TEST ${value.status}; SMTP accepted: ${value.status === "succeeded" ? "yes" : "no"}; delivery claimed: no.`);
-    setLiveConfirmation("");
+    setSingleActionBusy("live");
+    try {
+      const value = await emailApi.executeSingleMessageLive(singleApproval.provider_execution_id, singleForm.subject, singleForm.body);
+      setMessage(`LIVE TEST ${value.status}; SMTP accepted: ${value.status === "succeeded" ? "yes" : "no"}; delivery claimed: no.`);
+      setLiveConfirmation("");
+    } catch (error) {
+      setSingleError(error instanceof ApiError ? error.message : "LIVE TEST could not be executed.");
+    } finally {
+      setSingleActionBusy("");
+    }
   }
   async function addAllowlistRecipient() {
     if (!allowlistEmail || allowlistBusy) return;
@@ -255,8 +337,8 @@ export function EmailInboxPage() {
         <span className="status-pill">{singleMode === "live_test" ? "LIVE TEST external action" : "simulation only"}</span>
       </div>
       <div className="segmented-control" role="group" aria-label="Single-message mode">
-        <button type="button" className={singleMode === "simulation" ? "is-active" : ""} onClick={() => { setSingleMode("simulation"); setSingleApproval(null); setSinglePreview(null); }}>Simulation</button>
-        <button type="button" className={singleMode === "live_test" ? "is-active" : ""} onClick={() => { setSingleMode("live_test"); setSingleApproval(null); setSinglePreview(null); }}>LIVE TEST</button>
+        <button type="button" className={singleMode === "simulation" ? "is-active" : ""} onClick={() => changeSingleMode("simulation")}>Simulation</button>
+        <button type="button" className={singleMode === "live_test" ? "is-active" : ""} onClick={() => changeSingleMode("live_test")}>LIVE TEST</button>
       </div>
       <div className="sandbox-grid" aria-label="Single-message safeguards">
         <span><strong>Recipient</strong> exactly one</span>
@@ -281,42 +363,52 @@ export function EmailInboxPage() {
       </div>
       <div className="automation-grid">
         <label>Mailbox
-          <select value={singleForm.provider_connection_id} onChange={(event) => setSingleForm((current) => ({...current, provider_connection_id: event.target.value}))}>
+          <select value={singleForm.provider_connection_id} onChange={(event) => updateSingleForm((current) => ({...current, provider_connection_id: event.target.value}))}>
             <option value="">Select active mailbox</option>
             {mailboxes.map((mailbox) => <option key={mailbox.id} value={mailbox.id}>{mailbox.display_name} ({mailbox.status})</option>)}
           </select>
         </label>
         <label>Recipient
-          <input value={singleForm.recipient_email} onChange={(event) => setSingleForm((current) => ({...current, recipient_email: event.target.value}))} />
+          <input value={singleForm.recipient_email} onChange={(event) => updateSingleForm((current) => ({...current, recipient_email: event.target.value}))} />
         </label>
         <label>Idempotency key
-          <input value={singleForm.idempotency_key} onChange={(event) => setSingleForm((current) => ({...current, idempotency_key: event.target.value}))} />
+          <input value={singleForm.idempotency_key} onChange={(event) => updateSingleForm((current) => ({...current, idempotency_key: event.target.value}))} />
         </label>
       </div>
       <label>Subject
-        <input value={singleForm.subject} onChange={(event) => setSingleForm((current) => ({...current, subject: event.target.value}))} />
+        <input value={singleForm.subject} onChange={(event) => updateSingleForm((current) => ({...current, subject: event.target.value}))} />
       </label>
       <label>Body
-        <textarea value={singleForm.body} onChange={(event) => setSingleForm((current) => ({...current, body: event.target.value}))} />
+        <textarea value={singleForm.body} onChange={(event) => updateSingleForm((current) => ({...current, body: event.target.value}))} />
       </label>
+      {singleError && <p role="alert" className="error-text">{singleError}</p>}
+      {!singleForm.provider_connection_id && <p className="settings-note">Select an active tested mailbox before preview.</p>}
+      {!singleForm.recipient_email && <p className="settings-note">Enter exactly one allowlisted recipient before preview.</p>}
+      {singlePreview && !previewIsCurrent && <p className="warning-text">Message fields changed. Preview again before requesting approval.</p>}
+      {singleApproval && singleApprovalStatus !== "approved" && <p className="settings-note">Approval status is {singleApprovalStatus || "pending"}. Execution remains disabled until approval is complete.</p>}
       <div className="automation-actions">
-        <button type="button" onClick={previewSingleMessage} disabled={!singleForm.provider_connection_id || !singleForm.recipient_email}>Preview one message</button>
-        <button type="button" onClick={requestSingleApproval} disabled={!singlePreview}>Request approval</button>
-        <button type="button" onClick={executeSingleSimulation} disabled={!singleApproval}>Execute simulation</button>
-        <button type="button" onClick={executeSingleLive} disabled={!singleApproval || singleApproval.mode !== "live_test" || liveConfirmation !== "SEND ONE TEST EMAIL"}>Execute LIVE TEST</button>
+        <button type="button" onClick={previewSingleMessage} disabled={!singleForm.provider_connection_id || !singleForm.recipient_email || singleActionBusy === "preview"}>{singleActionBusy === "preview" ? "Previewing" : "Preview one message"}</button>
+        <button type="button" onClick={requestSingleApproval} disabled={!singlePreview || !previewIsCurrent || Boolean(singleApproval) || singleActionBusy === "approval"}>{singleActionBusy === "approval" ? "Requesting" : "Request approval"}</button>
+        <button type="button" onClick={refreshSingleApprovalStatus} disabled={!singleApproval || singleActionBusy === "approval-status"}>{singleActionBusy === "approval-status" ? "Refreshing" : "Refresh approval status"}</button>
+        <button type="button" onClick={executeSingleSimulation} disabled={!singleApproval || !approvalIsApproved || !previewIsCurrent || singleActionBusy === "simulation"}>Execute simulation</button>
+        <button type="button" onClick={executeSingleLive} disabled={!singleApproval || !approvalIsApproved || !previewIsCurrent || singleApproval.mode !== "live_test" || liveConfirmation !== "SEND ONE TEST EMAIL" || singleActionBusy === "live"}>Execute LIVE TEST</button>
       </div>
-      {singleApproval?.mode === "live_test" && <label>Final live confirmation
+      {singleApproval?.mode === "live_test" && approvalIsApproved && <label>Final live confirmation
         <input value={liveConfirmation} onChange={(event) => setLiveConfirmation(event.target.value)} placeholder="SEND ONE TEST EMAIL" />
       </label>}
       {singlePreview && <div className="state-card">
         <h3>Preview before approval</h3>
+        <p><strong>Status:</strong> Successful preview · {singlePreview.mode === "live_test" ? "LIVE TEST" : "Simulation"}</p>
         <p><strong>From:</strong> {singlePreview.sender_email}</p>
         <p><strong>To:</strong> {singlePreview.recipient_email}</p>
         <p><strong>Subject:</strong> {singlePreview.subject}</p>
         <p>{singlePreview.body}</p>
-        <small>Digest {singlePreview.payload_digest}. Live send available: {singlePreview.live_send_available ? "yes" : "no"}.</small>
+        <small>Digest {singlePreview.payload_digest.slice(0, 12)}… · Idempotency {singlePreview.idempotency_key}. Live send available: {singlePreview.live_send_available ? "yes" : "no"}.</small>
+        <div className="sandbox-grid" aria-label="Preview policy checks">
+          {Object.entries(singlePreview.policy_checks || {}).map(([key, value]) => <span key={key}><strong>{key.replaceAll("_", " ")}</strong> {value ? "OK" : "Blocked"}</span>)}
+        </div>
       </div>}
-      {singleApproval && <div className="state-card success"><h3>Approval request created</h3><p>Approval {singleApproval.approval_request_id}. Provider execution {singleApproval.provider_execution_id}. Status {singleApproval.status}.</p></div>}
+      {singleApproval && <div className="state-card success"><h3>Approval request created</h3><p>Approval {singleApproval.approval_request_id}. Provider execution {singleApproval.provider_execution_id}. Approval status {singleApprovalStatus || "pending"}.</p><Link className="button button--light" to={`/approvals?request=${encodeURIComponent(singleApproval.approval_request_id)}`}>Open approval</Link></div>}
     </section>}
     {state === "ready" && items.length === 0 && <div className="state-card"><h2>No imported email</h2><p>Use the authenticated test-import API to add one development message.</p></div>}
     {state === "ready" && items.length > 0 && <div className="table-wrap"><table><thead><tr><th>Sender</th><th>Subject</th><th>Received</th><th>Workflow</th><th>Approval</th><th>Delivery</th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td><strong>{item.sender_name || item.sender_email}</strong><small>{item.sender_email}</small></td><td><Link to={`/email/${item.id}`}>{item.subject || "(No subject)"}</Link></td><td>{new Date(item.received_at).toLocaleString()}</td><td>{item.proposal_status || item.status}</td><td>{item.approval_status || "Not requested"}</td><td>{item.send_status || "Not sent"}</td></tr>)}</tbody></table></div>}

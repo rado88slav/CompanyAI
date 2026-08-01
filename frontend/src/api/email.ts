@@ -1,5 +1,5 @@
 import { companyApi } from "./client";
-import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal, SingleMessageApproval, SingleMessageLiveExecution, SingleMessagePreview, SingleMessageRecipientAllowlist, SingleMessageTestPayload, SingleMessageSimulation, WorkerSimulation } from "../types/email";
+import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal, SingleMessageApproval, SingleMessageApprovalReview, SingleMessageApprovalReviewList, SingleMessageLiveExecution, SingleMessagePreview, SingleMessageRecipientAllowlist, SingleMessageTestPayload, SingleMessageSimulation, WorkerSimulation } from "../types/email";
 import type { ActivityEventList } from "../types/activity";
 
 export const emailApi = {
@@ -25,8 +25,14 @@ export const emailApi = {
   resumeSchedule: () => companyApi<CampaignScheduleSettings>("/email-automation/schedule/resume", {method: "POST"}),
   previewSingleMessage: (data: SingleMessageTestPayload) =>
     companyApi<SingleMessagePreview>("/emails/single-message-tests/preview", {method: "POST", body: JSON.stringify(data)}),
-  requestSingleMessageApproval: (data: SingleMessageTestPayload) =>
-    companyApi<SingleMessageApproval>("/emails/single-message-tests/request-approval", {method: "POST", body: JSON.stringify({...data, confirmation_text: "CONFIRM ONE TEST EMAIL"})}),
+  requestSingleMessageApproval: (data: SingleMessageTestPayload, previewPayloadDigest: string) =>
+    companyApi<SingleMessageApproval>("/emails/single-message-tests/request-approval", {method: "POST", body: JSON.stringify({...data, preview_payload_digest: previewPayloadDigest, confirmation_text: "CONFIRM ONE TEST EMAIL"})}),
+  singleMessageApprovals: (status?: string) =>
+    companyApi<SingleMessageApprovalReviewList>(`/emails/single-message-tests/approvals${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+  approveApprovalRequest: (item: SingleMessageApprovalReview) =>
+    companyApi(`/approval-requests/${encodeURIComponent(item.id)}/approve`, {method: "POST", body: JSON.stringify({approved_conditions: {payload_schema: "email_single_message_test.v1", payload_digest: item.payload_digest}})}),
+  denyApprovalRequest: (id: string) =>
+    companyApi(`/approval-requests/${encodeURIComponent(id)}/deny`, {method: "POST", body: JSON.stringify({reason: "Denied from Email approvals."})}),
   executeSingleMessageSimulation: (providerExecutionId: string) =>
     companyApi<SingleMessageSimulation>("/emails/single-message-tests/execute-simulation", {method: "POST", body: JSON.stringify({provider_execution_id: providerExecutionId, confirmation_text: "CONFIRM SIMULATION ONLY"})}),
   executeSingleMessageLive: (providerExecutionId: string, subject: string, body: string) =>

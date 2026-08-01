@@ -19,6 +19,7 @@ from app.core.credential_encryption import CredentialEncryptionService
 from app.core.provider_execution import DryRunProviderAdapter, ExecutionMode, LocalTestEmailAdapter, provider_operation_registry
 from app.db.session import get_db_session
 from app.models.administrator import Administrator
+from app.models.approval import ApprovalRequest
 from app.models.audit_log import AuditAction
 from app.models.company_setting import CompanySetting
 from app.models.email import EmailReplyProposal, InboundEmail, OutboundEmail
@@ -30,7 +31,7 @@ from app.repositories.provider_connection import ProviderConnectionRepository
 from app.repositories.provider_execution import ProviderExecutionRepository
 from app.repositories.agent import AgentRepository
 from app.schemas.approval import ApprovalDecisionCreate, ApprovalRequestCreate, AuthorizationAction, AuthorizationConditionsV1, ReservationCreate
-from app.schemas.email import ReplyProposalWrite, SendReplyRequest, SingleMessageApprovalRequest, SingleMessageApprovalResponse, SingleMessageLiveExecutionRequest, SingleMessageLiveExecutionResponse, SingleMessageMode, SingleMessagePreviewRequest, SingleMessagePreviewResponse, SingleMessageRecipientAllowlistUpdate, SingleMessageRecipientAllowlistResponse, SingleMessageSimulationRequest, SingleMessageSimulationResponse, TestInboundEmailImport, normalize_email
+from app.schemas.email import ReplyProposalWrite, SendReplyRequest, SingleMessageApprovalRequest, SingleMessageApprovalResponse, SingleMessageApprovalReview, SingleMessageApprovalReviewList, SingleMessageLiveExecutionRequest, SingleMessageLiveExecutionResponse, SingleMessageMode, SingleMessagePreviewRequest, SingleMessagePreviewResponse, SingleMessageRecipientAllowlistUpdate, SingleMessageRecipientAllowlistResponse, SingleMessageSimulationRequest, SingleMessageSimulationResponse, TestInboundEmailImport, normalize_email
 from app.services.authorization_evaluator import AuthorizationDeniedError, AuthorizationEvaluatorService
 from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY, GenericSmtpLiveTransport, MailboxSendAuthenticationError, MailboxSendError, MailboxSendOutcomeUncertainError, MailboxSendResult
 from app.services.approval_manager import ApprovalManagerService
@@ -40,7 +41,10 @@ from app.services.audit_log import AuditLogService
 class EmailNotFoundError(Exception): pass
 class EmailConflictError(Exception): pass
 class EmailForbiddenError(Exception): pass
-class EmailSandboxRejectedError(EmailForbiddenError): pass
+class EmailSandboxRejectedError(EmailForbiddenError):
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
 
 
 SINGLE_MESSAGE_SCHEMA = "email_single_message_test.v1"
@@ -234,7 +238,7 @@ class EmailWorkflowService:
             details={"operation_key": "send_email", "reason_code": reason_code, "sandbox": True, "simulation_only": True},
         )
         self.session.commit()
-        raise EmailSandboxRejectedError
+        raise EmailSandboxRejectedError(reason_code)
 
     def _mailbox_sender(self, *, company_id: UUID, provider_connection_id: UUID, actor: Administrator) -> tuple[object, str]:
         connection = self.connections.connection(company_id=company_id, connection_id=provider_connection_id, for_update=True)
@@ -314,6 +318,18 @@ class EmailWorkflowService:
             live_send_available=mode is SingleMessageMode.LIVE_TEST,
             disabled_features=DISABLED_SINGLE_MESSAGE_FEATURES,
             mode=mode,
+            policy_checks={
+                "mailbox_active": True,
+                "mailbox_tested": True,
+                "credential_active": True,
+                "sender_allowlisted": True,
+                "recipient_allowlisted": True,
+                "subject_prefix": True,
+                "quota_available": True,
+                "working_hours": True,
+                "emergency_stop_disabled": True,
+                "approval_required": True,
+            },
         )
 
     def preview_single_message(self, *, company_id: UUID, data: SingleMessagePreviewRequest, actor: Administrator) -> SingleMessagePreviewResponse:
@@ -332,6 +348,8 @@ class EmailWorkflowService:
         if self.executions.by_key(company_id, data.idempotency_key) is not None:
             self._reject_single_message(company_id, actor, "duplicate_idempotency_key")
         preview = self._single_message_preview(connection_id=connection.id, sender_email=sender_email, recipient_email=data.recipient_email, subject=data.subject, body=data.body, idempotency_key=data.idempotency_key, mode=data.mode)
+        if preview.payload_digest != data.preview_payload_digest:
+            raise EmailConflictError
         execution_mode = ExecutionMode.LIVE.value if data.mode is SingleMessageMode.LIVE_TEST else ExecutionMode.DRY_RUN.value
         execution = ProviderExecution(
             company_id=company_id,
@@ -348,6 +366,7 @@ class EmailWorkflowService:
                 "sender_email": sender_email,
                 "recipient_email": data.recipient_email,
                 "subject": data.subject,
+                "body": data.body,
                 "payload_digest": preview.payload_digest,
                 "confirmation_text": data.confirmation_text,
             },
@@ -378,6 +397,57 @@ class EmailWorkflowService:
         except Exception:
             self.session.rollback()
             raise
+
+    def list_single_message_approvals(self, *, company_id: UUID, actor: Administrator, status: str | None, limit: int, offset: int) -> SingleMessageApprovalReviewList:
+        statement = select(ApprovalRequest).where(
+            ApprovalRequest.company_id == company_id,
+            ApprovalRequest.action_type == "provider.execute.generic_smtp_imap.send_email",
+            ApprovalRequest.target_resource_type == "provider_execution",
+        )
+        if status is not None:
+            statement = statement.where(ApprovalRequest.status == status)
+        statement = statement.order_by(ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc()).limit(limit).offset(offset)
+        requests = list(self.session.scalars(statement).all())
+        count_statement = select(func.count()).select_from(ApprovalRequest).where(
+            ApprovalRequest.company_id == company_id,
+            ApprovalRequest.action_type == "provider.execute.generic_smtp_imap.send_email",
+            ApprovalRequest.target_resource_type == "provider_execution",
+        )
+        if status is not None:
+            count_statement = count_statement.where(ApprovalRequest.status == status)
+        total = int(self.session.scalar(count_statement) or 0)
+        items: list[SingleMessageApprovalReview] = []
+        for request in requests:
+            if request.target_resource_id is None:
+                continue
+            execution = self.executions.get(company_id, request.target_resource_id)
+            if execution is None:
+                continue
+            payload = execution.request_payload or {}
+            if payload.get("payload_schema") != SINGLE_MESSAGE_SCHEMA:
+                continue
+            try:
+                mode = SingleMessageMode(str(payload.get("mode") or SingleMessageMode.SIMULATION.value))
+            except ValueError:
+                mode = SingleMessageMode.SIMULATION
+            items.append(SingleMessageApprovalReview(
+                id=request.id,
+                provider_execution_id=execution.id,
+                requester_administrator_id=request.requester_administrator_id,
+                status=request.status,
+                requested_action=request.action_type,
+                mode=mode,
+                sender_email=str(payload.get("sender_email") or ""),
+                recipient_email=str(payload.get("recipient_email") or ""),
+                subject=str(payload.get("subject") or ""),
+                body=str(payload.get("body") or ""),
+                payload_digest=str(payload.get("payload_digest") or ""),
+                idempotency_key=execution.idempotency_key,
+                created_at=request.created_at,
+                decision_due_at=request.decision_due_at,
+                self_approval_blocked=request.requester_administrator_id == actor.id,
+            ))
+        return SingleMessageApprovalReviewList(items=items, total=total, limit=limit, offset=offset)
 
     def execute_single_message_simulation(self, *, company_id: UUID, data: SingleMessageSimulationRequest, actor: Administrator) -> SingleMessageSimulationResponse:
         execution = self.executions.get(company_id, data.provider_execution_id, lock=True)
@@ -543,7 +613,7 @@ class EmailWorkflowService:
             },
         )
         self.session.commit()
-        raise EmailSandboxRejectedError
+        raise EmailSandboxRejectedError(reason_code)
 
     def _enforce_sandbox(self, company_id: UUID, proposal: EmailReplyProposal, actor: Administrator) -> None:
         if get_settings().app_environment == "development":

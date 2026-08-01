@@ -52,11 +52,15 @@ Use LIVE TEST mode only for a harmless message:
 Use the normal flow:
 
 1. Preview one message.
-2. Request approval.
-3. Wait for Approval Manager authorization.
-4. Review sender, recipient, subject and body.
-5. Type the exact phrase `SEND ONE TEST EMAIL`.
-6. Execute LIVE TEST once.
+2. Review the visible preview status, sender, recipient, subject, body, digest,
+   idempotency key and policy checks.
+3. Request approval.
+4. Open Approvals and review sender, recipient, subject and body.
+5. Have another authorized administrator approve the request when self-approval
+   is blocked by policy.
+6. Return to Email Operations and refresh approval status.
+7. Type the exact phrase `SEND ONE TEST EMAIL`.
+8. Execute LIVE TEST once.
 
 The backend records execution state before contacting SMTP and uses the unique
 idempotency key to prevent an intentional duplicate send. There are no

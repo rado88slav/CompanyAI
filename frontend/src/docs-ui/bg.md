@@ -354,7 +354,7 @@ Email Sandbox е задължителната safety boundary преди реа�
 5. `[COMPANYAI TEST]` subject prefix, когато е configured.
 6. Няма automatic follow-ups, bulk sending или attachments.
 ## Controlled single-message test
-Email Operations може да preview-не един Generic SMTP/IMAP test message, да управлява exact test recipients, да поиска Approval Manager authorization и да изпълни simulation или изрично потвърден LIVE TEST. Allowlist audit records съдържат само operation metadata, changed state и recipient count. Simulation не decrypt-ва credentials, не отваря SMTP и не изпраща email. LIVE TEST може да изпрати точно едно съобщение след approval и final typed confirmation.
+Email Operations може да preview-не един Generic SMTP/IMAP test message, да управлява exact test recipients, да поиска Approval Manager authorization, да refresh-не approval status и да изпълни simulation или изрично потвърден LIVE TEST. Всяка промяна по message invalidates preview и approval state. Approvals показва exact sender, recipient, subject, body, mode и idempotency reference за review; policy може да изисква друг authorized administrator. Allowlist audit records съдържат само operation metadata, changed state и recipient count. Simulation не decrypt-ва credentials, не отваря SMTP и не изпраща email. LIVE TEST може да изпрати точно едно съобщение след approval и final typed confirmation.
 > [!WARNING] Не използвайте реални HVAC prospects по време на sandbox acceptance testing.
 ## Ако send бъде rejected
 Проверете visible reason, approval state, allowlist и emergency stop. Rejections се audit-ват със sanitized reasons.

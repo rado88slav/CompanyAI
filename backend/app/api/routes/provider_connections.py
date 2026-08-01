@@ -17,6 +17,11 @@ from app.services.provider_connection import ProviderConflictError, ProviderConn
 router = APIRouter(tags=["provider-connections"])
 
 
+def _connection_response(item, service: ProviderConnectionService) -> ProviderConnectionResponse:
+    response = ProviderConnectionResponse.model_validate(item)
+    return response.model_copy(update={"credential_status": service.credential_status(item)})
+
+
 def _error(exc: Exception) -> None:
     if isinstance(exc, ProviderNotFoundError):
         raise HTTPException(404, "Provider connection resource was not found.") from exc
@@ -39,7 +44,7 @@ def get_provider_type(provider_key: str, _actor: Annotated[Administrator, Depend
 
 @router.post("/companies/{company_id}/provider-connections", response_model=ProviderConnectionResponse, status_code=201)
 def create_connection(company_id: UUID, data: ProviderConnectionCreate, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderConnectionResponse:
-    try: return ProviderConnectionResponse.model_validate(service.create_connection(company_id=company_id, data=data, actor=context.administrator))
+    try: return _connection_response(service.create_connection(company_id=company_id, data=data, actor=context.administrator), service)
     except (ProviderConflictError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc: _error(exc)
 
 
@@ -51,12 +56,13 @@ def setup_local_test_email_connection(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> ProviderConnectionResponse:
     try:
-        return ProviderConnectionResponse.model_validate(
+        return _connection_response(
             service.setup_local_test_email_connection(
                 company_id=company_id,
                 actor=context.administrator,
                 app_environment=settings.app_environment,
-            )
+            ),
+            service,
         )
     except (ProviderConflictError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc:
         _error(exc)
@@ -65,23 +71,23 @@ def setup_local_test_email_connection(
 @router.get("/companies/{company_id}/provider-connections", response_model=ProviderConnectionListResponse)
 def list_connections(company_id: UUID, _context: Annotated[ActiveCompanyContext, Depends(require_providers_read)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)], limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0)) -> ProviderConnectionListResponse:
     items, total = service.list_connections(company_id=company_id, limit=limit, offset=offset)
-    return ProviderConnectionListResponse(items=[ProviderConnectionResponse.model_validate(item) for item in items], total=total, limit=limit, offset=offset)
+    return ProviderConnectionListResponse(items=[_connection_response(item, service) for item in items], total=total, limit=limit, offset=offset)
 
 
 @router.get("/companies/{company_id}/provider-connections/{connection_id}", response_model=ProviderConnectionResponse)
 def get_connection(company_id: UUID, connection_id: UUID, _context: Annotated[ActiveCompanyContext, Depends(require_providers_read)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderConnectionResponse:
-    try: return ProviderConnectionResponse.model_validate(service.get_connection(company_id=company_id, connection_id=connection_id))
+    try: return _connection_response(service.get_connection(company_id=company_id, connection_id=connection_id), service)
     except ProviderNotFoundError as exc: _error(exc)
 
 
 @router.patch("/companies/{company_id}/provider-connections/{connection_id}", response_model=ProviderConnectionResponse)
 def update_connection(company_id: UUID, connection_id: UUID, data: ProviderConnectionUpdate, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderConnectionResponse:
-    try: return ProviderConnectionResponse.model_validate(service.update_connection(company_id=company_id, connection_id=connection_id, data=data, actor=context.administrator))
+    try: return _connection_response(service.update_connection(company_id=company_id, connection_id=connection_id, data=data, actor=context.administrator), service)
     except (ProviderConflictError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc: _error(exc)
 
 
 def _status(company_id: UUID, connection_id: UUID, target: str, context: ActiveCompanyContext, service: ProviderConnectionService) -> ProviderConnectionResponse:
-    try: return ProviderConnectionResponse.model_validate(service.set_status(company_id=company_id, connection_id=connection_id, target=target, actor=context.administrator))
+    try: return _connection_response(service.set_status(company_id=company_id, connection_id=connection_id, target=target, actor=context.administrator), service)
     except (ProviderLifecycleError, ProviderNotFoundError) as exc: _error(exc)
 
 
@@ -96,7 +102,7 @@ def revoke(company_id: UUID, connection_id: UUID, context: Annotated[ActiveCompa
 def _mailbox_test(company_id: UUID, connection_id: UUID, protocol: MailboxProtocol, context: ActiveCompanyContext, service: ProviderConnectionService) -> ProviderConnectionTestResponse:
     try:
         result, connection = service.test_generic_mailbox(company_id=company_id, connection_id=connection_id, protocol=protocol, actor=context.administrator)
-        return ProviderConnectionTestResponse(protocol=result.protocol.value, status=result.status, tested_at=result.tested_at, category=result.category.value, message=result.message, connection=ProviderConnectionResponse.model_validate(connection))
+        return ProviderConnectionTestResponse(protocol=result.protocol.value, status=result.status, tested_at=result.tested_at, category=result.category.value, message=result.message, connection=_connection_response(connection, service))
     except (ProviderLifecycleError, ProviderNotFoundError) as exc:
         _error(exc)
 

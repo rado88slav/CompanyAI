@@ -215,6 +215,7 @@
 - [ ] Complete automatic encrypted configuration restore after separate security review.
 - [ ] Complete real HVAC workstation acceptance checklist.
 - [ ] Enter one operator-controlled Generic SMTP/IMAP mailbox credential manually and run the documented controlled live acceptance sequence.
+- [x] Add Generic SMTP/IMAP credential recovery controls for partial connection creation without deleting saved connections or exposing passwords.
 - [x] Add the first single-message approval-gated test simulation before enabling any real outreach.
 - [ ] After live mailbox acceptance succeeds, review and approve a real SMTP live adapter before any one-message delivery.
 - [ ] Add dashboard production delivery and container integration after explicit approval.

@@ -18,6 +18,7 @@ export type ProviderConnection = {
   slug: string;
   authentication_type: string;
   status: string;
+  credential_status?: "not_required" | "missing" | "configured";
   configuration: Record<string, unknown>;
   metadata: Record<string, unknown>;
   created_at: string;
@@ -35,8 +36,29 @@ export type ProviderConnectionCreate = {
   metadata?: Record<string, unknown>;
 };
 
+export type ProviderConnectionUpdate = {
+  display_name?: string;
+  slug?: string;
+  configuration?: Record<string, unknown>;
+};
+
 export type ProviderCredentialCreate = {
   secrets: Record<string, string>;
+};
+
+export type ProviderCredential = {
+  id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  expires_at: string | null;
+};
+
+export type ProviderCredentialList = {
+  items: ProviderCredential[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type ProviderConnectionTestResult = {

@@ -3,7 +3,7 @@
 from datetime import datetime
 import json
 import re
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
@@ -163,6 +163,7 @@ class ProviderConnectionResponse(BaseModel):
     slug: str
     authentication_type: str
     status: ProviderConnectionStatus
+    credential_status: Literal["not_required", "missing", "configured"] = "not_required"
     configuration: dict[str, Any]
     metadata: dict[str, Any] = Field(validation_alias="metadata_")
     created_at: datetime

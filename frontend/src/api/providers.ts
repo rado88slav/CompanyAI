@@ -3,7 +3,9 @@ import type {
   ProviderConnection,
   ProviderConnectionCreate,
   ProviderConnectionTestResult,
+  ProviderConnectionUpdate,
   ProviderCredentialCreate,
+  ProviderCredentialList,
   ProviderDescriptor,
 } from "../types/provider";
 
@@ -45,6 +47,22 @@ export function createProviderConnection(
   });
 }
 
+export function updateProviderConnection(
+  connectionId: string,
+  payload: ProviderConnectionUpdate,
+): Promise<ProviderConnection> {
+  return companyApi(`/provider-connections/${encodeURIComponent(connectionId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchProviderCredentials(
+  connectionId: string,
+): Promise<ProviderCredentialList> {
+  return companyApi(`/provider-connections/${encodeURIComponent(connectionId)}/credentials`);
+}
+
 export function createProviderCredential(
   connectionId: string,
   payload: ProviderCredentialCreate,
@@ -53,6 +71,20 @@ export function createProviderCredential(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function rotateProviderCredential(
+  connectionId: string,
+  credentialId: string,
+  payload: ProviderCredentialCreate,
+): Promise<unknown> {
+  return companyApi(
+    `/provider-connections/${encodeURIComponent(connectionId)}/credentials/${encodeURIComponent(credentialId)}/rotate`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export function testProviderConnectionSmtp(

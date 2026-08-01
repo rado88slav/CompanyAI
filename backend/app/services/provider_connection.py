@@ -71,6 +71,16 @@ class ProviderConnectionService:
             and imap.get("status") == "succeeded"
         )
 
+    def credential_status(self, item: ProviderConnection) -> str:
+        descriptor = provider_registry.require(item.provider_key)
+        if not descriptor.required_secret_fields:
+            return "not_required"
+        credential = self._repository.active_credential(company_id=item.company_id, connection_id=item.id)
+        now = datetime.now(UTC)
+        if credential is None or (credential.expires_at is not None and credential.expires_at <= now):
+            return "missing"
+        return "configured"
+
     def create_connection(self, *, company_id: UUID, data: ProviderConnectionCreate, actor: Administrator) -> ProviderConnection:
         descriptor = provider_registry.require(data.provider_key)
         try:

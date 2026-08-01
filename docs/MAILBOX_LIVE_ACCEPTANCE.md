@@ -45,6 +45,22 @@ Safety guarantees for the connection tests:
 - The saved password is encrypted and is not returned or redisplayed.
 - The tests do not start campaigns, scheduler workers or bulk actions.
 
+Credential recovery:
+
+- If connection creation succeeds but password storage fails, keep the saved
+  Generic SMTP/IMAP connection and use **Set password** from the connection
+  card.
+- The card displays only `Password missing` or `Password configured`.
+- **Set password** creates the active encrypted ProviderCredential when none
+  exists.
+- **Replace password** rotates the active encrypted ProviderCredential when one
+  exists.
+- Both password fields are masked. The stored password is never returned,
+  redisplayed or included in the non-secret **Edit settings** form.
+- Test SMTP, Test IMAP and Activate stay disabled while the password is missing.
+- Activation still requires an active password credential plus successful SMTP
+  and IMAP tests after the latest password or settings change.
+
 Stop points:
 
 - Stop before entering credentials until automated checks are complete.

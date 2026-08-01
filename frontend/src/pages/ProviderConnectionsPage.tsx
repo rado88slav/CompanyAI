@@ -5,11 +5,15 @@ import {
   activateProviderConnection,
   createProviderConnection,
   createProviderCredential,
+  fetchProviderCredentials,
   fetchProviderConnections,
   fetchProviderTypes,
+  rotateProviderCredential,
   testProviderConnectionImap,
   testProviderConnectionSmtp,
+  updateProviderConnection,
 } from "../api/providers";
+import { ApiError } from "../api/client";
 import type { ProviderConnection, ProviderDescriptor } from "../types/provider";
 
 type MailboxHealth = {
@@ -50,6 +54,30 @@ function mailboxHealth(connection: ProviderConnection): MailboxHealth {
   return value && typeof value === "object" && !Array.isArray(value) ? value as MailboxHealth : {};
 }
 
+function configText(connection: ProviderConnection, key: string, fallback = ""): string {
+  const value = connection.configuration[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+function configPort(connection: ProviderConnection, key: string, fallback: number): number {
+  const value = connection.configuration[key];
+  return typeof value === "number" ? value : fallback;
+}
+
+function hasMailboxPassword(connection: ProviderConnection): boolean {
+  return connection.credential_status === "configured";
+}
+
+function credentialFailureMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 400 || error.status === 409 || error.status === 422) {
+      return "Password could not be stored. Check the password field and try again.";
+    }
+    return "Password could not be stored. Encryption may be unavailable; run Local Edition health checks and try again.";
+  }
+  return "Password could not be stored because the API was unreachable. Check Local Edition health and try again.";
+}
+
 function HealthLine({ label, item }: { label: string; item: MailboxHealth["smtp"] }) {
   return (
     <div className="mailbox-health-line">
@@ -69,6 +97,8 @@ export function ProviderConnectionsPage() {
   const [workingConnectionId, setWorkingConnectionId] = useState("");
   const [formError, setFormError] = useState("");
   const [formMessage, setFormMessage] = useState("");
+  const [passwordConnectionId, setPasswordConnectionId] = useState("");
+  const [editConnectionId, setEditConnectionId] = useState("");
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -132,12 +162,12 @@ export function ProviderConnectionsPage() {
       try {
         await createProviderCredential(connection.id, { secrets: { password } });
       } catch (credentialError) {
-        setFormError("Connection saved, but password storage failed. Open the connection and add the credential before testing.");
+        setFormError("Connection saved, but password storage failed. Use Set password on the connection before testing.");
         setConnections((items) => [connection, ...items]);
         return;
       }
       form.reset();
-      setConnections((items) => [connection, ...items]);
+      setConnections((items) => [{ ...connection, credential_status: "configured" }, ...items]);
       setFormMessage("Mailbox saved. Run SMTP and IMAP tests before activation.");
       setShowEmailForm(false);
     } catch (submitError) {
@@ -148,6 +178,10 @@ export function ProviderConnectionsPage() {
   }
 
   async function runProtocolTest(connection: ProviderConnection, protocol: "smtp" | "imap"): Promise<void> {
+    if (!hasMailboxPassword(connection)) {
+      setFormError("Password is missing. Set the encrypted mailbox password before testing.");
+      return;
+    }
     setWorkingConnectionId(`${connection.id}:${protocol}`);
     setFormError("");
     setFormMessage("");
@@ -164,7 +198,92 @@ export function ProviderConnectionsPage() {
     }
   }
 
+  async function submitMailboxPassword(connection: ProviderConnection, event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const password = text(data, "mailbox_password");
+    const confirmation = text(data, "mailbox_password_confirmation");
+    setWorkingConnectionId(`${connection.id}:password`);
+    setFormError("");
+    setFormMessage("");
+    try {
+      if (!password || !confirmation) {
+        throw new Error("Enter and confirm the mailbox password.");
+      }
+      if (password !== confirmation) {
+        throw new Error("Password confirmation does not match.");
+      }
+      if (hasMailboxPassword(connection)) {
+        const credentials = await fetchProviderCredentials(connection.id);
+        const active = credentials.items.find((item) => item.status === "active");
+        if (!active) {
+          throw new Error("Active password metadata is unavailable. Refresh and try again.");
+        }
+        await rotateProviderCredential(connection.id, active.id, { secrets: { password } });
+        setFormMessage("Mailbox password replaced. Run SMTP and IMAP tests again before activation.");
+      } else {
+        await createProviderCredential(connection.id, { secrets: { password } });
+        setFormMessage("Mailbox password configured. Run SMTP and IMAP tests before activation.");
+      }
+      form.reset();
+      setPasswordConnectionId("");
+      await load();
+    } catch (passwordError) {
+      form.reset();
+      const knownMessage = passwordError instanceof Error && [
+        "Enter and confirm the mailbox password.",
+        "Password confirmation does not match.",
+        "Active password metadata is unavailable. Refresh and try again.",
+      ].includes(passwordError.message);
+      setFormError(knownMessage && passwordError instanceof Error ? passwordError.message : credentialFailureMessage(passwordError));
+    } finally {
+      setWorkingConnectionId("");
+    }
+  }
+
+  async function submitMailboxSettings(connection: ProviderConnection, event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setWorkingConnectionId(`${connection.id}:settings`);
+    setFormError("");
+    setFormMessage("");
+    try {
+      const updated = await updateProviderConnection(connection.id, {
+        display_name: text(data, "display_name"),
+        slug: text(data, "slug"),
+        configuration: {
+          email_address: text(data, "email_address"),
+          sender_display_name: text(data, "sender_display_name"),
+          username: text(data, "username"),
+          smtp_host: text(data, "smtp_host"),
+          smtp_port: toPort(data.get("smtp_port"), "SMTP port"),
+          smtp_security: text(data, "smtp_security"),
+          imap_host: text(data, "imap_host"),
+          imap_port: toPort(data.get("imap_port"), "IMAP port"),
+          imap_security: text(data, "imap_security"),
+          imap_folder: text(data, "imap_folder"),
+          reply_to_address: text(data, "reply_to_address") || undefined,
+        },
+      });
+      setConnections((items) => items.map((item) => item.id === connection.id ? updated : item));
+      setEditConnectionId("");
+      setFormMessage("Mailbox settings saved. Run SMTP and IMAP tests again before activation.");
+    } catch (settingsError) {
+      const message = settingsError instanceof Error && settingsError.message.includes("port must be a valid TCP port.")
+        ? settingsError.message
+        : "Mailbox settings could not be saved. Check the non-secret fields and try again.";
+      setFormError(message);
+    } finally {
+      setWorkingConnectionId("");
+    }
+  }
+
   async function activateMailbox(connection: ProviderConnection): Promise<void> {
+    if (!hasMailboxPassword(connection)) {
+      setFormError("Activation requires an active password credential plus successful SMTP and IMAP tests.");
+      return;
+    }
     setWorkingConnectionId(`${connection.id}:activate`);
     setFormError("");
     setFormMessage("");
@@ -330,6 +449,7 @@ export function ProviderConnectionsPage() {
               const descriptor = descriptorByKey.get(connection.provider_key);
               const health = mailboxHealth(connection);
               const isGeneric = connection.provider_key === "generic_smtp_imap";
+              const passwordConfigured = hasMailboxPassword(connection);
               const ready = health.activation_ready === true;
               return (
                 <article className="provider-card" key={connection.id}>
@@ -350,19 +470,73 @@ export function ProviderConnectionsPage() {
                   </dl>
                   {isGeneric ? (
                     <div className="mailbox-health">
+                      <div className="mailbox-credential-status">
+                        <span className={`status-badge ${passwordConfigured ? "status-badge--positive" : "status-badge--warning"}`}>
+                          {passwordConfigured ? "Password configured" : "Password missing"}
+                        </span>
+                      </div>
                       <HealthLine label="SMTP" item={health.smtp} />
                       <HealthLine label="IMAP" item={health.imap} />
                       <div className="actions">
-                        <button className="button button--light" type="button" disabled={workingConnectionId === `${connection.id}:smtp` || connection.status === "revoked"} onClick={() => void runProtocolTest(connection, "smtp")}>
+                        <button className="button button--light" type="button" onClick={() => setPasswordConnectionId((value) => value === connection.id ? "" : connection.id)}>
+                          {passwordConfigured ? "Replace password" : "Set password"}
+                        </button>
+                        <button className="button button--light" type="button" onClick={() => setEditConnectionId((value) => value === connection.id ? "" : connection.id)}>
+                          Edit settings
+                        </button>
+                        <button className="button button--light" type="button" disabled={!passwordConfigured || workingConnectionId === `${connection.id}:smtp` || connection.status === "revoked"} onClick={() => void runProtocolTest(connection, "smtp")}>
                           Test SMTP
                         </button>
-                        <button className="button button--light" type="button" disabled={workingConnectionId === `${connection.id}:imap` || connection.status === "revoked"} onClick={() => void runProtocolTest(connection, "imap")}>
+                        <button className="button button--light" type="button" disabled={!passwordConfigured || workingConnectionId === `${connection.id}:imap` || connection.status === "revoked"} onClick={() => void runProtocolTest(connection, "imap")}>
                           Test IMAP
                         </button>
-                        <button className="button" type="button" disabled={!ready || connection.status === "active" || workingConnectionId === `${connection.id}:activate`} onClick={() => void activateMailbox(connection)}>
+                        <button className="button" type="button" disabled={!passwordConfigured || !ready || connection.status === "active" || workingConnectionId === `${connection.id}:activate`} onClick={() => void activateMailbox(connection)}>
                           Activate
                         </button>
                       </div>
+                      {passwordConnectionId === connection.id ? (
+                        <form className="mailbox-form mailbox-form--compact" noValidate onSubmit={(event) => void submitMailboxPassword(connection, event)}>
+                          <div className="mailbox-form__grid">
+                            <label>Mailbox password<input name="mailbox_password" type="password" autoComplete="new-password" required /></label>
+                            <label>Confirm mailbox password<input name="mailbox_password_confirmation" type="password" autoComplete="new-password" required /></label>
+                          </div>
+                          <div className="actions">
+                            <button className="button" type="submit" disabled={workingConnectionId === `${connection.id}:password`}>
+                              {passwordConfigured ? "Replace password" : "Set password"}
+                            </button>
+                            <button className="button button--light" type="button" onClick={() => setPasswordConnectionId("")}>
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : null}
+                      {editConnectionId === connection.id ? (
+                        <form className="mailbox-form mailbox-form--compact" noValidate onSubmit={(event) => void submitMailboxSettings(connection, event)}>
+                          <div className="mailbox-form__grid">
+                            <label>Connection name<input name="display_name" required defaultValue={connection.display_name} /></label>
+                            <label>Slug<input name="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={connection.slug} /></label>
+                            <label>Email address<input name="email_address" type="email" required defaultValue={configText(connection, "email_address")} /></label>
+                            <label>Sender display name<input name="sender_display_name" defaultValue={configText(connection, "sender_display_name")} /></label>
+                            <label>Username<input name="username" required defaultValue={configText(connection, "username")} /></label>
+                            <label>SMTP host<input name="smtp_host" required defaultValue={configText(connection, "smtp_host")} /></label>
+                            <label>SMTP port<input name="smtp_port" type="number" min="1" max="65535" required defaultValue={configPort(connection, "smtp_port", 465)} /></label>
+                            <label>SMTP security<select name="smtp_security" defaultValue={configText(connection, "smtp_security", "ssl_tls")}><option value="ssl_tls">SSL/TLS</option><option value="starttls">STARTTLS</option></select></label>
+                            <label>IMAP host<input name="imap_host" required defaultValue={configText(connection, "imap_host")} /></label>
+                            <label>IMAP port<input name="imap_port" type="number" min="1" max="65535" required defaultValue={configPort(connection, "imap_port", 993)} /></label>
+                            <label>IMAP security<select name="imap_security" defaultValue={configText(connection, "imap_security", "ssl_tls")}><option value="ssl_tls">SSL/TLS</option><option value="starttls">STARTTLS</option></select></label>
+                            <label>IMAP folder<input name="imap_folder" required defaultValue={configText(connection, "imap_folder", "INBOX")} /></label>
+                            <label>Reply-To address<input name="reply_to_address" type="email" defaultValue={configText(connection, "reply_to_address")} /></label>
+                          </div>
+                          <div className="actions">
+                            <button className="button" type="submit" disabled={workingConnectionId === `${connection.id}:settings`}>
+                              Save settings
+                            </button>
+                            <button className="button button--light" type="button" onClick={() => setEditConnectionId("")}>
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : null}
                     </div>
                   ) : null}
                   <div>

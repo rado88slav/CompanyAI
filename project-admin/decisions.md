@@ -593,3 +593,22 @@ Email automation also gains a simulation-only worker façade. It plans what a
 future worker would execute and records safe audit events, but creates no
 Provider Execution, opens no provider connection and performs no external
 action.
+
+## 043 — Generic SMTP/IMAP Credential Recovery
+
+Generic SMTP/IMAP password recovery remains inside the existing encrypted
+ProviderCredential boundary. Provider Connection responses may expose only a
+safe credential status (`not_required`, `missing` or `configured`) and must not
+include credential identifiers, ciphertext, nonces, key IDs or secret values.
+
+The dashboard shows **Set password** when no active credential exists and
+**Replace password** when one exists. Set creates the active ProviderCredential;
+Replace uses metadata-only credential listing to find the active credential and
+then rotates it through the existing rotate endpoint. The credential identifier
+is never rendered to the operator.
+
+Test SMTP, Test IMAP and Activate remain unavailable while the password is
+missing. Activation still requires an active encrypted credential and successful
+SMTP plus IMAP tests after the latest credential or non-secret settings change.
+Editing mailbox settings covers only non-secret fields and never returns or
+redisplays the password.

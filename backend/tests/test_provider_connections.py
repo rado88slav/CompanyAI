@@ -1,5 +1,6 @@
 """Focused Provider Connections security and contract tests."""
 import base64
+from datetime import UTC, datetime
 import json
 import socket
 import ssl
@@ -16,7 +17,7 @@ from app.core.provider_connections import ProviderDescriptor, ProviderRegistry, 
 from app.main import app
 from app.models.audit_log import AuditAction
 from app.models.provider_connection import ProviderConnection, ProviderCredential
-from app.schemas.provider_connection import ProviderConnectionCreate, ProviderCredentialCreate
+from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionResponse, ProviderCredentialCreate
 from app.services.generic_smtp_imap import GenericMailboxTester, MailboxAuthenticationError, MailboxFolderError, MailboxProtocol, MailboxTimeoutError
 from app.services.provider_connection import ProviderConnectionService, ProviderLifecycleError
 
@@ -600,6 +601,31 @@ def test_generic_mailbox_activation_requires_credential_and_successful_tests() -
     repository.active_credential.return_value = None
     with pytest.raises(ProviderLifecycleError):
         service.set_status(company_id=company_id, connection_id=connection_id, target="active", actor=SimpleNamespace(id=actor_id))
+
+
+def test_generic_mailbox_response_reports_safe_password_status_only() -> None:
+    company_id, connection_id = uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id)
+    connection.created_at = datetime.now(UTC)
+    connection.updated_at = connection.created_at
+    service, repository, _audit, _session, _connection = _generic_service(connection=connection, company_id=company_id, connection_id=connection_id, password="mailbox-secret")
+
+    response = ProviderConnectionResponse.model_validate(connection).model_copy(
+        update={"credential_status": service.credential_status(connection)}
+    )
+
+    assert response.credential_status == "configured"
+    serialized = response.model_dump_json()
+    assert "mailbox-secret" not in serialized
+    assert "encrypted_payload" not in serialized
+    assert "nonce" not in serialized
+    assert str(repository.active_credential.return_value.id) not in serialized
+
+    repository.active_credential.return_value = None
+    missing = ProviderConnectionResponse.model_validate(connection).model_copy(
+        update={"credential_status": service.credential_status(connection)}
+    )
+    assert missing.credential_status == "missing"
 
 
 def test_generic_mailbox_activation_succeeds_after_credential_and_protocol_tests() -> None:

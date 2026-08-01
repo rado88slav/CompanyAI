@@ -622,6 +622,7 @@ function genericConnection(overrides: Record<string, unknown> = {}) {
     slug: "primary-mailbox",
     authentication_type: "username_password",
     status: "inactive",
+    credential_status: "missing",
     configuration: {
       email_address: "mailbox@example.test",
       username: "mailbox@example.test",
@@ -705,13 +706,86 @@ test("handles partial mailbox save when credential creation fails", async () => 
 
   expect(await screen.findByText(/Connection saved, but password storage failed/)).toBeInTheDocument();
   expect(screen.getByText("Primary mailbox")).toBeInTheDocument();
+  expect(screen.getByText("Password missing")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Set password" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Test SMTP" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Test IMAP" })).toBeDisabled();
   expect(document.body.textContent).not.toContain("not-rendered-mailbox-password");
+});
+
+test("recovers a partial Generic SMTP/IMAP connection by setting the password", async () => {
+  setToken();
+  const missingConnection = genericConnection();
+  const configuredConnection = genericConnection({ credential_status: "configured" });
+  await authenticatedFetchMock(
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [missingConnection], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({}, true, 201),
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [configuredConnection], total: 1, limit: 50, offset: 0 }),
+  );
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  expect(await screen.findByText("Password missing")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Test SMTP" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Set password" }));
+  fireEvent.change(screen.getByLabelText("Mailbox password"), { target: { value: "not-rendered-mailbox-password" } });
+  fireEvent.change(screen.getByLabelText("Confirm mailbox password"), { target: { value: "different" } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Set password" }).at(-1) as HTMLElement);
+  expect(await screen.findByText("Password confirmation does not match.")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Mailbox password"), { target: { value: "not-rendered-mailbox-password" } });
+  fireEvent.change(screen.getByLabelText("Confirm mailbox password"), { target: { value: "not-rendered-mailbox-password" } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Set password" }).at(-1) as HTMLElement);
+
+  expect(await screen.findByText("Mailbox password configured. Run SMTP and IMAP tests before activation.")).toBeInTheDocument();
+  expect(await screen.findByText("Password configured")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Test SMTP" })).not.toBeDisabled();
+  expect(document.body.textContent).not.toContain("not-rendered-mailbox-password");
+});
+
+test("replaces a Generic SMTP/IMAP password through credential rotation metadata only", async () => {
+  setToken();
+  const configuredConnection = genericConnection({ credential_status: "configured" });
+  await authenticatedFetchMock(
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [configuredConnection], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({
+      items: [{
+        id: "credential-id",
+        status: "active",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+        expires_at: null,
+      }],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    }),
+    await jsonResponse({}, true, 201),
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [configuredConnection], total: 1, limit: 50, offset: 0 }),
+  );
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  expect(await screen.findByText("Password configured")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Replace password" }));
+  fireEvent.change(screen.getByLabelText("Mailbox password"), { target: { value: "replacement-not-rendered" } });
+  fireEvent.change(screen.getByLabelText("Confirm mailbox password"), { target: { value: "replacement-not-rendered" } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Replace password" }).at(-1) as HTMLElement);
+
+  expect(await screen.findByText("Mailbox password replaced. Run SMTP and IMAP tests again before activation.")).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("replacement-not-rendered");
+  expect(document.body.textContent).not.toContain("credential-id");
 });
 
 test("failed mailbox tests prevent activation and successful tests enable it", async () => {
   setToken();
-  const baseConnection = genericConnection();
+  const baseConnection = genericConnection({ credential_status: "configured" });
   const smtpOk = genericConnection({
+    credential_status: "configured",
     metadata: {
       generic_smtp_imap_health: {
         smtp: { status: "succeeded", tested_at: "2026-01-01T00:00:00Z", category: "success", message: "Connection test succeeded." },
@@ -720,6 +794,7 @@ test("failed mailbox tests prevent activation and successful tests enable it", a
     },
   });
   const imapFailed = genericConnection({
+    credential_status: "configured",
     metadata: {
       generic_smtp_imap_health: {
         smtp: { status: "succeeded", tested_at: "2026-01-01T00:00:00Z", category: "success", message: "Connection test succeeded." },
@@ -729,6 +804,7 @@ test("failed mailbox tests prevent activation and successful tests enable it", a
     },
   });
   const imapOk = genericConnection({
+    credential_status: "configured",
     metadata: {
       generic_smtp_imap_health: {
         smtp: { status: "succeeded", tested_at: "2026-01-01T00:00:00Z", category: "success", message: "Connection test succeeded." },

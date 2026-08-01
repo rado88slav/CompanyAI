@@ -64,6 +64,21 @@ SMTP tests do not send email. IMAP tests open the configured folder read-only
 and do not change, move, mark or delete messages. A mailbox remains inactive
 until an active encrypted credential exists and both protocol tests succeed.
 
+If mailbox creation succeeds but password storage fails, keep the saved
+connection. Open Provider Connections and use **Set password** on the Generic
+SMTP/IMAP card. The card shows only safe status text:
+
+- `Password missing`: no active encrypted password credential exists. Test SMTP,
+  Test IMAP and Activate stay disabled.
+- `Password configured`: an active encrypted password credential exists. SMTP
+  and IMAP tests can be run, but the password is never returned or redisplayed.
+
+Use **Replace password** to rotate an existing active password credential. This
+uses the Provider Credential API and clears prior SMTP/IMAP acceptance health, so
+both protocol tests must succeed again before activation. Use **Edit settings**
+only for non-secret mailbox fields such as host, port, username, folder and
+display name; the password is never part of that form.
+
 ## Single-Message Test Is Rejected
 
 The controlled one-message test is intentionally strict. Check:

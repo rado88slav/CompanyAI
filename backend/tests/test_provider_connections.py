@@ -17,9 +17,9 @@ from app.core.provider_connections import ProviderDescriptor, ProviderRegistry, 
 from app.main import app
 from app.models.audit_log import AuditAction
 from app.models.provider_connection import ProviderConnection, ProviderCredential
-from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionResponse, ProviderCredentialCreate
+from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionResponse, ProviderConnectionUpdate, ProviderCredentialCreate
 from app.services.generic_smtp_imap import GenericMailboxTester, MailboxAuthenticationError, MailboxFolderError, MailboxProtocol, MailboxTimeoutError
-from app.services.provider_connection import ProviderConnectionService, ProviderLifecycleError
+from app.services.provider_connection import ProviderConnectionService, ProviderLifecycleError, ProviderNotFoundError
 
 
 def _encryption_service(
@@ -635,6 +635,157 @@ def test_generic_mailbox_activation_succeeds_after_credential_and_protocol_tests
     service, _repository, _audit, _session, _connection = _generic_service(connection=connection, company_id=company_id, connection_id=connection_id)
     item = service.set_status(company_id=company_id, connection_id=connection_id, target="active", actor=SimpleNamespace(id=actor_id))
     assert item.status == "active"
+
+
+def test_generic_mailbox_critical_settings_update_invalidates_tests_and_deactivates() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id, status="active")
+    connection.metadata_ = {"generic_smtp_imap_health": {"smtp": {"status": "succeeded"}, "imap": {"status": "succeeded"}, "activation_ready": True}}
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.active_credential.return_value = ProviderCredential(
+        id=uuid4(),
+        company_id=company_id,
+        provider_connection_id=connection_id,
+        status="active",
+        encrypted_payload=b"ciphertext",
+        nonce=b"123456789012",
+        expires_at=None,
+    )
+    repository.save_connection.side_effect = lambda item: item
+    audit = Mock()
+    session = Mock()
+    service = ProviderConnectionService(repository, audit, session, _encryption_service())
+
+    updated = service.update_connection(
+        company_id=company_id,
+        connection_id=connection_id,
+        data=ProviderConnectionUpdate(
+            configuration=_generic_configuration(
+                username="sales@example.test",
+                smtp_host="mail.agenturserver.de",
+                imap_host="mail.agenturserver.de",
+            )
+        ),
+        actor=SimpleNamespace(id=actor_id),
+    )
+
+    assert updated.status == "inactive"
+    assert updated.deactivated_at is not None
+    assert updated.deactivated_by_administrator_id == actor_id
+    assert "generic_smtp_imap_health" not in updated.metadata_
+    details = audit.append_company_event.call_args.kwargs["details"]
+    assert details["mailbox_tests_invalidated"] is True
+    assert details["deactivated_for_retest"] is True
+    assert details["changed_fields"] == [
+        "configuration.imap_host",
+        "configuration.smtp_host",
+        "configuration.username",
+    ]
+    assert "sales@example.test" not in repr(details)
+    assert "mail.agenturserver.de" not in repr(details)
+    with pytest.raises(ProviderLifecycleError):
+        service.set_status(company_id=company_id, connection_id=connection_id, target="active", actor=SimpleNamespace(id=actor_id))
+
+
+def test_generic_mailbox_noncritical_settings_update_preserves_tests_and_active_status() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    health = {"smtp": {"status": "succeeded"}, "imap": {"status": "succeeded"}, "activation_ready": True}
+    connection = _generic_connection(company_id, connection_id, status="active")
+    connection.metadata_ = {"generic_smtp_imap_health": health}
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.save_connection.side_effect = lambda item: item
+    audit = Mock()
+    session = Mock()
+    service = ProviderConnectionService(repository, audit, session, _encryption_service())
+
+    updated = service.update_connection(
+        company_id=company_id,
+        connection_id=connection_id,
+        data=ProviderConnectionUpdate(
+            display_name="Updated mailbox",
+            configuration=_generic_configuration(sender_display_name="Updated Sender", reply_to_address="new-reply@example.test"),
+        ),
+        actor=SimpleNamespace(id=actor_id),
+    )
+
+    assert updated.status == "active"
+    assert updated.metadata_["generic_smtp_imap_health"] == health
+    details = audit.append_company_event.call_args.kwargs["details"]
+    assert details["mailbox_tests_invalidated"] is False
+    assert details["deactivated_for_retest"] is False
+    assert details["changed_fields"] == [
+        "configuration.reply_to_address",
+        "configuration.sender_display_name",
+        "display_name",
+    ]
+    assert "Updated Sender" not in repr(details)
+    assert "new-reply@example.test" not in repr(details)
+
+
+def test_generic_mailbox_settings_reject_protocol_hosts_and_cross_company_updates() -> None:
+    connection = _generic_connection(uuid4(), uuid4())
+    repository = Mock()
+    repository.connection.return_value = connection
+    service = ProviderConnectionService(repository, Mock(), Mock(), _encryption_service())
+
+    with pytest.raises(ValueError):
+        service.update_connection(
+            company_id=connection.company_id,
+            connection_id=connection.id,
+            data=ProviderConnectionUpdate(configuration=_generic_configuration(smtp_host="https://www.mittwald.de/")),
+            actor=SimpleNamespace(id=uuid4()),
+        )
+
+    repository.connection.return_value = None
+    with pytest.raises(ProviderNotFoundError):
+        service.update_connection(
+            company_id=uuid4(),
+            connection_id=connection.id,
+            data=ProviderConnectionUpdate(configuration=_generic_configuration(username="sales@example.test")),
+            actor=SimpleNamespace(id=uuid4()),
+        )
+
+
+def test_generic_mailbox_credential_rotation_invalidates_tests_and_deactivates_without_secret_leakage() -> None:
+    company_id, connection_id, old_id, actor_id = uuid4(), uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id, status="active")
+    connection.metadata_ = {"generic_smtp_imap_health": {"smtp": {"status": "succeeded"}, "imap": {"status": "succeeded"}, "activation_ready": True}}
+    old = ProviderCredential(
+        id=old_id,
+        company_id=company_id,
+        provider_connection_id=connection_id,
+        status="active",
+        encrypted_payload=b"old-ciphertext",
+        nonce=b"123456789012",
+        encryption_version=1,
+    )
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.credential.return_value = old
+    repository.save_credential.side_effect = lambda item: item
+    repository.save_connection.side_effect = lambda item: item
+    repository.create_credential.side_effect = lambda **values: ProviderCredential(**values)
+    audit = Mock()
+    session = Mock()
+    service = ProviderConnectionService(repository, audit, session, _encryption_service())
+
+    service.rotate_credential(
+        company_id=company_id,
+        connection_id=connection_id,
+        credential_id=old_id,
+        data=ProviderCredentialCreate(secrets={"password": "replacement-secret"}),
+        actor=SimpleNamespace(id=actor_id),
+    )
+
+    assert connection.status == "inactive"
+    assert "generic_smtp_imap_health" not in connection.metadata_
+    details = audit.append_company_event.call_args.kwargs["details"]
+    assert details["changed_fields"] == ["credential"]
+    assert details["mailbox_tests_invalidated"] is True
+    assert "replacement-secret" not in repr(details)
+    assert "password" not in repr(details)
 
 
 @pytest.mark.parametrize(

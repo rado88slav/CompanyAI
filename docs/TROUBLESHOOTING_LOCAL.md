@@ -75,9 +75,9 @@ SMTP/IMAP card. The card shows only safe status text:
 
 Use **Replace password** to rotate an existing active password credential. This
 uses the Provider Credential API and clears prior SMTP/IMAP acceptance health, so
-both protocol tests must succeed again before activation. Use **Edit settings**
-only for non-secret mailbox fields such as host, port, username, folder and
-display name; the password is never part of that form.
+both protocol tests must succeed again before activation. Use **Edit mailbox
+settings** only for non-secret mailbox fields such as host, port, username,
+folder and display name; the password is never part of that form.
 
 ## Single-Message Test Is Rejected
 

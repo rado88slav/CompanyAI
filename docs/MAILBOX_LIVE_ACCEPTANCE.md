@@ -56,7 +56,7 @@ Credential recovery:
 - **Replace password** rotates the active encrypted ProviderCredential when one
   exists.
 - Both password fields are masked. The stored password is never returned,
-  redisplayed or included in the non-secret **Edit settings** form.
+  redisplayed or included in the non-secret **Edit mailbox settings** form.
 - Test SMTP, Test IMAP and Activate stay disabled while the password is missing.
 - Activation still requires an active password credential plus successful SMTP
   and IMAP tests after the latest password or settings change.

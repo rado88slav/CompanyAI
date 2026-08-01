@@ -27,6 +27,20 @@ class ProviderConflictError(Exception): pass
 class ProviderLifecycleError(Exception): pass
 class ProviderCredentialError(Exception): pass
 
+GENERIC_MAILBOX_CRITICAL_CONFIGURATION_FIELDS = frozenset(
+    {
+        "email_address",
+        "username",
+        "smtp_host",
+        "smtp_port",
+        "smtp_security",
+        "imap_host",
+        "imap_port",
+        "imap_security",
+        "imap_folder",
+    }
+)
+
 
 @dataclass(slots=True)
 class ResolvedProviderCredential:
@@ -155,22 +169,45 @@ class ProviderConnectionService:
         item = self._connection(company_id, connection_id, lock=True)
         if item.status == "revoked": raise ProviderLifecycleError
         changes = data.model_dump(exclude_unset=True)
+        changed_fields: set[str] = set()
+        critical_configuration_changed = False
+        now = datetime.now(UTC)
+        old_configuration = dict(item.configuration or {})
+        was_active = item.status == "active"
         if "configuration" in changes:
             changes["configuration"] = validate_safe_object(changes["configuration"], allowed_fields=provider_registry.require(item.provider_key).configuration_fields, path="configuration")
             if item.provider_key == "generic_smtp_imap":
                 changes["configuration"] = validate_generic_smtp_imap_configuration(changes["configuration"])
-                metadata = dict(item.metadata_ or {})
-                metadata.pop(GENERIC_MAILBOX_HEALTH_KEY, None)
-                item.metadata_ = metadata
+                changed_configuration_fields = {
+                    key
+                    for key in set(old_configuration) | set(changes["configuration"])
+                    if old_configuration.get(key) != changes["configuration"].get(key)
+                }
+                changed_fields.update(f"configuration.{key}" for key in changed_configuration_fields)
+                critical_configuration_changed = bool(changed_configuration_fields & GENERIC_MAILBOX_CRITICAL_CONFIGURATION_FIELDS)
+                if critical_configuration_changed:
+                    metadata = dict(item.metadata_ or {})
+                    metadata.pop(GENERIC_MAILBOX_HEALTH_KEY, None)
+                    item.metadata_ = metadata
+                    if item.status == "active":
+                        item.status = "inactive"
+                        item.deactivated_at = now
+                        item.deactivated_by_administrator_id = actor.id
+            else:
+                changed_fields.add("configuration")
         if "metadata" in changes:
             changes["metadata_"] = validate_safe_object(changes.pop("metadata"), path="metadata")
             if item.provider_key == "generic_smtp_imap" and GENERIC_MAILBOX_HEALTH_KEY in changes["metadata_"]:
                 raise ValueError("Generic SMTP/IMAP health metadata is managed by the backend.")
+            changed_fields.add("metadata")
+        for field in ("display_name", "slug"):
+            if field in changes and getattr(item, field) != changes[field]:
+                changed_fields.add(field)
         for field, value in changes.items(): setattr(item, field, value)
         item.updated_by_administrator_id = actor.id
         try:
             self._repository.save_connection(item)
-            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CONNECTION_UPDATED, resource_id=item.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "changed_fields": sorted(field.removesuffix("_") for field in changes)})
+            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CONNECTION_UPDATED, resource_id=item.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "changed_fields": sorted(changed_fields), "mailbox_tests_invalidated": critical_configuration_changed, "deactivated_for_retest": critical_configuration_changed and was_active})
             self._session.commit(); return item
         except IntegrityError as exc:
             self._session.rollback(); raise ProviderConflictError from exc
@@ -231,8 +268,12 @@ class ProviderConnectionService:
                 metadata = dict(item.metadata_ or {})
                 metadata.pop(GENERIC_MAILBOX_HEALTH_KEY, None)
                 item.metadata_ = metadata
+                if item.status == "active":
+                    item.status = "inactive"
+                    item.deactivated_at = datetime.now(UTC)
+                    item.deactivated_by_administrator_id = actor.id
                 self._repository.save_connection(item)
-            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_CREATED, resource_id=credential.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(credential.id), "expiration_present": credential.expires_at is not None, "encryption_version": credential.encryption_version, "encryption_key_id": credential.encryption_key_id, "encryption_revision": credential.encryption_revision})
+            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_CREATED, resource_id=credential.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(credential.id), "changed_fields": ["credential"], "mailbox_tests_invalidated": item.provider_key == "generic_smtp_imap", "expiration_present": credential.expires_at is not None, "encryption_version": credential.encryption_version, "encryption_key_id": credential.encryption_key_id, "encryption_revision": credential.encryption_revision})
             self._session.commit(); return credential
         except IntegrityError as exc:
             self._session.rollback(); raise ProviderConflictError from exc
@@ -251,8 +292,12 @@ class ProviderConnectionService:
                 metadata = dict(item.metadata_ or {})
                 metadata.pop(GENERIC_MAILBOX_HEALTH_KEY, None)
                 item.metadata_ = metadata
+                if item.status == "active":
+                    item.status = "inactive"
+                    item.deactivated_at = datetime.now(UTC)
+                    item.deactivated_by_administrator_id = actor.id
                 self._repository.save_connection(item)
-            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_ROTATED, resource_id=new.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(new.id), "previous_credential_id": str(old.id), "expiration_present": new.expires_at is not None, "encryption_version": new.encryption_version, "encryption_key_id": new.encryption_key_id, "encryption_revision": new.encryption_revision})
+            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_ROTATED, resource_id=new.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(new.id), "previous_credential_id": str(old.id), "changed_fields": ["credential"], "mailbox_tests_invalidated": item.provider_key == "generic_smtp_imap", "expiration_present": new.expires_at is not None, "encryption_version": new.encryption_version, "encryption_key_id": new.encryption_key_id, "encryption_revision": new.encryption_revision})
             self._session.commit(); return new
         except Exception:
             self._session.rollback(); raise

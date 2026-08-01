@@ -781,6 +781,84 @@ test("replaces a Generic SMTP/IMAP password through credential rotation metadata
   expect(document.body.textContent).not.toContain("credential-id");
 });
 
+test("edits Generic SMTP/IMAP mailbox settings without exposing or modifying the password", async () => {
+  setToken();
+  const activeConnection = genericConnection({
+    credential_status: "configured",
+    status: "active",
+    activated_at: "2026-01-01T00:03:00Z",
+    metadata: {
+      generic_smtp_imap_health: {
+        smtp: { status: "succeeded", tested_at: "2026-01-01T00:00:00Z", category: "success", message: "Connection test succeeded." },
+        imap: { status: "succeeded", tested_at: "2026-01-01T00:02:00Z", category: "success", message: "Connection test succeeded." },
+        activation_ready: true,
+      },
+    },
+  });
+  const updatedConnection = genericConnection({
+    credential_status: "configured",
+    display_name: "TestRealMail1",
+    status: "inactive",
+    configuration: {
+      email_address: "sales@smart4floor.de",
+      sender_display_name: "Sales",
+      username: "Sales@smart4floor.de",
+      smtp_host: "mail.agenturserver.de",
+      smtp_port: 465,
+      smtp_security: "ssl_tls",
+      imap_host: "mail.agenturserver.de",
+      imap_port: 993,
+      imap_security: "ssl_tls",
+      imap_folder: "INBOX",
+      reply_to_address: "sales@smart4floor.de",
+    },
+    metadata: {},
+  });
+  const fetchMock = await authenticatedFetchMock(
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [activeConnection], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse(updatedConnection),
+  );
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  expect(await screen.findByText("Password configured")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Edit mailbox settings" }));
+  expect(screen.getByLabelText("Connection name")).toHaveValue("Primary mailbox");
+  expect(screen.getByLabelText("Username")).toHaveValue("mailbox@example.test");
+  expect(screen.getByLabelText("SMTP host")).toHaveValue("mail.example.test");
+  expect(screen.queryByLabelText("Slug")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Mailbox password")).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("SMTP host"), { target: { value: "https://www.mittwald.de/" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+  expect(await screen.findByText("SMTP host must be a hostname without protocol or path.")).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledTimes(5);
+
+  fireEvent.change(screen.getByLabelText("Connection name"), { target: { value: "TestRealMail1" } });
+  fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "sales@smart4floor.de" } });
+  fireEvent.change(screen.getByLabelText("Sender display name"), { target: { value: "Sales" } });
+  fireEvent.change(screen.getByLabelText("Username"), { target: { value: "Sales@smart4floor.de" } });
+  fireEvent.change(screen.getByLabelText("SMTP host"), { target: { value: "mail.agenturserver.de" } });
+  fireEvent.change(screen.getByLabelText("IMAP host"), { target: { value: "mail.agenturserver.de" } });
+  fireEvent.change(screen.getByLabelText("Reply-To address"), { target: { value: "sales@smart4floor.de" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+  expect(await screen.findByText("Mailbox settings saved. Run SMTP and IMAP tests again before activation.")).toBeInTheDocument();
+  const patchCall = fetchMock.mock.calls.at(-1);
+  expect(patchCall?.[0]).toContain("/provider-connections/generic-connection");
+  expect(patchCall?.[1]?.method).toBe("PATCH");
+  const body = JSON.parse(String(patchCall?.[1]?.body));
+  expect(body.slug).toBeUndefined();
+  expect(JSON.stringify(body)).not.toContain("password");
+  expect(body.configuration.username).toBe("Sales@smart4floor.de");
+  expect(body.configuration.smtp_host).toBe("mail.agenturserver.de");
+  expect(body.configuration.imap_host).toBe("mail.agenturserver.de");
+  expect(await screen.findByText("TestRealMail1")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Activate" })).toBeDisabled();
+  expect(document.body.textContent).not.toContain("not-rendered-mailbox-password");
+});
+
 test("failed mailbox tests prevent activation and successful tests enable it", async () => {
   setToken();
   const baseConnection = genericConnection({ credential_status: "configured" });

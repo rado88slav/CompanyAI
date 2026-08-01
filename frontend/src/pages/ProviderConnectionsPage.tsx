@@ -45,6 +45,13 @@ function toPort(value: FormDataEntryValue | null, label: string): number {
   return parsed;
 }
 
+function toHostname(value: string, label: string): string {
+  if (!/^[A-Za-z0-9][A-Za-z0-9.-]{0,251}[A-Za-z0-9]$/.test(value) || value.includes("..")) {
+    throw new Error(`${label} must be a hostname without protocol or path.`);
+  }
+  return value;
+}
+
 function text(data: FormData, key: string): string {
   return String(data.get(key) ?? "").trim();
 }
@@ -148,10 +155,10 @@ export function ProviderConnectionsPage() {
           email_address: text(data, "email_address"),
           sender_display_name: text(data, "sender_display_name"),
           username: text(data, "username"),
-          smtp_host: text(data, "smtp_host"),
+          smtp_host: toHostname(text(data, "smtp_host"), "SMTP host"),
           smtp_port: toPort(data.get("smtp_port"), "SMTP port"),
           smtp_security: text(data, "smtp_security"),
-          imap_host: text(data, "imap_host"),
+          imap_host: toHostname(text(data, "imap_host"), "IMAP host"),
           imap_port: toPort(data.get("imap_port"), "IMAP port"),
           imap_security: text(data, "imap_security"),
           imap_folder: text(data, "imap_folder"),
@@ -251,15 +258,14 @@ export function ProviderConnectionsPage() {
     try {
       const updated = await updateProviderConnection(connection.id, {
         display_name: text(data, "display_name"),
-        slug: text(data, "slug"),
         configuration: {
           email_address: text(data, "email_address"),
           sender_display_name: text(data, "sender_display_name"),
           username: text(data, "username"),
-          smtp_host: text(data, "smtp_host"),
+          smtp_host: toHostname(text(data, "smtp_host"), "SMTP host"),
           smtp_port: toPort(data.get("smtp_port"), "SMTP port"),
           smtp_security: text(data, "smtp_security"),
-          imap_host: text(data, "imap_host"),
+          imap_host: toHostname(text(data, "imap_host"), "IMAP host"),
           imap_port: toPort(data.get("imap_port"), "IMAP port"),
           imap_security: text(data, "imap_security"),
           imap_folder: text(data, "imap_folder"),
@@ -270,7 +276,7 @@ export function ProviderConnectionsPage() {
       setEditConnectionId("");
       setFormMessage("Mailbox settings saved. Run SMTP and IMAP tests again before activation.");
     } catch (settingsError) {
-      const message = settingsError instanceof Error && settingsError.message.includes("port must be a valid TCP port.")
+      const message = settingsError instanceof Error && (settingsError.message.includes("port must be a valid TCP port.") || settingsError.message.includes("must be a hostname without protocol or path."))
         ? settingsError.message
         : "Mailbox settings could not be saved. Check the non-secret fields and try again.";
       setFormError(message);
@@ -482,7 +488,7 @@ export function ProviderConnectionsPage() {
                           {passwordConfigured ? "Replace password" : "Set password"}
                         </button>
                         <button className="button button--light" type="button" onClick={() => setEditConnectionId((value) => value === connection.id ? "" : connection.id)}>
-                          Edit settings
+                          Edit mailbox settings
                         </button>
                         <button className="button button--light" type="button" disabled={!passwordConfigured || workingConnectionId === `${connection.id}:smtp` || connection.status === "revoked"} onClick={() => void runProtocolTest(connection, "smtp")}>
                           Test SMTP
@@ -514,7 +520,6 @@ export function ProviderConnectionsPage() {
                         <form className="mailbox-form mailbox-form--compact" noValidate onSubmit={(event) => void submitMailboxSettings(connection, event)}>
                           <div className="mailbox-form__grid">
                             <label>Connection name<input name="display_name" required defaultValue={connection.display_name} /></label>
-                            <label>Slug<input name="slug" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" defaultValue={connection.slug} /></label>
                             <label>Email address<input name="email_address" type="email" required defaultValue={configText(connection, "email_address")} /></label>
                             <label>Sender display name<input name="sender_display_name" defaultValue={configText(connection, "sender_display_name")} /></label>
                             <label>Username<input name="username" required defaultValue={configText(connection, "username")} /></label>

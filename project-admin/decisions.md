@@ -612,3 +612,9 @@ missing. Activation still requires an active encrypted credential and successful
 SMTP plus IMAP tests after the latest credential or non-secret settings change.
 Editing mailbox settings covers only non-secret fields and never returns or
 redisplays the password.
+
+Changes to connection-critical mailbox settings such as email address,
+username, SMTP/IMAP host, port, security or folder clear stored SMTP/IMAP health.
+If the connection was active, it returns to inactive until both protocol tests
+succeed again. Audit details record changed safe field names only, never
+passwords or field values.

@@ -7,6 +7,21 @@ from app.schemas.authentication import normalize_email
 from app.schemas.company import CompanyCreate
 
 
+def validate_strong_local_password(value: str) -> str:
+    """Validate the strong local administrator password policy."""
+
+    if (
+        not any(char.islower() for char in value)
+        or not any(char.isupper() for char in value)
+        or not any(char.isdigit() for char in value)
+        or not any(not char.isalnum() for char in value)
+    ):
+        raise ValueError(
+            "Password must include lowercase, uppercase, digit and symbol characters."
+        )
+    return value
+
+
 class FirstRunStatusResponse(BaseModel):
     """Public first-run initialization status."""
 
@@ -51,16 +66,7 @@ class FirstRunInitializeRequest(BaseModel):
     @field_validator("administrator_password")
     @classmethod
     def validate_password(cls, value: str) -> str:
-        if (
-            not any(char.islower() for char in value)
-            or not any(char.isupper() for char in value)
-            or not any(char.isdigit() for char in value)
-            or not any(not char.isalnum() for char in value)
-        ):
-            raise ValueError(
-                "Password must include lowercase, uppercase, digit and symbol characters."
-            )
-        return value
+        return validate_strong_local_password(value)
 
 
 class FirstRunInitializeResponse(BaseModel):

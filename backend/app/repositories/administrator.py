@@ -30,12 +30,16 @@ class AdministratorRepository:
     def get_by_email(
         self,
         email: str,
+        *,
+        for_update: bool = False,
     ) -> Administrator | None:
         """Return one administrator by normalized email."""
 
         statement = select(Administrator).where(
             Administrator.email == email
         )
+        if for_update:
+            statement = statement.with_for_update()
 
         return self._session.scalar(statement)
 
@@ -55,6 +59,21 @@ class AdministratorRepository:
         )
 
         self._session.add(administrator)
+        self._session.flush()
+        self._session.refresh(administrator)
+
+        return administrator
+
+    def update_password_hash(
+        self,
+        administrator: Administrator,
+        *,
+        password_hash: str,
+    ) -> Administrator:
+        """Replace an administrator password hash without committing."""
+
+        administrator.password_hash = password_hash
+
         self._session.flush()
         self._session.refresh(administrator)
 

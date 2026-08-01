@@ -111,6 +111,7 @@ class AuditAction(StrEnum):
     EMAIL_AUTOMATION_WORKER_SIMULATED = "email_automation.worker_simulated"
     EMAIL_SINGLE_MESSAGE_APPROVAL_REQUESTED = "email_single_message.approval_requested"
     EMAIL_SINGLE_MESSAGE_SIMULATED = "email_single_message.simulated"
+    ADMINISTRATOR_PASSWORD_RESET = "administrator.password_reset"
 
 
 class AuditLog(Base):

@@ -286,7 +286,7 @@ Settings е protected workspace за account context и безопасни local
 5. Security показва current session context и позволява logout.
 6. Company defaults показва read-only company information и dashboard preference.
 7. Documentation отваря built-in Documentation Center.
-> [!WARNING] Password change и MFA изискват бъдещ verified secure backend flow. Не въвеждайте replacement passwords в unsupported form.
+> [!WARNING] Dashboard password change и MFA изискват бъдещ verified secure backend flow. За Local Edition administrator recovery използвайте само документирания interactive local CLI; не въвеждайте replacement passwords в unsupported form, chat, command argument или environment variable.
 ## Добри практики
 - Save след промяна на preferences.
 - Използвайте Documentation language, за да съвпада help content с workflow-а ви.

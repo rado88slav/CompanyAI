@@ -286,7 +286,7 @@ Settings is the protected workspace for account context and safe local dashboard
 5. Security shows current session context and lets you log out.
 6. Company defaults shows read-only company information and dashboard preference.
 7. Documentation opens the built-in Documentation Center.
-> [!WARNING] Password change and MFA require a future verified secure backend flow. Do not type replacement passwords into any unsupported form.
+> [!WARNING] Dashboard password change and MFA require a future verified secure backend flow. For Local Edition administrator recovery, use only the documented interactive local CLI; do not type replacement passwords into any unsupported form, chat, command argument or environment variable.
 ## Best practices
 - Save after changing preferences.
 - Use Documentation language to keep help content aligned with your workflow.

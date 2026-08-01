@@ -625,3 +625,18 @@ detail key; including it causes audit validation to fail and rolls back the
 credential transaction. Credential rows still store required encryption metadata,
 but audit details expose only safe field names and non-secret version/revision
 metadata.
+
+## 044 — Local Administrator Password Recovery
+
+Local Edition administrator password recovery uses a local-only interactive CLI
+against the existing backend container instead of a dashboard form, raw SQL or a
+new administrator account. The flow selects one existing administrator by exact
+email, requires explicit confirmation of that account, reads the replacement
+password with hidden input and uses the application password hashing and policy
+code.
+
+The recovery audit record is a sanitized platform system event because the
+operator may be locked out and the command is not an authenticated HTTP action.
+Administrator access tokens are currently stateless JWTs; there is no
+refresh/session table or administrator auth-version column to revoke existing
+sessions during reset.

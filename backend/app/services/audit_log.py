@@ -67,6 +67,10 @@ _SAFE_DETAIL_KEYS = frozenset(
         "attempt_number",
         "usage_id",
         "policy_id",
+        "selected_by",
+        "target_active",
+        "target_superuser",
+        "session_revocation_supported",
     }
 )
 
@@ -267,6 +271,15 @@ class AuditLogService:
             raise ValueError("Unsupported platform audit resource_type.")
         _validate_safe_details(details)
         return self._repository.create(scope=AuditScope.PLATFORM.value, company_id=None, actor_type=AuditActorType.ADMINISTRATOR.value, actor_administrator_id=actor_administrator_id, action=action, resource_type=resource_type, resource_id=resource_id, details=details)
+
+    def append_platform_system_event(self, *, action: str, resource_type: str, resource_id: UUID | None, details: dict[str, Any]) -> AuditLog:
+        """Append a controlled unauthenticated local-system recovery event."""
+        if action != AuditAction.ADMINISTRATOR_PASSWORD_RESET.value:
+            raise ValueError("Unsupported platform system audit action.")
+        if resource_type != "administrator":
+            raise ValueError("Unsupported platform system audit resource_type.")
+        _validate_safe_details(details)
+        return self._repository.create(scope=AuditScope.PLATFORM.value, company_id=None, actor_type=AuditActorType.SYSTEM.value, actor_administrator_id=None, action=action, resource_type=resource_type, resource_id=resource_id, details=details)
 
     def append_agent_event(self, *, company_id: UUID, actor_agent_id: UUID, action: str, resource_type: str, resource_id: UUID | None, details: dict[str, Any]) -> AuditLog:
         """Append a safe company event performed by an authenticated agent."""

@@ -22,6 +22,28 @@ http://localhost:8080
 
 If the installation has no administrator, the dashboard shows a setup-required wizard. Complete it once before signing in. The backend rejects setup after an administrator, company or membership exists.
 
+## Administrator Password Recovery
+
+If an existing administrator loses the login password, do not create a new
+installation, company or database. Use the local interactive recovery command
+against the existing Local Edition backend:
+
+```bash
+scripts/local/reset-administrator-password.sh
+```
+
+The command uses only `.env.local` and `docker-compose.local.yml`, prompts for
+the existing administrator email, shows the selected non-secret account
+metadata, requires typing that email again before any change, then reads the
+new password twice with hidden `getpass` input. Do not paste the new password
+into chat, command arguments, environment variables, tickets or logs.
+
+The reset preserves the administrator identity, company ownership,
+memberships, provider connections, mailbox credentials and audit history. It
+stores only a new Argon2 password hash and appends a sanitized platform system
+audit event. Existing administrator access tokens are stateless in this version
+and cannot be centrally revoked; they expire automatically.
+
 ## Stop
 
 ```bash

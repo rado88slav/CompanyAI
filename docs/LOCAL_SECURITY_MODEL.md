@@ -19,6 +19,21 @@ Secrets live in `.env.local`, generated on the workstation. Examples contain pla
 
 The first administrator is not created by default. The setup status endpoint is read-only, and both the graphical wizard and local bootstrap command close automatically once administrator, company or membership records exist. Passwords are hashed and are never returned or printed.
 
+## Administrator Password Recovery
+
+Local Edition includes an interactive existing-administrator password reset
+command for workstation recovery. It must run through `docker-compose.local.yml`
+and `.env.local`, select an existing administrator by exact email, hide password
+entry, confirm the selected account before writing and use the application
+password hashing and policy validation code. It does not create users or
+companies, does not touch provider credentials and does not print passwords or
+hashes.
+
+The recovery audit event is a platform system event with sanitized metadata
+only. Administrator access tokens are currently stateless JWTs, so there is no
+refresh/session table to revoke during reset; existing tokens expire according
+to their configured lifetime.
+
 ## Email
 
 Outbound email is restricted by the backend Email Sandbox. The UI is not the authority. Every send attempt must be authenticated, company-scoped, approval-gated, allowlisted, quota-limited, duplicate-protected and audited.

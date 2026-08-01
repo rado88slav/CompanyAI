@@ -25,7 +25,10 @@ from app.repositories.administrator import (
 from app.schemas.authentication import (
     AdministratorCreate,
     LoginRequest,
+    normalize_email,
 )
+from app.schemas.first_run import validate_strong_local_password
+from app.services.audit_log import AuditLogService
 
 _DUMMY_PASSWORD_HASH = hash_password(
     "company-ai-invalid-password"
@@ -48,12 +51,24 @@ class AdministratorInactiveError(Exception):
     """Raised when an administrator account is inactive."""
 
 
+class AdministratorPasswordPolicyError(ValueError):
+    """Raised when a replacement administrator password is not strong enough."""
+
+
 @dataclass(frozen=True, slots=True)
 class IssuedAccessToken:
     """A signed access token and its lifetime."""
 
     access_token: str
     expires_in: int
+
+
+@dataclass(frozen=True, slots=True)
+class AdministratorPasswordResetResult:
+    """Safe result metadata for a local administrator password reset."""
+
+    administrator: Administrator
+    session_revocation_supported: bool
 
 
 class AuthenticationService:
@@ -212,6 +227,90 @@ class AuthenticationService:
             )
 
         return administrator
+
+
+class AdministratorPasswordResetService:
+    """Coordinate local-only administrator password reset recovery."""
+
+    def __init__(
+        self,
+        *,
+        repository: AdministratorRepository,
+        audit: AuditLogService,
+        session: Session,
+    ) -> None:
+        self._repository = repository
+        self._audit = audit
+        self._session = session
+
+    def get_administrator_by_email(self, email: str) -> Administrator:
+        """Return one administrator by exact normalized email."""
+
+        administrator = self._repository.get_by_email(
+            normalize_email(email)
+        )
+        if administrator is None:
+            raise AdministratorNotFoundError(
+                "Administrator account was not found."
+            )
+        return administrator
+
+    def reset_password(
+        self,
+        *,
+        email: str,
+        new_password: str,
+    ) -> AdministratorPasswordResetResult:
+        """Replace the selected administrator password hash atomically."""
+
+        if len(new_password) < 14 or len(new_password) > 128:
+            raise AdministratorPasswordPolicyError(
+                "Password does not meet the local administrator policy."
+            )
+        try:
+            validate_strong_local_password(new_password)
+        except ValueError as exc:
+            raise AdministratorPasswordPolicyError(
+                "Password does not meet the local administrator policy."
+            ) from exc
+
+        try:
+            administrator = self._repository.get_by_email(
+                normalize_email(email),
+                for_update=True,
+            )
+            if administrator is None:
+                raise AdministratorNotFoundError(
+                    "Administrator account was not found."
+                )
+
+            password_hash = hash_password(new_password)
+            administrator = self._repository.update_password_hash(
+                administrator,
+                password_hash=password_hash,
+            )
+            session_revocation_supported = False
+            self._audit.append_platform_system_event(
+                action="administrator.password_reset",
+                resource_type="administrator",
+                resource_id=administrator.id,
+                details={
+                    "operation": "local_admin_access_recovery",
+                    "changed": True,
+                    "selected_by": "email",
+                    "target_active": administrator.is_active,
+                    "target_superuser": administrator.is_superuser,
+                    "session_revocation_supported": session_revocation_supported,
+                },
+            )
+            self._session.commit()
+            return AdministratorPasswordResetResult(
+                administrator=administrator,
+                session_revocation_supported=session_revocation_supported,
+            )
+        except Exception:
+            self._session.rollback()
+            raise
 
 
 def get_authentication_service(

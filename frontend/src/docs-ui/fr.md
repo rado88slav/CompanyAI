@@ -82,7 +82,19 @@ Les providers sont des adaptateurs externes ou locaux exposés via une metadata 
 3. Lisez authentication type et capabilities.
 4. Consultez System Status pour la posture provider.
 > [!INFO] Les valeurs de credentials ne sont jamais affichées.
-> [!WARNING] Les mutations live provider et les vrais sends ne sont pas activés.
+## Boite Generic SMTP/IMAP
+1. Selectionnez Add email mailbox.
+2. Saisissez uniquement les parametres non-secret: email address, sender name, username, SMTP/IMAP hosts, ports, security modes et IMAP folder.
+3. Entrez le password seulement dans le champ masque.
+4. Enregistrez la boite, puis lancez Test SMTP et Test IMAP.
+5. Activez seulement lorsque les deux tests reussissent.
+> [!WARNING] Le test SMTP n'envoie pas d'email. Le test IMAP ouvre le dossier configure en read-only et ne modifie aucun message.
+## Troubleshooting
+- DNS failure: verifier le nom d'hote.
+- Connection failure ou timeout: verifier port, firewall et acces reseau.
+- TLS failure: utiliser un certificat valide et approuve. Les certificats invalides ne peuvent pas etre acceptes.
+- Authentication failure: verifier username et password sans coller de secrets dans les logs.
+- Folder not found: verifier le dossier IMAP, souvent INBOX.
 ## Erreurs fréquentes
 - Confondre une entrée catalogue avec un credential live.
 - Confondre provider mock/local et livraison externe.

@@ -82,7 +82,19 @@ Provider sind externe oder lokale Adapter, dargestellt über sichere company-sco
 3. Lesen Sie Authentication Type und Capabilities.
 4. Nutzen Sie System Status für die Provider-Lage.
 > [!INFO] Credential-Werte werden nie angezeigt.
-> [!WARNING] Live-Provider-Mutationen und reale Sends sind nicht aktiviert.
+## Generic SMTP/IMAP Mailbox
+1. Wählen Sie Add email mailbox.
+2. Erfassen Sie nur non-secret Einstellungen: Email Address, Sender Name, Username, SMTP/IMAP Hosts, Ports, Security Modes und IMAP Folder.
+3. Geben Sie das Passwort nur in das maskierte Password Field ein.
+4. Speichern Sie die Mailbox und führen Sie Test SMTP und Test IMAP aus.
+5. Aktivieren Sie erst, wenn beide Tests erfolgreich sind.
+> [!WARNING] Der SMTP-Test sendet keine E-Mail. Der IMAP-Test öffnet den konfigurierten Ordner read-only und verändert keine Nachrichten.
+## Troubleshooting
+- DNS failure: Hostname prüfen.
+- Connection failure oder timeout: Port, Firewall und Netzwerkzugang prüfen.
+- TLS failure: gültiges vertrauenswürdiges Zertifikat verwenden. Ungültige Zertifikate können nicht akzeptiert werden.
+- Authentication failure: Username und Passwort prüfen, ohne Secrets in Logs einzufügen.
+- Folder not found: IMAP Folder prüfen, normalerweise INBOX.
 ## Häufige Fehler
 - Ein Catalog Entry wird mit Live-Credentials verwechselt.
 - Mock/local Provider werden mit externer Zustellung verwechselt.

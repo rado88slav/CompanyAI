@@ -1,5 +1,11 @@
 import { companyApi } from "./client";
-import type { ProviderConnection, ProviderDescriptor } from "../types/provider";
+import type {
+  ProviderConnection,
+  ProviderConnectionCreate,
+  ProviderConnectionTestResult,
+  ProviderCredentialCreate,
+  ProviderDescriptor,
+} from "../types/provider";
 
 const AUTH_TOKEN_KEY = "companyai.accessToken";
 
@@ -28,4 +34,47 @@ export function fetchProviderConnections(
   signal?: AbortSignal,
 ): Promise<{ items: ProviderConnection[]; total: number; limit: number; offset: number }> {
   return companyApi("/provider-connections", { signal });
+}
+
+export function createProviderConnection(
+  payload: ProviderConnectionCreate,
+): Promise<ProviderConnection> {
+  return companyApi("/provider-connections", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createProviderCredential(
+  connectionId: string,
+  payload: ProviderCredentialCreate,
+): Promise<unknown> {
+  return companyApi(`/provider-connections/${encodeURIComponent(connectionId)}/credentials`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function testProviderConnectionSmtp(
+  connectionId: string,
+): Promise<ProviderConnectionTestResult> {
+  return companyApi(`/provider-connections/${encodeURIComponent(connectionId)}/test-smtp`, {
+    method: "POST",
+  });
+}
+
+export function testProviderConnectionImap(
+  connectionId: string,
+): Promise<ProviderConnectionTestResult> {
+  return companyApi(`/provider-connections/${encodeURIComponent(connectionId)}/test-imap`, {
+    method: "POST",
+  });
+}
+
+export function activateProviderConnection(
+  connectionId: string,
+): Promise<ProviderConnection> {
+  return companyApi(`/provider-connections/${encodeURIComponent(connectionId)}/activate`, {
+    method: "POST",
+  });
 }

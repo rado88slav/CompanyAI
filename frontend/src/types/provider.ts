@@ -26,3 +26,24 @@ export type ProviderConnection = {
   deactivated_at: string | null;
   revoked_at: string | null;
 };
+
+export type ProviderConnectionCreate = {
+  provider_key: string;
+  display_name: string;
+  slug: string;
+  configuration: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
+export type ProviderCredentialCreate = {
+  secrets: Record<string, string>;
+};
+
+export type ProviderConnectionTestResult = {
+  protocol: string;
+  status: string;
+  tested_at: string;
+  category: string;
+  message: string;
+  connection: ProviderConnection;
+};

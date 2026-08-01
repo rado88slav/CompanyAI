@@ -82,7 +82,19 @@ Providers are external or local adapters represented through safe company-scoped
 3. Inspect authentication type and capabilities.
 4. Use System Status to understand provider posture.
 > [!INFO] Credential values are never rendered in the dashboard.
-> [!WARNING] Live provider mutations and real sends are not enabled in the current product slice.
+## Generic SMTP/IMAP mailbox
+1. Select Add email mailbox.
+2. Enter non-secret mailbox settings: email address, sender name, username, SMTP and IMAP hosts, ports, security modes and IMAP folder.
+3. Enter the password only in the masked password field.
+4. Save the mailbox, then run Test SMTP and Test IMAP.
+5. Activate only after both tests succeed.
+> [!WARNING] SMTP tests do not send email. IMAP tests open the configured folder read-only and do not modify messages.
+## Troubleshooting
+- DNS failure: check the host name.
+- Connection failure or timeout: check port, firewall and network access.
+- TLS failure: use a valid trusted certificate. Invalid certificates cannot be accepted.
+- Authentication failure: check username and password without pasting secrets into logs.
+- Folder not found: check the IMAP folder, usually INBOX.
 ## Common mistakes
 - Expecting catalog entries to mean a live credential exists.
 - Confusing mock/local providers with external delivery.

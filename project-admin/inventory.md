@@ -127,6 +127,7 @@ Generated automatically by:
 ./backend/app/services/email_campaign.py
 ./backend/app/services/email_campaign_adapters.py
 ./backend/app/services/first_run.py
+./backend/app/services/generic_smtp_imap.py
 ./backend/app/services/provider_connection.py
 ./backend/app/services/provider_execution.py
 ./backend/app/services/tool_registry.py

@@ -17,7 +17,8 @@ from app.models.audit_log import AuditAction
 from app.models.provider_connection import ProviderConnection, ProviderCredential
 from app.repositories.audit_log import AuditLogRepository
 from app.repositories.provider_connection import ProviderConnectionRepository
-from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionUpdate, ProviderCredentialCreate
+from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionUpdate, ProviderCredentialCreate, validate_generic_smtp_imap_configuration
+from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY, GenericMailboxTester, MailboxProtocol, MailboxTestResult
 from app.services.audit_log import AuditLogService
 
 
@@ -38,8 +39,9 @@ class ResolvedProviderCredential:
 
 
 class ProviderConnectionService:
-    def __init__(self, repository: ProviderConnectionRepository, audit: AuditLogService, session: Session, encryption: CredentialEncryptionService) -> None:
+    def __init__(self, repository: ProviderConnectionRepository, audit: AuditLogService, session: Session, encryption: CredentialEncryptionService, mailbox_tester: GenericMailboxTester | None = None) -> None:
         self._repository, self._audit, self._session, self._encryption = repository, audit, session, encryption
+        self._mailbox_tester = mailbox_tester or GenericMailboxTester()
 
     def _connection(self, company_id: UUID, connection_id: UUID, *, lock: bool = False) -> ProviderConnection:
         item = self._repository.connection(company_id=company_id, connection_id=connection_id, for_update=lock)
@@ -48,6 +50,26 @@ class ProviderConnectionService:
 
     def _audit_event(self, *, company_id: UUID, actor: Administrator, action: AuditAction, resource_id: UUID, details: dict[str, object]) -> None:
         self._audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=action.value, resource_type="provider_connection" if action.value.startswith("provider_connection.") else "provider_credential", resource_id=resource_id, details=details)
+
+    def _active_credential(self, *, company_id: UUID, connection_id: UUID) -> ProviderCredential:
+        now = datetime.now(UTC)
+        credential = self._repository.active_credential(company_id=company_id, connection_id=connection_id, for_update=True)
+        if credential is None or (credential.expires_at is not None and credential.expires_at <= now):
+            raise ProviderLifecycleError
+        return credential
+
+    def _generic_health_ready(self, item: ProviderConnection) -> bool:
+        health = item.metadata_.get(GENERIC_MAILBOX_HEALTH_KEY)
+        if not isinstance(health, dict):
+            return False
+        smtp = health.get("smtp")
+        imap = health.get("imap")
+        return (
+            isinstance(smtp, dict)
+            and isinstance(imap, dict)
+            and smtp.get("status") == "succeeded"
+            and imap.get("status") == "succeeded"
+        )
 
     def create_connection(self, *, company_id: UUID, data: ProviderConnectionCreate, actor: Administrator) -> ProviderConnection:
         descriptor = provider_registry.require(data.provider_key)
@@ -125,8 +147,15 @@ class ProviderConnectionService:
         changes = data.model_dump(exclude_unset=True)
         if "configuration" in changes:
             changes["configuration"] = validate_safe_object(changes["configuration"], allowed_fields=provider_registry.require(item.provider_key).configuration_fields, path="configuration")
+            if item.provider_key == "generic_smtp_imap":
+                changes["configuration"] = validate_generic_smtp_imap_configuration(changes["configuration"])
+                metadata = dict(item.metadata_ or {})
+                metadata.pop(GENERIC_MAILBOX_HEALTH_KEY, None)
+                item.metadata_ = metadata
         if "metadata" in changes:
             changes["metadata_"] = validate_safe_object(changes.pop("metadata"), path="metadata")
+            if item.provider_key == "generic_smtp_imap" and GENERIC_MAILBOX_HEALTH_KEY in changes["metadata_"]:
+                raise ValueError("Generic SMTP/IMAP health metadata is managed by the backend.")
         for field, value in changes.items(): setattr(item, field, value)
         item.updated_by_administrator_id = actor.id
         try:
@@ -144,9 +173,11 @@ class ProviderConnectionService:
         now = datetime.now(UTC)
         action = {"active": AuditAction.PROVIDER_CONNECTION_ACTIVATED, "inactive": AuditAction.PROVIDER_CONNECTION_DEACTIVATED, "revoked": AuditAction.PROVIDER_CONNECTION_REVOKED}[target]
         if target == "active":
-            credential = self._repository.active_credential(company_id=company_id, connection_id=connection_id, for_update=True)
             descriptor = provider_registry.require(item.provider_key)
-            if descriptor.required_secret_fields and (credential is None or (credential.expires_at is not None and credential.expires_at <= now)): raise ProviderLifecycleError
+            if descriptor.required_secret_fields:
+                self._active_credential(company_id=company_id, connection_id=connection_id)
+            if item.provider_key == "generic_smtp_imap" and not self._generic_health_ready(item):
+                raise ProviderLifecycleError
             item.status, item.activated_at, item.activated_by_administrator_id = target, now, actor.id
             item.deactivated_at = item.deactivated_by_administrator_id = None
         elif target == "inactive":
@@ -186,6 +217,11 @@ class ProviderConnectionService:
         if item.status == "revoked" or self._repository.active_credential(company_id=company_id, connection_id=connection_id, for_update=True): raise ProviderLifecycleError
         try:
             credential = self._new_credential(item=item, data=data, actor=actor, rotated_from=None)
+            if item.provider_key == "generic_smtp_imap":
+                metadata = dict(item.metadata_ or {})
+                metadata.pop(GENERIC_MAILBOX_HEALTH_KEY, None)
+                item.metadata_ = metadata
+                self._repository.save_connection(item)
             self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_CREATED, resource_id=credential.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(credential.id), "expiration_present": credential.expires_at is not None, "encryption_version": credential.encryption_version, "encryption_key_id": credential.encryption_key_id, "encryption_revision": credential.encryption_revision})
             self._session.commit(); return credential
         except IntegrityError as exc:
@@ -201,6 +237,11 @@ class ProviderConnectionService:
         try:
             self._repository.save_credential(old)
             new = self._new_credential(item=item, data=data, actor=actor, rotated_from=old.id)
+            if item.provider_key == "generic_smtp_imap":
+                metadata = dict(item.metadata_ or {})
+                metadata.pop(GENERIC_MAILBOX_HEALTH_KEY, None)
+                item.metadata_ = metadata
+                self._repository.save_connection(item)
             self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_ROTATED, resource_id=new.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(new.id), "previous_credential_id": str(old.id), "expiration_present": new.expires_at is not None, "encryption_version": new.encryption_version, "encryption_key_id": new.encryption_key_id, "encryption_revision": new.encryption_revision})
             self._session.commit(); return new
         except Exception:
@@ -219,6 +260,37 @@ class ProviderConnectionService:
                 self._repository.save_connection(item)
             self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_REVOKED, resource_id=credential.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(credential.id)})
             self._session.commit(); return credential
+        except Exception:
+            self._session.rollback(); raise
+
+    def test_generic_mailbox(self, *, company_id: UUID, connection_id: UUID, protocol: MailboxProtocol, actor: Administrator) -> tuple[MailboxTestResult, ProviderConnection]:
+        item = self._connection(company_id, connection_id, lock=True)
+        if item.status == "revoked" or item.provider_key != "generic_smtp_imap":
+            raise ProviderLifecycleError
+        credential = self._active_credential(company_id=company_id, connection_id=connection_id)
+        secrets = self._encryption.decrypt(
+            credential.encrypted_payload,
+            credential.nonce,
+            company_id=company_id,
+            connection_id=connection_id,
+            credential_id=credential.id,
+            provider_key=item.provider_key,
+            encryption_version=credential.encryption_version,
+            encryption_key_id=credential.encryption_key_id,
+        ).secrets
+        result = self._mailbox_tester.test_smtp(configuration=item.configuration, secrets=secrets) if protocol is MailboxProtocol.SMTP else self._mailbox_tester.test_imap(configuration=item.configuration, secrets=secrets)
+        metadata = dict(item.metadata_ or {})
+        health = dict(metadata.get(GENERIC_MAILBOX_HEALTH_KEY) or {})
+        health[protocol.value] = result.safe_metadata()
+        health["activation_ready"] = bool(health.get("smtp", {}).get("status") == "succeeded" and health.get("imap", {}).get("status") == "succeeded")
+        metadata[GENERIC_MAILBOX_HEALTH_KEY] = validate_safe_object(health, path="metadata.generic_smtp_imap_health")
+        item.metadata_ = metadata
+        item.updated_by_administrator_id = actor.id
+        action = AuditAction.PROVIDER_CONNECTION_SMTP_TESTED if protocol is MailboxProtocol.SMTP else AuditAction.PROVIDER_CONNECTION_IMAP_TESTED
+        try:
+            self._repository.save_connection(item)
+            self._audit_event(company_id=company_id, actor=actor, action=action, resource_id=item.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "protocol": protocol.value, "status": result.status, "category": result.category.value})
+            self._session.commit(); return result, item
         except Exception:
             self._session.rollback(); raise
 

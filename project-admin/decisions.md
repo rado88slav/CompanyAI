@@ -524,3 +524,36 @@ encrypted config bundle by setting `COMPANYAI_BACKUP_PASSPHRASE` for the
 backup command. Restore verifies checksums and never overwrites active
 `.env.local`; encrypted configuration is decrypted only to a support review
 folder after explicit `COMPANYAI_RESTORE_CONFIG_CONFIRMATION`.
+
+## 039 — Generic SMTP/IMAP Provider Connections
+
+Generic SMTP/IMAP mailboxes are modeled as Provider Connections with provider
+key `generic_smtp_imap`, not as a separate mail account subsystem. The mailbox
+password uses the existing encrypted `ProviderCredential` storage and is
+accepted only under the secret field `password`. Connection configuration and
+metadata remain non-secret and are recursively validated against the existing
+safe object rules.
+
+Connection tests are explicit backend actions: SMTP test verifies DNS,
+connection, TLS and authentication without sending email; IMAP test verifies
+DNS, connection, TLS, authentication and read-only folder access without
+changing messages. User-facing failures are sanitized into stable categories.
+Audit events record protocol, status and category only.
+
+Activation uses the existing `inactive`/`active`/`revoked` lifecycle. A Generic
+SMTP/IMAP connection cannot become active unless an active encrypted credential
+exists and the latest SMTP and IMAP health records both succeeded. Health is
+stored in safe provider connection metadata, so no database migration or new
+status enum is required.
+
+## 040 — Target OpenClaw Deployment Boundary
+
+OpenClaw is a future separate Docker service/container. It must not receive
+unrestricted Docker socket, shell, filesystem, database or host access.
+
+OpenClaw communicates with CompanyAI only through trusted API and tool
+contracts. CompanyAI remains the authority for company context, Tool Registry
+grants, provider credentials, audit logging and Approval Manager decisions.
+Any future OpenClaw action that can affect external systems must be expressed
+as an exact CompanyAI-authorized tool/provider operation rather than direct
+host automation.

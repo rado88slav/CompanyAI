@@ -1710,6 +1710,67 @@ h1 {
   font-weight: 700;
 }
 
+.mailbox-form {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 28px;
+  padding: 24px;
+  border: 1px solid #d7e0ea;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.mailbox-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.mailbox-form label {
+  display: grid;
+  gap: 7px;
+  color: #29415f;
+  font-weight: 760;
+}
+
+.mailbox-form input,
+.mailbox-form select {
+  width: 100%;
+  min-height: 43px;
+  padding: 10px 12px;
+  border: 1px solid #cdd6e3;
+  border-radius: 8px;
+  color: #17243a;
+  background: #fff;
+  font: inherit;
+}
+
+.mailbox-health {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e1e7ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.mailbox-health-line {
+  display: grid;
+  grid-template-columns: 64px minmax(88px, auto) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.mailbox-health-line span {
+  text-transform: capitalize;
+  font-weight: 760;
+}
+
+.mailbox-health-line small {
+  color: #758096;
+  overflow-wrap: anywhere;
+}
+
 .compact-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

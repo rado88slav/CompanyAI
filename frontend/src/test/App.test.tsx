@@ -493,6 +493,181 @@ test("renders provider connections from safe catalog and company data", async ()
   expect(document.body.textContent?.toLowerCase()).not.toContain("secret");
 });
 
+const genericProviderDescriptor = {
+  key: "generic_smtp_imap",
+  display_name: "Generic SMTP/IMAP",
+  category: "email",
+  authentication_type: "username_password",
+  required_secret_fields: ["password"],
+  optional_secret_fields: [],
+  configuration_fields: [
+    "email_address",
+    "sender_display_name",
+    "username",
+    "smtp_host",
+    "smtp_port",
+    "smtp_security",
+    "imap_host",
+    "imap_port",
+    "imap_security",
+    "imap_folder",
+    "reply_to_address",
+  ],
+  capabilities: ["email.send", "email.read", "email.reply"],
+  credentials_may_expire: false,
+};
+
+function genericConnection(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "generic-connection",
+    company_id: "company-id",
+    provider_key: "generic_smtp_imap",
+    display_name: "Primary mailbox",
+    slug: "primary-mailbox",
+    authentication_type: "username_password",
+    status: "inactive",
+    configuration: {
+      email_address: "mailbox@example.test",
+      username: "mailbox@example.test",
+      smtp_host: "mail.example.test",
+      smtp_port: 465,
+      smtp_security: "ssl_tls",
+      imap_host: "mail.example.test",
+      imap_port: 993,
+      imap_security: "ssl_tls",
+      imap_folder: "INBOX",
+    },
+    metadata: {},
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    activated_at: null,
+    deactivated_at: null,
+    revoked_at: null,
+    ...overrides,
+  };
+}
+
+test("renders the Generic SMTP/IMAP provider and opens and closes the mailbox form", async () => {
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+  );
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  expect(await screen.findByText("Generic SMTP/IMAP")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Add email mailbox" }));
+  expect(screen.getByRole("heading", { name: "Add mailbox" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("heading", { name: "Add mailbox" })).not.toBeInTheDocument();
+});
+
+test("validates mailbox form ports before saving", async () => {
+  setToken();
+  const fetchMock = await authenticatedFetchMock(
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+  );
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Add email mailbox" }));
+  fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "mailbox@example.test" } });
+  fireEvent.change(screen.getByLabelText("Username"), { target: { value: "mailbox@example.test" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "not-rendered-mailbox-password" } });
+  fireEvent.change(screen.getByLabelText("SMTP host"), { target: { value: "mail.example.test" } });
+  fireEvent.change(screen.getByLabelText("SMTP port"), { target: { value: "70000" } });
+  fireEvent.change(screen.getByLabelText("IMAP host"), { target: { value: "mail.example.test" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save mailbox" }));
+
+  expect(await screen.findByText("SMTP port must be a valid TCP port.")).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledTimes(5);
+  expect(document.body.textContent).not.toContain("not-rendered-mailbox-password");
+});
+
+test("handles partial mailbox save when credential creation fails", async () => {
+  setToken();
+  const connection = genericConnection();
+  await authenticatedFetchMock(
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse(connection, true, 201),
+    await jsonResponse({}, false, 409),
+  );
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Add email mailbox" }));
+  fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "mailbox@example.test" } });
+  fireEvent.change(screen.getByLabelText("Username"), { target: { value: "mailbox@example.test" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "not-rendered-mailbox-password" } });
+  fireEvent.change(screen.getByLabelText("SMTP host"), { target: { value: "mail.example.test" } });
+  fireEvent.change(screen.getByLabelText("IMAP host"), { target: { value: "mail.example.test" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save mailbox" }));
+
+  expect(await screen.findByText(/Connection saved, but password storage failed/)).toBeInTheDocument();
+  expect(screen.getByText("Primary mailbox")).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("not-rendered-mailbox-password");
+});
+
+test("failed mailbox tests prevent activation and successful tests enable it", async () => {
+  setToken();
+  const baseConnection = genericConnection();
+  const smtpOk = genericConnection({
+    metadata: {
+      generic_smtp_imap_health: {
+        smtp: { status: "succeeded", tested_at: "2026-01-01T00:00:00Z", category: "success", message: "Connection test succeeded." },
+        activation_ready: false,
+      },
+    },
+  });
+  const imapFailed = genericConnection({
+    metadata: {
+      generic_smtp_imap_health: {
+        smtp: { status: "succeeded", tested_at: "2026-01-01T00:00:00Z", category: "success", message: "Connection test succeeded." },
+        imap: { status: "failed", tested_at: "2026-01-01T00:01:00Z", category: "authentication_failure", message: "Mailbox authentication failed." },
+        activation_ready: false,
+      },
+    },
+  });
+  const imapOk = genericConnection({
+    metadata: {
+      generic_smtp_imap_health: {
+        smtp: { status: "succeeded", tested_at: "2026-01-01T00:00:00Z", category: "success", message: "Connection test succeeded." },
+        imap: { status: "succeeded", tested_at: "2026-01-01T00:02:00Z", category: "success", message: "Connection test succeeded." },
+        activation_ready: true,
+      },
+    },
+  });
+  const active = genericConnection({ ...imapOk, status: "active", activated_at: "2026-01-01T00:03:00Z" });
+  await authenticatedFetchMock(
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [baseConnection], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({ protocol: "smtp", status: "succeeded", tested_at: "2026-01-01T00:00:00Z", category: "success", message: "Connection test succeeded.", connection: smtpOk }),
+    await jsonResponse({ protocol: "imap", status: "failed", tested_at: "2026-01-01T00:01:00Z", category: "authentication_failure", message: "Mailbox authentication failed.", connection: imapFailed }),
+    await jsonResponse({ protocol: "imap", status: "succeeded", tested_at: "2026-01-01T00:02:00Z", category: "success", message: "Connection test succeeded.", connection: imapOk }),
+    await jsonResponse(active),
+  );
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  expect(await screen.findByText("Primary mailbox")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Activate" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Test SMTP" }));
+  expect(await screen.findByText("Connection test succeeded.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Activate" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Test IMAP" }));
+  expect(await screen.findByText("Mailbox authentication failed.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Activate" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Test IMAP" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Activate" })).not.toBeDisabled());
+  fireEvent.click(screen.getByRole("button", { name: "Activate" }));
+  expect(await screen.findByText("Mailbox activated.")).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("not-rendered-mailbox-password");
+});
+
 test("renders inbox empty state and refresh", async () => {
   setToken();
   await authenticatedFetchMock(

@@ -10,8 +10,52 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, m
 
 from app.core.provider_connections import ProviderDescriptor, provider_registry, validate_safe_object
 from app.models.provider_connection import ProviderConnectionStatus, ProviderCredentialStatus
+from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+HOST_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,251}[A-Za-z0-9]$")
+GENERIC_SMTP_IMAP_SECURITY_VALUES = {"ssl_tls", "starttls"}
+
+
+def validate_generic_smtp_imap_configuration(value: dict[str, Any]) -> dict[str, Any]:
+    required_strings = {
+        "email_address",
+        "username",
+        "smtp_host",
+        "smtp_security",
+        "imap_host",
+        "imap_security",
+        "imap_folder",
+    }
+    for key in required_strings:
+        item = value.get(key)
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError("Generic SMTP/IMAP configuration is incomplete.")
+        value[key] = item.strip()
+    for key in ("sender_display_name", "reply_to_address"):
+        item = value.get(key)
+        if item is not None:
+            if not isinstance(item, str):
+                raise ValueError("Generic SMTP/IMAP configuration is invalid.")
+            value[key] = item.strip()
+    for key in ("email_address", "reply_to_address"):
+        item = value.get(key)
+        if item and not EMAIL_PATTERN.fullmatch(item):
+            raise ValueError("Generic SMTP/IMAP email address is invalid.")
+    for key in ("smtp_host", "imap_host"):
+        item = value[key]
+        if not HOST_PATTERN.fullmatch(item) or ".." in item:
+            raise ValueError("Generic SMTP/IMAP host is invalid.")
+        value[key] = item.casefold()
+    for key in ("smtp_port", "imap_port"):
+        item = value.get(key)
+        if not isinstance(item, int) or item < 1 or item > 65535:
+            raise ValueError("Generic SMTP/IMAP port is invalid.")
+    for key in ("smtp_security", "imap_security"):
+        if value[key] not in GENERIC_SMTP_IMAP_SECURITY_VALUES:
+            raise ValueError("Generic SMTP/IMAP security mode is invalid.")
+    return value
 
 
 class ProviderDescriptorResponse(BaseModel):
@@ -52,6 +96,10 @@ class ProviderConnectionCreate(BaseModel):
         if not SLUG_PATTERN.fullmatch(self.slug):
             raise ValueError("Connection slug is invalid.")
         self.configuration = validate_safe_object(self.configuration, allowed_fields=descriptor.configuration_fields, path="configuration")
+        if descriptor.key == "generic_smtp_imap":
+            self.configuration = validate_generic_smtp_imap_configuration(self.configuration)
+            if GENERIC_MAILBOX_HEALTH_KEY in self.metadata:
+                raise ValueError("Generic SMTP/IMAP health metadata is managed by the backend.")
         self.metadata = validate_safe_object(self.metadata, path="metadata")
         return self
 
@@ -151,3 +199,12 @@ class ProviderCredentialListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class ProviderConnectionTestResponse(BaseModel):
+    protocol: str
+    status: str
+    tested_at: datetime
+    category: str
+    message: str
+    connection: ProviderConnectionResponse

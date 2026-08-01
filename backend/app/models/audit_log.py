@@ -84,6 +84,8 @@ class AuditAction(StrEnum):
     PROVIDER_CONNECTION_ACTIVATED = "provider_connection.activated"
     PROVIDER_CONNECTION_DEACTIVATED = "provider_connection.deactivated"
     PROVIDER_CONNECTION_REVOKED = "provider_connection.revoked"
+    PROVIDER_CONNECTION_SMTP_TESTED = "provider_connection.smtp_tested"
+    PROVIDER_CONNECTION_IMAP_TESTED = "provider_connection.imap_tested"
     PROVIDER_CREDENTIAL_CREATED = "provider_credential.created"
     PROVIDER_CREDENTIAL_ROTATED = "provider_credential.rotated"
     PROVIDER_CREDENTIAL_REVOKED = "provider_credential.revoked"

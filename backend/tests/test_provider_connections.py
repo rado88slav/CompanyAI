@@ -1,6 +1,8 @@
 """Focused Provider Connections security and contract tests."""
 import base64
 import json
+import socket
+import ssl
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
@@ -15,6 +17,7 @@ from app.main import app
 from app.models.audit_log import AuditAction
 from app.models.provider_connection import ProviderConnection, ProviderCredential
 from app.schemas.provider_connection import ProviderConnectionCreate, ProviderCredentialCreate
+from app.services.generic_smtp_imap import GenericMailboxTester, MailboxAuthenticationError, MailboxFolderError, MailboxProtocol, MailboxTimeoutError
 from app.services.provider_connection import ProviderConnectionService, ProviderLifecycleError
 
 
@@ -32,7 +35,12 @@ def _encryption_service(
 
 
 def test_immutable_builtin_descriptors_include_local_test_email() -> None:
-    assert {x.key for x in provider_registry.all()} == {"retell","twilio","telnyx","microsoft_365","google_workspace","lemlist","instantly","smartlead","local_test_email","local_mock_email"}
+    assert {x.key for x in provider_registry.all()} == {"retell","twilio","telnyx","microsoft_365","google_workspace","lemlist","instantly","smartlead","generic_smtp_imap","local_test_email","local_mock_email"}
+    generic = provider_registry.require("generic_smtp_imap")
+    assert generic.display_name == "Generic SMTP/IMAP"
+    assert generic.category == "email"
+    assert generic.required_secret_fields == frozenset({"password"})
+    assert {"email.send", "email.read", "email.reply"} <= generic.capabilities
     assert provider_registry.require("local_test_email").required_secret_fields == frozenset()
     assert provider_registry.require("local_mock_email").required_secret_fields == frozenset()
     assert "email.campaign.read" in provider_registry.require("lemlist").capabilities
@@ -63,6 +71,55 @@ def test_connection_schema_uses_trusted_provider() -> None:
     assert ProviderConnectionCreate(provider_key="twilio",display_name="Primary",slug="primary",configuration={"region":"us1"}).provider_key == "twilio"
     with pytest.raises(ValidationError): ProviderConnectionCreate(provider_key="unknown",display_name="Bad",slug="bad")
     with pytest.raises(ValidationError): ProviderConnectionCreate(provider_key="twilio",display_name="Bad",slug="bad",configuration={"api_key":"x"})
+
+
+def _generic_configuration(**overrides):
+    data = {
+        "email_address": "mailbox@example.test",
+        "sender_display_name": "Mailbox",
+        "username": "mailbox@example.test",
+        "smtp_host": "mail.example.test",
+        "smtp_port": 465,
+        "smtp_security": "ssl_tls",
+        "imap_host": "mail.example.test",
+        "imap_port": 993,
+        "imap_security": "ssl_tls",
+        "imap_folder": "INBOX",
+        "reply_to_address": "reply@example.test",
+    }
+    data.update(overrides)
+    return data
+
+
+def test_generic_mailbox_configuration_is_allowlisted_and_password_rejected() -> None:
+    request = ProviderConnectionCreate(provider_key="generic_smtp_imap", display_name="Mailbox", slug="mailbox", configuration=_generic_configuration(smtp_host="MAIL.EXAMPLE.TEST"))
+    assert request.configuration["smtp_host"] == "mail.example.test"
+    for configuration in (
+        _generic_configuration(password="not-allowed"),
+        _generic_configuration(smtp_port=70000),
+        _generic_configuration(imap_security="plain"),
+        _generic_configuration(reply_to_address="not-an-email"),
+    ):
+        with pytest.raises(ValidationError):
+            ProviderConnectionCreate(provider_key="generic_smtp_imap", display_name="Mailbox", slug="mailbox", configuration=configuration)
+    with pytest.raises(ValidationError):
+        ProviderConnectionCreate(
+            provider_key="generic_smtp_imap",
+            display_name="Mailbox",
+            slug="mailbox",
+            configuration=_generic_configuration(),
+            metadata={"generic_smtp_imap_health": {"smtp": {"status": "succeeded"}, "imap": {"status": "succeeded"}}},
+        )
+
+
+def test_generic_mailbox_password_credential_validation_and_redaction() -> None:
+    request = ProviderCredentialCreate(secrets={"password": "mailbox-password"})
+    assert request.validated_secrets(provider_registry.require("generic_smtp_imap")) == {"password": "mailbox-password"}
+    assert "mailbox-password" not in repr(request)
+    with pytest.raises(ValueError):
+        ProviderCredentialCreate(secrets={}).validated_secrets(provider_registry.require("generic_smtp_imap"))
+    with pytest.raises(ValueError):
+        ProviderCredentialCreate(secrets={"password": "", "api_key": "x"}).validated_secrets(provider_registry.require("generic_smtp_imap"))
 
 
 def test_secret_request_redaction_and_validation() -> None:
@@ -280,10 +337,12 @@ def test_provider_rbac_audit_and_safe_openapi() -> None:
     for role in ("operator","viewer"):
         assert role_has_permission(role,CompanyPermission.PROVIDERS_READ)
         assert not role_has_permission(role,CompanyPermission.PROVIDERS_MANAGE)
-    actions = {f"provider_connection.{x}" for x in ("created","updated","activated","deactivated","revoked")} | {f"provider_credential.{x}" for x in ("created","rotated","revoked")}
+    actions = {f"provider_connection.{x}" for x in ("created","updated","activated","deactivated","revoked","smtp_tested","imap_tested")} | {f"provider_credential.{x}" for x in ("created","rotated","revoked")}
     assert {AuditAction(x).value for x in actions} == actions
     paths = app.openapi()["paths"]
     assert "/api/v1/provider-types" in paths and "/api/v1/companies/{company_id}/provider-connections/{connection_id}/credentials" in paths
+    assert "/api/v1/companies/{company_id}/provider-connections/{connection_id}/test-smtp" in paths
+    assert "/api/v1/companies/{company_id}/provider-connections/{connection_id}/test-imap" in paths
     assert all("delete" not in operations for path,operations in paths.items() if "provider" in path)
     schema = str(app.openapi())
     for field in ("encryption_key_id", "encryption_revision", "encrypted_payload", "'nonce'", "keyring"):
@@ -446,3 +505,164 @@ def test_service_resolution_uses_stored_version_and_key_id() -> None:
 
     assert resolved.secret_bundle.secrets == {"api_key": "resolved-value"}
     assert "resolved-value" not in repr(resolved)
+
+
+class FakeMailboxTransport:
+    def __init__(self, *, smtp_error: Exception | None = None, imap_error: Exception | None = None) -> None:
+        self.smtp_error = smtp_error
+        self.imap_error = imap_error
+        self.smtp_calls = []
+        self.imap_calls = []
+
+    def test_smtp(self, **kwargs) -> None:
+        self.smtp_calls.append(kwargs)
+        if self.smtp_error:
+            raise self.smtp_error
+
+    def test_imap(self, **kwargs) -> None:
+        self.imap_calls.append(kwargs)
+        if self.imap_error:
+            raise self.imap_error
+
+
+def _generic_connection(company_id, connection_id, *, status="inactive"):
+    return ProviderConnection(
+        id=connection_id,
+        company_id=company_id,
+        provider_key="generic_smtp_imap",
+        display_name="Primary mailbox",
+        slug="primary-mailbox",
+        authentication_type="username_password",
+        status=status,
+        configuration=_generic_configuration(),
+        metadata_={},
+    )
+
+
+def _generic_service(*, transport=None, connection=None, credential=None, company_id=None, connection_id=None, password="mailbox-secret"):
+    company_id = company_id or uuid4()
+    connection_id = connection_id or uuid4()
+    credential_id = uuid4()
+    encryption = _encryption_service()
+    encrypted = encryption.encrypt({"password": password}, company_id=company_id, connection_id=connection_id, credential_id=credential_id, provider_key="generic_smtp_imap")
+    connection = connection or _generic_connection(company_id, connection_id)
+    credential = credential or ProviderCredential(
+        id=credential_id,
+        company_id=company_id,
+        provider_connection_id=connection_id,
+        status="active",
+        encrypted_payload=encrypted.ciphertext,
+        nonce=encrypted.nonce,
+        encryption_version=encrypted.encryption_version,
+        encryption_key_id=encrypted.encryption_key_id,
+        encryption_revision=encrypted.encryption_revision,
+    )
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.active_credential.return_value = credential
+    repository.save_connection.side_effect = lambda item: item
+    audit = Mock()
+    session = Mock()
+    service = ProviderConnectionService(repository, audit, session, encryption, GenericMailboxTester(transport or FakeMailboxTransport()))
+    return service, repository, audit, session, connection
+
+
+def test_generic_mailbox_smtp_and_imap_success_store_safe_health_and_enable_activation() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    transport = FakeMailboxTransport()
+    service, _repository, audit, _session, connection = _generic_service(transport=transport, company_id=company_id, connection_id=connection_id)
+
+    smtp_result, smtp_connection = service.test_generic_mailbox(company_id=company_id, connection_id=connection_id, protocol=MailboxProtocol.SMTP, actor=SimpleNamespace(id=actor_id))
+    imap_result, imap_connection = service.test_generic_mailbox(company_id=company_id, connection_id=connection_id, protocol=MailboxProtocol.IMAP, actor=SimpleNamespace(id=actor_id))
+
+    assert smtp_result.succeeded and imap_result.succeeded
+    assert transport.smtp_calls[0]["host"] == "mail.example.test"
+    assert transport.smtp_calls[0]["port"] == 465
+    assert transport.smtp_calls[0]["password"] == "mailbox-secret"
+    assert transport.imap_calls[0]["folder"] == "INBOX"
+    health = imap_connection.metadata_["generic_smtp_imap_health"]
+    assert health["smtp"]["status"] == "succeeded"
+    assert health["imap"]["status"] == "succeeded"
+    assert health["activation_ready"] is True
+    serialized = repr(health) + repr(audit.append_company_event.call_args_list)
+    assert "mailbox-secret" not in serialized
+    assert "password" not in serialized
+    assert smtp_connection.id == connection.id
+
+
+def test_generic_mailbox_activation_requires_credential_and_successful_tests() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id)
+    service, repository, _audit, _session, _connection = _generic_service(connection=connection, company_id=company_id, connection_id=connection_id)
+    with pytest.raises(ProviderLifecycleError):
+        service.set_status(company_id=company_id, connection_id=connection_id, target="active", actor=SimpleNamespace(id=actor_id))
+    connection.metadata_ = {"generic_smtp_imap_health": {"smtp": {"status": "succeeded"}, "imap": {"status": "succeeded"}, "activation_ready": True}}
+    repository.active_credential.return_value = None
+    with pytest.raises(ProviderLifecycleError):
+        service.set_status(company_id=company_id, connection_id=connection_id, target="active", actor=SimpleNamespace(id=actor_id))
+
+
+def test_generic_mailbox_activation_succeeds_after_credential_and_protocol_tests() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id)
+    connection.metadata_ = {"generic_smtp_imap_health": {"smtp": {"status": "succeeded"}, "imap": {"status": "succeeded"}, "activation_ready": True}}
+    service, _repository, _audit, _session, _connection = _generic_service(connection=connection, company_id=company_id, connection_id=connection_id)
+    item = service.set_status(company_id=company_id, connection_id=connection_id, target="active", actor=SimpleNamespace(id=actor_id))
+    assert item.status == "active"
+
+
+@pytest.mark.parametrize(
+    ("protocol", "error", "category"),
+    [
+        (MailboxProtocol.SMTP, MailboxAuthenticationError(), "authentication_failure"),
+        (MailboxProtocol.IMAP, MailboxAuthenticationError(), "authentication_failure"),
+        (MailboxProtocol.SMTP, MailboxTimeoutError(), "timeout"),
+        (MailboxProtocol.IMAP, MailboxTimeoutError(), "timeout"),
+        (MailboxProtocol.SMTP, socket.gaierror(), "dns_failure"),
+        (MailboxProtocol.SMTP, ssl.SSLCertVerificationError("invalid"), "tls_failure"),
+        (MailboxProtocol.IMAP, MailboxFolderError(), "folder_not_found"),
+    ],
+)
+def test_generic_mailbox_failures_are_sanitized(protocol, error, category) -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    transport = FakeMailboxTransport(smtp_error=error if protocol is MailboxProtocol.SMTP else None, imap_error=error if protocol is MailboxProtocol.IMAP else None)
+    service, _repository, audit, _session, connection = _generic_service(transport=transport, company_id=company_id, connection_id=connection_id)
+
+    result, updated = service.test_generic_mailbox(company_id=company_id, connection_id=connection_id, protocol=protocol, actor=SimpleNamespace(id=actor_id))
+
+    assert result.status == "failed"
+    assert result.category.value == category
+    assert "mailbox-secret" not in result.message
+    assert updated.metadata_["generic_smtp_imap_health"][protocol.value]["category"] == category
+    assert updated.metadata_["generic_smtp_imap_health"]["activation_ready"] is False
+    assert "mailbox-secret" not in repr(audit.append_company_event.call_args_list)
+    assert connection.status == "inactive"
+
+
+def test_generic_mailbox_tests_reject_cross_company_and_revoked_connections() -> None:
+    service, repository, _audit, _session, connection = _generic_service()
+    repository.connection.return_value = None
+    with pytest.raises(Exception):
+        service.test_generic_mailbox(company_id=uuid4(), connection_id=uuid4(), protocol=MailboxProtocol.SMTP, actor=SimpleNamespace(id=uuid4()))
+    repository.connection.return_value = connection
+    connection.status = "revoked"
+    with pytest.raises(ProviderLifecycleError):
+        service.test_generic_mailbox(company_id=connection.company_id, connection_id=connection.id, protocol=MailboxProtocol.IMAP, actor=SimpleNamespace(id=uuid4()))
+
+
+def test_generic_mailbox_credential_storage_is_encrypted_and_not_exposed() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id)
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.active_credential.return_value = None
+    repository.create_credential.side_effect = lambda **values: ProviderCredential(**values)
+    audit = Mock()
+    session = Mock()
+    service = ProviderConnectionService(repository, audit, session, _encryption_service())
+
+    credential = service.create_credential(company_id=company_id, connection_id=connection_id, data=ProviderCredentialCreate(secrets={"password": "mailbox-secret"}), actor=SimpleNamespace(id=actor_id))
+
+    assert b"mailbox-secret" not in credential.encrypted_payload
+    assert "mailbox-secret" not in repr(credential)
+    assert "mailbox-secret" not in repr(audit.append_company_event.call_args.kwargs["details"])

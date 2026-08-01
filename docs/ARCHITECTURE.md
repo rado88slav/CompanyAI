@@ -156,9 +156,31 @@ Examples:
 
 The core platform must not depend directly on a specific provider.
 
-Provider Connections now supplies the metadata and encrypted-credential foundation for this layer. Eight built-in provider descriptors are registered only by trusted Python code. Database records cannot name executable implementations, imports, modules, callables or commands.
+Provider Connections now supplies the metadata and encrypted-credential foundation for this layer. Built-in provider descriptors are registered only by trusted Python code. Database records cannot name executable implementations, imports, modules, callables or commands.
 
 Company connection metadata and encrypted credential versions are isolated by explicit company identifiers and composite foreign keys. Credentials use AES-256-GCM with associated data binding the company, connection, credential, provider key and encryption version. Public APIs expose metadata only; plaintext decryption is reserved for a narrow trusted in-process resolver and is not connected to provider execution.
+
+Generic SMTP/IMAP mailbox connections use the same Provider Connections and
+encrypted Provider Credential boundary. The trusted descriptor key is
+`generic_smtp_imap`, category `email`, with `email.send`, `email.read` and
+`email.reply` capabilities. Non-secret mailbox settings live in connection
+configuration: email address, sender display name, username, SMTP/IMAP hosts,
+ports, security modes, IMAP folder and optional reply-to address. The mailbox
+password is accepted only as a `ProviderCredential` secret field and must never
+appear in configuration, metadata, logs, audit details, API responses,
+frontend persisted state or repository files.
+
+SMTP and IMAP connectivity tests are separate administrator-controlled
+Provider Connection actions. They resolve the host, establish a bounded-timeout
+connection, verify TLS certificates through the platform trust store,
+authenticate and, for IMAP, select the configured folder read-only. They do not
+send email and do not change, move, mark or delete messages. Safe health
+metadata is stored under `metadata.generic_smtp_imap_health`, containing only
+protocol status, test timestamp, safe category, safe message and activation
+readiness. A Generic SMTP/IMAP connection cannot be activated unless an active
+encrypted credential exists and the last SMTP and IMAP tests both succeeded.
+This uses the existing `inactive`/`active`/`revoked` connection lifecycle and
+requires no database migration.
 
 Migration `0010_provider_connections` is applied locally after `0009_tool_registry`. The provider tables exist and contain zero rows. Provider Execution now supplies a separately authorized dry-run foundation, while live external calls, OAuth flows and connectivity checks remain future work.
 

@@ -198,6 +198,7 @@
 - [x] Add development-only idempotent Activity Center seed command.
 - [x] Add local thin email workflow screens for import, detail, proposal, approvals and audit review.
 - [x] Add read-only Provider Connections dashboard view backed by safe catalog and company metadata APIs.
+- [x] Add Generic SMTP/IMAP mailbox connection management with encrypted credential storage, separate SMTP/IMAP tests and activation gating.
 - [x] Add first safe Agent Runtime dashboard view and deterministic read-only internal tool invocation.
 - [x] Add deterministic mock email campaign listing with Tool Registry-backed Agent Runtime invocation.
 - [x] Add first Lemlist read-only campaign adapter contract with fake transport tests.

@@ -10,7 +10,8 @@ from app.core.config import Settings, get_settings
 from app.core.provider_connections import provider_registry
 from app.models.administrator import Administrator
 from app.schemas.company_context import ActiveCompanyContext
-from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionListResponse, ProviderConnectionResponse, ProviderConnectionUpdate, ProviderCredentialCreate, ProviderCredentialListResponse, ProviderCredentialResponse, ProviderDescriptorResponse
+from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionListResponse, ProviderConnectionResponse, ProviderConnectionTestResponse, ProviderConnectionUpdate, ProviderCredentialCreate, ProviderCredentialListResponse, ProviderCredentialResponse, ProviderDescriptorResponse
+from app.services.generic_smtp_imap import MailboxProtocol
 from app.services.provider_connection import ProviderConflictError, ProviderConnectionService, ProviderLifecycleError, ProviderNotFoundError, get_provider_connection_service
 
 router = APIRouter(tags=["provider-connections"])
@@ -90,6 +91,24 @@ def activate(company_id: UUID, connection_id: UUID, context: Annotated[ActiveCom
 def deactivate(company_id: UUID, connection_id: UUID, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderConnectionResponse: return _status(company_id, connection_id, "inactive", context, service)
 @router.post("/companies/{company_id}/provider-connections/{connection_id}/revoke", response_model=ProviderConnectionResponse)
 def revoke(company_id: UUID, connection_id: UUID, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderConnectionResponse: return _status(company_id, connection_id, "revoked", context, service)
+
+
+def _mailbox_test(company_id: UUID, connection_id: UUID, protocol: MailboxProtocol, context: ActiveCompanyContext, service: ProviderConnectionService) -> ProviderConnectionTestResponse:
+    try:
+        result, connection = service.test_generic_mailbox(company_id=company_id, connection_id=connection_id, protocol=protocol, actor=context.administrator)
+        return ProviderConnectionTestResponse(protocol=result.protocol.value, status=result.status, tested_at=result.tested_at, category=result.category.value, message=result.message, connection=ProviderConnectionResponse.model_validate(connection))
+    except (ProviderLifecycleError, ProviderNotFoundError) as exc:
+        _error(exc)
+
+
+@router.post("/companies/{company_id}/provider-connections/{connection_id}/test-smtp", response_model=ProviderConnectionTestResponse)
+def test_smtp(company_id: UUID, connection_id: UUID, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderConnectionTestResponse:
+    return _mailbox_test(company_id, connection_id, MailboxProtocol.SMTP, context, service)
+
+
+@router.post("/companies/{company_id}/provider-connections/{connection_id}/test-imap", response_model=ProviderConnectionTestResponse)
+def test_imap(company_id: UUID, connection_id: UUID, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderConnectionTestResponse:
+    return _mailbox_test(company_id, connection_id, MailboxProtocol.IMAP, context, service)
 
 
 @router.get("/companies/{company_id}/provider-connections/{connection_id}/credentials", response_model=ProviderCredentialListResponse)

@@ -58,6 +58,27 @@ scripts/local/health-check.sh
 
 This checks container status, frontend health, backend health through the reverse proxy, readiness and Alembic current revision.
 
+## Generic SMTP/IMAP Mailbox
+
+Use Provider Connections in the dashboard to add a standards-based mailbox.
+The initial defaults are SMTP `465` with SSL/TLS and IMAP `993` with SSL/TLS,
+but other standards-compliant SMTP/IMAP hosts can be configured.
+
+Configuration rules:
+
+- Store email address, sender display name, username, hosts, ports, security
+  modes, IMAP folder and optional reply-to address as non-secret connection
+  configuration.
+- Enter the mailbox password only in the masked password field. It is stored
+  through encrypted Provider Credentials and is not shown again.
+- Run SMTP and IMAP tests separately. The tests authenticate and verify TLS;
+  they do not send email and do not modify mailbox messages.
+- Activate the connection only after both tests succeed.
+
+Manual live mailbox acceptance remains pending until real credentials are
+provided by the operator. Do not use real mailbox passwords in tickets, docs,
+terminal transcripts or repository files.
+
 ## Diagnostics
 
 ```bash

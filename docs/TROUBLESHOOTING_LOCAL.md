@@ -45,4 +45,21 @@ The bundle contains sanitized container status, image metadata, volume metadata 
 
 ## External Providers
 
-Some future provider features may require internet access and real credentials. Current safety boundaries still prevent real email sends, campaign launches, phone calls and paid actions.
+Some provider features require internet access and real credentials. Current
+safety boundaries still prevent campaign launches, phone calls and paid
+actions.
+
+## SMTP/IMAP Mailbox Test Fails
+
+Generic SMTP/IMAP tests return safe categories:
+
+- `dns_failure`: check the host name and local DNS/network access.
+- `connection_failure`: check host, port, firewall and whether the server is reachable.
+- `tls_failure`: the server certificate must be valid for the host and trusted by the platform. There is no option to accept invalid certificates.
+- `authentication_failure`: check username and mailbox password. Do not paste the password into logs or docs.
+- `folder_not_found`: check the configured IMAP folder, usually `INBOX`.
+- `timeout`: check network latency, firewall inspection and server responsiveness.
+
+SMTP tests do not send email. IMAP tests open the configured folder read-only
+and do not change, move, mark or delete messages. A mailbox remains inactive
+until an active encrypted credential exists and both protocol tests succeed.

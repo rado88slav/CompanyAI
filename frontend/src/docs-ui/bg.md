@@ -82,7 +82,19 @@ Providers са външни или local adapters, представени чре
 3. Прегледайте authentication type и capabilities.
 4. Използвайте System Status за provider posture.
 > [!INFO] Credential values никога не се визуализират.
-> [!WARNING] Live provider mutations и real sends не са enabled.
+## Generic SMTP/IMAP mailbox
+1. Изберете Add email mailbox.
+2. Въведете non-secret настройки: email address, sender name, username, SMTP и IMAP hosts, ports, security modes и IMAP folder.
+3. Въведете password само в masked password field.
+4. Запазете mailbox-а, после стартирайте Test SMTP и Test IMAP.
+5. Activate е позволено само след успешни два теста.
+> [!WARNING] SMTP тестът не изпраща email. IMAP тестът отваря configured folder read-only и не променя messages.
+## Troubleshooting
+- DNS failure: проверете host name.
+- Connection failure или timeout: проверете port, firewall и network access.
+- TLS failure: използвайте валиден trusted certificate. Invalid certificates не могат да се приемат.
+- Authentication failure: проверете username и password, без да поставяте secrets в logs.
+- Folder not found: проверете IMAP folder, обикновено INBOX.
 ## Чести грешки
 - Да се мисли, че catalog entry означава live credential.
 - Смесване на mock/local provider с external delivery.

@@ -59,3 +59,17 @@ Development-only seed commands are not part of `docker-compose.local.yml` and do
 ## Email Sandbox
 
 Email Sandbox is enforced by the backend before provider execution. Local production fails closed when no company policy exists, so no recipient or sender is allowed until a safe company-specific policy is configured. Development mode preserves the existing local dry-run workflow for tests and non-production validation.
+
+## Generic Mailbox Boundary
+
+Generic SMTP/IMAP mailbox setup is part of Provider Connections. It does not
+introduce a parallel credential store and does not mount mailbox secrets into
+frontend state or local configuration files. Safe connection health is stored
+as provider connection metadata; the encrypted password remains in
+`provider_credentials`.
+
+Connection tests are administrator actions through the backend API. They use
+strict TLS verification and bounded timeouts, perform no send operation and
+touch IMAP folders only in read-only mode. Activation reuses the existing
+provider connection lifecycle and is refused until an active credential plus
+successful SMTP and IMAP tests are present.

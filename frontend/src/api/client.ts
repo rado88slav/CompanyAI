@@ -5,12 +5,14 @@ export const SESSION_EXPIRED_EVENT = "companyai:session-expired";
 export class ApiError extends Error {
   status: number;
   code?: string;
+  policyChecks?: Record<string, boolean>;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, policyChecks?: Record<string, boolean>) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.policyChecks = policyChecks;
   }
 }
 
@@ -119,7 +121,10 @@ async function apiError(response: Response, fallback: string): Promise<ApiError>
     if (detail && typeof detail === "object" && !Array.isArray(detail)) {
       const code = "code" in detail && typeof detail.code === "string" ? detail.code : undefined;
       const message = "message" in detail && typeof detail.message === "string" ? detail.message : fallback;
-      return new ApiError(message, response.status, code);
+      const policyChecks = "policy_checks" in detail && detail.policy_checks && typeof detail.policy_checks === "object" && !Array.isArray(detail.policy_checks)
+        ? detail.policy_checks as Record<string, boolean>
+        : undefined;
+      return new ApiError(message, response.status, code, policyChecks);
     }
     if (typeof detail === "string") {
       return new ApiError(detail, response.status);

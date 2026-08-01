@@ -14,23 +14,38 @@ files.
 3. Password status is configured.
 4. SMTP and IMAP tests both succeeded after the latest mailbox settings or
    credential change.
-5. Email Sandbox emergency stop is disabled only for the controlled test
+5. The active mailbox sender is present in the exact sender allowlist.
+6. Email Sandbox emergency stop is disabled only for the controlled test
    window.
-6. Company/mailbox quotas and working-hours policy allow the action.
-7. Approval Manager policy still requires approval for provider execution.
-8. If two-person approval is required, a second authorized administrator must
+7. Company/mailbox quotas and working-hours policy allow the action.
+8. Approval Manager policy still requires approval for provider execution.
+9. If two-person approval is required, a second authorized administrator must
    approve the request. Do not create a hidden single-administrator bypass.
 
-## Exact Recipient Allowlist
+## Exact Allowlists
 
-Before live execution, add the operator-controlled personal recipient address
-through Email Operations → One Test Email → Exact recipient allowlist.
+Before live execution, add:
 
-Only exact email addresses are valid. Domains and wildcards are rejected. Do
-not record the personal address in Git, documentation, screenshots or tickets.
-Allowlist add and remove actions update the company Email Sandbox policy and
-write sanitized audit metadata only: operation name, changed flag and recipient
-count. Audit records must not contain the address.
+- the active mailbox sender through Email Operations → Email Sandbox → Allow
+  active mailbox sender, or as one exact sender address;
+- the operator-controlled personal recipient address through Email Operations
+  → One Test Email → Exact recipient allowlist.
+
+Only exact email addresses are valid. Domains and wildcards are rejected for
+senders and recipients. Do not record personal addresses in Git,
+documentation, screenshots or tickets. Allowlist add and remove actions update
+the company Email Sandbox policy and write sanitized audit metadata only:
+operation name, changed flag and sender/recipient count. Audit records must not
+contain addresses.
+
+## Emergency Stop
+
+The Email Sandbox panel shows emergency stop as `ACTIVE` or `INACTIVE`.
+Disabling it requires an authorized administrator to type
+`DISABLE EMAIL EMERGENCY STOP`. This makes approved LIVE TEST email possible
+for the controlled test window. Re-enable the stop immediately after the test
+or whenever the operator is not intentionally preparing a live one-message
+send. Simulation remains available while the stop is active.
 
 ## Compose
 
@@ -60,7 +75,8 @@ Use the normal flow:
    is blocked by policy.
 6. Return to Email Operations and refresh approval status.
 7. Type the exact phrase `SEND ONE TEST EMAIL`.
-8. Execute LIVE TEST once.
+8. Stop here unless the operator intentionally wants to execute the real
+   one-message SMTP LIVE TEST.
 
 The backend records execution state before contacting SMTP and uses the unique
 idempotency key to prevent an intentional duplicate send. There are no

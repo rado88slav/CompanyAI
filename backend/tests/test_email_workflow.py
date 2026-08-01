@@ -14,7 +14,7 @@ from app.models.company_membership import CompanyRole
 from app.models.approval import ApprovalRequest
 from app.models.email import EmailReplyProposal, OutboundEmail
 from app.schemas.approval import AuthorizationConditionsV1
-from app.schemas.email import ReplyProposalWrite, SingleMessageApprovalRequest, SingleMessageLiveExecutionRequest, SingleMessagePreviewRequest, SingleMessageSimulationRequest, TestInboundEmailImport as InboundImportSchema
+from app.schemas.email import EmailSandboxEmergencyStopUpdate, ReplyProposalWrite, SingleMessageApprovalRequest, SingleMessageLiveExecutionRequest, SingleMessageMode, SingleMessagePreviewRequest, SingleMessageSenderAllowlistUpdate, SingleMessageSimulationRequest, TestInboundEmailImport as InboundImportSchema
 from app.services.email import EmailConflictError, EmailForbiddenError, EmailSandboxRejectedError, EmailWorkflowService, content_digest, reply_subject, single_message_digest
 from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY, MailboxSendOutcomeUncertainError, MailboxSendResult
 from app.services.audit_log import AuditLogService
@@ -343,6 +343,10 @@ def _allowlist_update(value="Allowed@Example.TEST"):
     return SingleMessageRecipientAllowlistUpdate(recipient_email=value)
 
 
+def _sender_update(value="Sender@Example.TEST"):
+    return SingleMessageSenderAllowlistUpdate(sender_email=value)
+
+
 def test_single_message_recipient_allowlist_adds_exact_recipient_safely():
     company_id, actor_id = uuid4(), uuid4()
     service = _allowlist_service()
@@ -424,6 +428,152 @@ def test_single_message_recipient_allowlist_rolls_back_when_audit_fails():
     assert service.smtp_live_transport.calls == []
 
 
+def test_email_sandbox_status_lists_sender_recipient_and_emergency_state():
+    company_id = uuid4()
+    session = FakeAllowlistSession(existing=SimpleNamespace(company_id=company_id, value={
+        "recipient_allowlist": ["Allowed@Example.TEST"],
+        "sender_allowlist": ["Sender@Example.TEST", "@example.test"],
+        "emergency_stop": True,
+        "max_recipients_per_message": 1,
+        "max_messages_per_hour": 5,
+        "max_messages_per_day": 10,
+        "required_subject_prefix": "[COMPANYAI TEST]",
+        "approval_required": True,
+    }))
+    service = _allowlist_service(session=session)
+
+    result = service.email_sandbox_status(company_id=company_id)
+
+    assert result.recipient_allowlist == ["allowed@example.test"]
+    assert result.sender_allowlist == ["sender@example.test"]
+    assert result.emergency_stop is True
+    assert result.emergency_stop_status == "active"
+
+
+def test_email_sandbox_management_permission_is_admin_scoped():
+    assert role_has_permission(CompanyRole.OWNER.value, CompanyPermission.PROVIDER_EXECUTIONS_MANAGE)
+    assert role_has_permission(CompanyRole.ADMIN.value, CompanyPermission.PROVIDER_EXECUTIONS_MANAGE)
+    assert not role_has_permission(CompanyRole.OPERATOR.value, CompanyPermission.PROVIDER_EXECUTIONS_MANAGE)
+    assert not role_has_permission(CompanyRole.VIEWER.value, CompanyPermission.PROVIDER_EXECUTIONS_MANAGE)
+
+
+def test_single_message_sender_allowlist_adds_exact_sender_safely():
+    company_id, actor_id = uuid4(), uuid4()
+    service = _allowlist_service()
+
+    result = service.add_single_message_sender_allowlist(company_id=company_id, data=_sender_update(), actor=SimpleNamespace(id=actor_id))
+
+    assert result.sender_allowlist == ["sender@example.test"]
+    event = service.audit.events[-1]
+    assert event["resource_type"] == "email_automation"
+    assert event["action"] == "email_automation.settings_updated"
+    assert event["details"] == {
+        "operation": "single_message_sender_allowlist_updated",
+        "changed": True,
+        "sender_count": 1,
+    }
+    assert "sender@example.test" not in repr(event)
+
+
+def test_single_message_sender_allowlist_duplicate_is_normalized_noop():
+    company_id = uuid4()
+    session = FakeAllowlistSession(existing=SimpleNamespace(company_id=company_id, value={"sender_allowlist": ["sender@example.test"]}))
+    service = _allowlist_service(session=session)
+
+    result = service.add_single_message_sender_allowlist(company_id=company_id, data=_sender_update("SENDER@example.test"), actor=SimpleNamespace(id=uuid4()))
+
+    assert result.sender_allowlist == ["sender@example.test"]
+    assert service.audit.events[-1]["details"]["changed"] is False
+    assert service.audit.events[-1]["details"]["sender_count"] == 1
+
+
+def test_single_message_sender_allowlist_rejects_wildcard_and_domain():
+    with pytest.raises(ValidationError):
+        SingleMessageSenderAllowlistUpdate(sender_email="*@example.test")
+    with pytest.raises(ValidationError):
+        SingleMessageSenderAllowlistUpdate(sender_email="@example.test")
+
+
+def test_single_message_sender_allowlist_removes_sender_safely():
+    company_id = uuid4()
+    session = FakeAllowlistSession(existing=SimpleNamespace(company_id=company_id, value={"sender_allowlist": ["sender@example.test", "other@example.test"]}))
+    service = _allowlist_service(session=session)
+
+    result = service.remove_single_message_sender_allowlist(company_id=company_id, data=_sender_update("sender@example.test"), actor=SimpleNamespace(id=uuid4()))
+
+    assert result.sender_allowlist == ["other@example.test"]
+    assert service.audit.events[-1]["details"] == {
+        "operation": "single_message_sender_allowlist_removed",
+        "changed": True,
+        "sender_count": 1,
+    }
+    assert "sender@example.test" not in repr(service.audit.events[-1])
+
+
+def test_single_message_sender_allowlist_can_select_tested_mailbox_without_credentials():
+    company_id = uuid4()
+    connection_id = uuid4()
+    service = _allowlist_service()
+    service._mailbox_sender = lambda **_kwargs: (SimpleNamespace(id=connection_id), "mailbox-sender@example.test")
+
+    result = service.add_single_message_sender_allowlist(company_id=company_id, data=SingleMessageSenderAllowlistUpdate(provider_connection_id=connection_id), actor=SimpleNamespace(id=uuid4()))
+
+    assert result.sender_allowlist == ["mailbox-sender@example.test"]
+    assert service.smtp_live_transport.calls == []
+
+
+def test_single_message_sender_allowlist_rejects_untested_mailbox_selection():
+    company_id = uuid4()
+    service = _allowlist_service()
+
+    def reject_mailbox(**kwargs):
+        service._reject_single_message(kwargs["company_id"], kwargs["actor"], "smtp_not_tested")
+
+    service._mailbox_sender = reject_mailbox
+
+    with pytest.raises(EmailSandboxRejectedError) as exc:
+        service.add_single_message_sender_allowlist(company_id=company_id, data=SingleMessageSenderAllowlistUpdate(provider_connection_id=uuid4()), actor=SimpleNamespace(id=uuid4()))
+
+    assert exc.value.reason_code == "smtp_not_tested"
+    assert service.smtp_live_transport.calls == []
+
+
+def test_email_sandbox_emergency_stop_requires_explicit_disable_confirmation():
+    with pytest.raises(ValidationError):
+        EmailSandboxEmergencyStopUpdate(emergency_stop=False, confirmation_text="disable")
+
+
+def test_email_sandbox_emergency_stop_disable_and_enable_are_audited_safely():
+    company_id = uuid4()
+    session = FakeAllowlistSession(existing=SimpleNamespace(company_id=company_id, value={"emergency_stop": True}))
+    service = _allowlist_service(session=session)
+
+    disabled = service.update_email_sandbox_emergency_stop(
+        company_id=company_id,
+        data=EmailSandboxEmergencyStopUpdate(emergency_stop=False, confirmation_text="DISABLE EMAIL EMERGENCY STOP"),
+        actor=SimpleNamespace(id=uuid4()),
+    )
+    enabled = service.update_email_sandbox_emergency_stop(
+        company_id=company_id,
+        data=EmailSandboxEmergencyStopUpdate(emergency_stop=True),
+        actor=SimpleNamespace(id=uuid4()),
+    )
+
+    assert disabled.emergency_stop is False
+    assert enabled.emergency_stop is True
+    assert service.audit.events[-2]["details"] == {
+        "operation": "email_sandbox_emergency_stop_updated",
+        "changed": True,
+        "status": "inactive",
+    }
+    assert service.audit.events[-1]["details"] == {
+        "operation": "email_sandbox_emergency_stop_updated",
+        "changed": True,
+        "status": "active",
+    }
+    assert "DISABLE EMAIL EMERGENCY STOP" not in repr(service.audit.events)
+
+
 def test_one_test_email_audit_shapes_use_supported_contracts():
     class CapturingAuditRepository:
         def __init__(self):
@@ -438,6 +588,8 @@ def test_one_test_email_audit_shapes_use_supported_contracts():
     company_id, actor_id, resource_id = uuid4(), uuid4(), uuid4()
     events = [
         ("email_automation.settings_updated", "email_automation", None, {"operation": "single_message_recipient_allowlist_updated", "changed": True, "recipient_count": 1}),
+        ("email_automation.settings_updated", "email_automation", None, {"operation": "single_message_sender_allowlist_updated", "changed": True, "sender_count": 1}),
+        ("email_automation.settings_updated", "email_automation", None, {"operation": "email_sandbox_emergency_stop_updated", "changed": True, "status": "inactive"}),
         ("email_single_message.simulated", "email_single_message_test", None, {"message_digest": "a" * 64, "simulation_only": True, "live_send_available": False}),
         ("email_single_message.approval_requested", "email_single_message_test", resource_id, {"provider_execution_id": str(resource_id), "approval_request_id": str(uuid4()), "message_digest": "b" * 64, "simulation_only": False, "live_send_available": True}),
         ("provider_execution.requested", "provider_execution", resource_id, {"provider_key": "generic_smtp_imap", "operation_key": "send_email", "execution_mode": "live", "simulation_only": False, "live_send_available": True}),
@@ -550,6 +702,43 @@ def test_single_message_preview_rejects_non_allowlisted_recipient(monkeypatch):
     assert service.audit.events[-1]["details"]["reason_code"] == "recipient_not_allowlisted"
 
 
+def test_single_message_preview_rejects_non_allowlisted_sender_with_policy_checks(monkeypatch):
+    company_id, connection_id = uuid4(), uuid4()
+    service = _single_message_service(
+        monkeypatch,
+        connection=_active_mailbox(company_id, connection_id),
+        credential=_credential(company_id, connection_id),
+        policy={
+            "enabled": True,
+            "recipient_allowlist": ["allowed@example.test"],
+            "sender_allowlist": [],
+            "max_recipients_per_message": 1,
+            "max_messages_per_hour": 5,
+            "max_messages_per_day": 10,
+            "required_subject_prefix": "[COMPANYAI TEST]",
+            "emergency_stop": False,
+        },
+    )
+
+    with pytest.raises(EmailSandboxRejectedError) as exc:
+        service.preview_single_message(company_id=company_id, data=_single_message_payload(connection_id), actor=SimpleNamespace(id=uuid4()))
+
+    assert exc.value.reason_code == "sender_not_allowlisted"
+    assert exc.value.policy_checks["recipient_allowlisted"] is True
+    assert exc.value.policy_checks["sender_allowlisted"] is False
+
+
+def test_single_message_preview_succeeds_after_sender_is_allowlisted(monkeypatch):
+    company_id, connection_id = uuid4(), uuid4()
+    service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id))
+
+    result = service.preview_single_message(company_id=company_id, data=_single_message_payload(connection_id), actor=SimpleNamespace(id=uuid4()))
+
+    assert result.sender_email == "sender@example.test"
+    assert result.policy_checks["sender_allowlisted"] is True
+    assert result.policy_checks["recipient_allowlisted"] is True
+
+
 def test_single_message_preview_rejects_duplicate_idempotency_key(monkeypatch):
     company_id, connection_id = uuid4(), uuid4()
     existing = SimpleNamespace(company_id=company_id, idempotency_key="single-test-001")
@@ -624,6 +813,56 @@ def test_single_message_request_approval_rejects_stale_preview_digest(monkeypatc
 
     with pytest.raises(EmailConflictError):
         service.request_single_message_approval(company_id=company_id, data=payload, actor=SimpleNamespace(id=uuid4()))
+
+
+def test_single_message_simulation_preview_available_while_emergency_stop_is_active(monkeypatch):
+    company_id, connection_id = uuid4(), uuid4()
+    service = _single_message_service(
+        monkeypatch,
+        connection=_active_mailbox(company_id, connection_id),
+        credential=_credential(company_id, connection_id),
+        policy={
+            "enabled": True,
+            "recipient_allowlist": ["allowed@example.test"],
+            "sender_allowlist": ["sender@example.test"],
+            "max_recipients_per_message": 1,
+            "max_messages_per_hour": 5,
+            "max_messages_per_day": 10,
+            "required_subject_prefix": "[COMPANYAI TEST]",
+            "emergency_stop": True,
+        },
+    )
+
+    result = service.preview_single_message(company_id=company_id, data=_single_message_payload(connection_id), actor=SimpleNamespace(id=uuid4()))
+
+    assert result.simulation_only is True
+    assert result.live_send_available is False
+    assert result.policy_checks["emergency_stop_disabled"] is False
+
+
+def test_single_message_live_preview_blocked_while_emergency_stop_is_active(monkeypatch):
+    company_id, connection_id = uuid4(), uuid4()
+    service = _single_message_service(
+        monkeypatch,
+        connection=_active_mailbox(company_id, connection_id),
+        credential=_credential(company_id, connection_id),
+        policy={
+            "enabled": True,
+            "recipient_allowlist": ["allowed@example.test"],
+            "sender_allowlist": ["sender@example.test"],
+            "max_recipients_per_message": 1,
+            "max_messages_per_hour": 5,
+            "max_messages_per_day": 10,
+            "required_subject_prefix": "[COMPANYAI TEST]",
+            "emergency_stop": True,
+        },
+    )
+
+    with pytest.raises(EmailSandboxRejectedError) as exc:
+        service.preview_single_message(company_id=company_id, data=_single_message_payload(connection_id).model_copy(update={"mode": SingleMessageMode.LIVE_TEST}), actor=SimpleNamespace(id=uuid4()))
+
+    assert exc.value.reason_code == "emergency_stop_enabled"
+    assert service.smtp_live_transport.calls == []
 
 
 def test_single_message_simulation_rejects_missing_approval(monkeypatch):

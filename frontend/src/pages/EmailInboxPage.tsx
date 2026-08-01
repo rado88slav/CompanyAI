@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { emailApi } from "../api/email";
-import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailCampaign, InboundEmail, SingleMessageApproval, SingleMessagePreview, SingleMessageRecipientAllowlist, SingleMessageTestPayload, WorkerSimulation } from "../types/email";
+import { EMAIL_EMERGENCY_STOP_DISABLE_CONFIRMATION, type CampaignSchedulePreview, type CampaignScheduleSettings, type EmailCampaign, type EmailSandboxStatus, type InboundEmail, type SingleMessageApproval, type SingleMessagePreview, type SingleMessageRecipientAllowlist, type SingleMessageTestPayload, type WorkerSimulation } from "../types/email";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -21,12 +21,21 @@ export function EmailInboxPage() {
   const [singleApprovalStatus, setSingleApprovalStatus] = useState("");
   const [singleActionBusy, setSingleActionBusy] = useState("");
   const [singleError, setSingleError] = useState("");
+  const [singleFailureChecks, setSingleFailureChecks] = useState<Record<string, boolean>>({});
   const [singleMode, setSingleMode] = useState<"simulation" | "live_test">("simulation");
   const [liveConfirmation, setLiveConfirmation] = useState("");
   const [allowlist, setAllowlist] = useState<SingleMessageRecipientAllowlist | null>(null);
   const [allowlistEmail, setAllowlistEmail] = useState("");
   const [allowlistBusy, setAllowlistBusy] = useState(false);
   const [allowlistError, setAllowlistError] = useState("");
+  const [sandbox, setSandbox] = useState<EmailSandboxStatus | null>(null);
+  const [senderEmail, setSenderEmail] = useState("");
+  const [senderMailboxId, setSenderMailboxId] = useState("");
+  const [senderBusy, setSenderBusy] = useState(false);
+  const [senderError, setSenderError] = useState("");
+  const [emergencyBusy, setEmergencyBusy] = useState(false);
+  const [emergencyError, setEmergencyError] = useState("");
+  const [emergencyConfirmation, setEmergencyConfirmation] = useState("");
   const [singleForm, setSingleForm] = useState<SingleMessageTestPayload>({
     provider_connection_id: "",
     recipient_email: "",
@@ -50,12 +59,13 @@ export function EmailInboxPage() {
   const approvalIsApproved = singleApprovalStatus === "approved";
   const load = useCallback(() => {
     setState("loading");
-    Promise.all([emailApi.list(), emailApi.campaigns(), emailApi.schedule(), emailApi.connections(), emailApi.singleMessageRecipientAllowlist()])
-      .then(([emailValue, campaignValue, scheduleValue, connectionValue, allowlistValue]) => {
+    Promise.all([emailApi.list(), emailApi.campaigns(), emailApi.schedule(), emailApi.connections(), emailApi.emailSandbox()])
+      .then(([emailValue, campaignValue, scheduleValue, connectionValue, sandboxValue]) => {
         setItems(emailValue.items);
         setCampaigns(campaignValue.items);
         setSchedule(scheduleValue);
-        setAllowlist(allowlistValue);
+        setSandbox(sandboxValue);
+        setAllowlist({recipient_allowlist: sandboxValue.recipient_allowlist, exact_only: sandboxValue.exact_only});
         setMailboxes(connectionValue.items.filter((item) => item.provider_key === "generic_smtp_imap"));
         setSingleForm((current) => ({...current, provider_connection_id: current.provider_connection_id || connectionValue.items.find((item) => item.provider_key === "generic_smtp_imap" && item.status === "active")?.id || ""}));
         setState("ready");
@@ -69,6 +79,7 @@ export function EmailInboxPage() {
     setSingleApprovalStatus("");
     setLiveConfirmation("");
     setSingleError("");
+    setSingleFailureChecks({});
   }
   function updateSingleForm(mutator: (current: SingleMessageTestPayload) => SingleMessageTestPayload) {
     invalidateSingleMessageState();
@@ -77,6 +88,11 @@ export function EmailInboxPage() {
   function changeSingleMode(mode: "simulation" | "live_test") {
     invalidateSingleMessageState();
     setSingleMode(mode);
+  }
+  function applySandboxStatus(value: EmailSandboxStatus) {
+    setSandbox(value);
+    setAllowlist({recipient_allowlist: value.recipient_allowlist, exact_only: value.exact_only});
+    invalidateSingleMessageState();
   }
   function updateSchedule(mutator: (current: CampaignScheduleSettings) => CampaignScheduleSettings) {
     setSchedule((current) => current ? mutator(current) : current);
@@ -109,9 +125,11 @@ export function EmailInboxPage() {
       setSinglePreview(value);
       setSingleApproval(null);
       setSingleApprovalStatus("");
+      setSingleFailureChecks({});
       setMessage("Single-message preview ready.");
     } catch (error) {
       setSingleError(error instanceof ApiError ? error.message : "Single-message preview could not be completed.");
+      setSingleFailureChecks(error instanceof ApiError && error.policyChecks ? error.policyChecks : {});
     } finally {
       setSingleActionBusy("");
     }
@@ -189,6 +207,8 @@ export function EmailInboxPage() {
       const value = await emailApi.addSingleMessageRecipientAllowlist(allowlistEmail);
       setAllowlist(value);
       setAllowlistEmail("");
+      const sandboxValue = await emailApi.emailSandbox();
+      applySandboxStatus(sandboxValue);
       setMessage("Exact test recipient allowlist updated.");
     } catch (error) {
       setAllowlistError(error instanceof ApiError ? error.message : "The exact recipient allowlist could not be updated.");
@@ -204,11 +224,76 @@ export function EmailInboxPage() {
     try {
       const value = await emailApi.removeSingleMessageRecipientAllowlist(recipientEmail);
       setAllowlist(value);
+      const sandboxValue = await emailApi.emailSandbox();
+      applySandboxStatus(sandboxValue);
       setMessage("Exact test recipient allowlist updated.");
     } catch (error) {
       setAllowlistError(error instanceof ApiError ? error.message : "The exact recipient allowlist could not be updated.");
     } finally {
       setAllowlistBusy(false);
+    }
+  }
+  async function addSandboxSenderFromEmail() {
+    if (!senderEmail || senderBusy) return;
+    setSenderBusy(true);
+    setSenderError("");
+    setMessage("");
+    try {
+      const value = await emailApi.addEmailSandboxSender(senderEmail);
+      applySandboxStatus(value);
+      setSenderEmail("");
+      setMessage("Exact test sender allowlist updated.");
+    } catch (error) {
+      setSenderError(error instanceof ApiError ? error.message : "The exact sender allowlist could not be updated.");
+    } finally {
+      setSenderBusy(false);
+    }
+  }
+  async function addSandboxSenderFromMailbox() {
+    if (!senderMailboxId || senderBusy) return;
+    setSenderBusy(true);
+    setSenderError("");
+    setMessage("");
+    try {
+      const value = await emailApi.addEmailSandboxMailboxSender(senderMailboxId);
+      applySandboxStatus(value);
+      setSenderMailboxId("");
+      setMessage("Exact test sender allowlist updated.");
+    } catch (error) {
+      setSenderError(error instanceof ApiError ? error.message : "The selected mailbox sender could not be allowlisted.");
+    } finally {
+      setSenderBusy(false);
+    }
+  }
+  async function removeSandboxSender(sender: string) {
+    if (senderBusy) return;
+    setSenderBusy(true);
+    setSenderError("");
+    setMessage("");
+    try {
+      const value = await emailApi.removeEmailSandboxSender(sender);
+      applySandboxStatus(value);
+      setMessage("Exact test sender allowlist updated.");
+    } catch (error) {
+      setSenderError(error instanceof ApiError ? error.message : "The exact sender allowlist could not be updated.");
+    } finally {
+      setSenderBusy(false);
+    }
+  }
+  async function setEmergencyStop(value: boolean) {
+    if (emergencyBusy) return;
+    setEmergencyBusy(true);
+    setEmergencyError("");
+    setMessage("");
+    try {
+      const status = await emailApi.setEmailSandboxEmergencyStop(value, value ? undefined : emergencyConfirmation);
+      applySandboxStatus(status);
+      setEmergencyConfirmation("");
+      setMessage(value ? "Email Sandbox emergency stop is active." : "Email Sandbox emergency stop is inactive for controlled tests.");
+    } catch (error) {
+      setEmergencyError(error instanceof ApiError ? error.message : "Emergency stop could not be updated.");
+    } finally {
+      setEmergencyBusy(false);
     }
   }
   async function pauseSchedule() {
@@ -230,16 +315,25 @@ export function EmailInboxPage() {
         <p>Outbound email is backend-gated by exact allowlists, approval, duplicate-send protection, quotas and a global emergency stop.</p>
       </div>
       <div className="sandbox-grid" aria-label="Email sandbox safeguards">
-        <span><strong>Recipients</strong> Allowlist only</span>
-        <span><strong>Per message</strong> 1 recipient</span>
-        <span><strong>Hourly</strong> 5 messages</span>
-        <span><strong>Daily</strong> 10 messages</span>
-        <span><strong>Approval</strong> Required</span>
-        <span><strong>Follow-ups</strong> Disabled</span>
+        <span><strong>Recipients</strong> {sandbox?.recipient_allowlist.length ?? 0} exact</span>
+        <span><strong>Senders</strong> {sandbox?.sender_allowlist.length ?? 0} exact</span>
+        <span><strong>Per message</strong> {sandbox?.max_recipients_per_message ?? 1} recipient</span>
+        <span><strong>Hourly</strong> {sandbox?.max_messages_per_hour ?? 5} messages</span>
+        <span><strong>Daily</strong> {sandbox?.max_messages_per_day ?? 10} messages</span>
+        <span><strong>Approval</strong> {sandbox?.approval_required === false ? "Not required" : "Required"}</span>
+        <span><strong>Follow-ups</strong> {sandbox?.followups_enabled ? "Enabled" : "Disabled"}</span>
+        <span><strong>Attachments</strong> {sandbox?.attachments_enabled ? "Enabled" : "Disabled"}</span>
       </div>
       <div className="sandbox-stop" aria-label="Emergency stop status">
         <strong>Emergency stop</strong>
-        <span>Backend enforced</span>
+        <span className={sandbox?.emergency_stop ? "is-active" : "is-inactive"}>{sandbox?.emergency_stop ? "ACTIVE" : "INACTIVE"}</span>
+        <button type="button" onClick={() => void setEmergencyStop(true)} disabled={emergencyBusy || sandbox?.emergency_stop === true}>Enable stop</button>
+        <label>Disable confirmation
+          <input value={emergencyConfirmation} onChange={(event) => setEmergencyConfirmation(event.target.value)} placeholder={EMAIL_EMERGENCY_STOP_DISABLE_CONFIRMATION} />
+        </label>
+        <button type="button" className="danger" onClick={() => void setEmergencyStop(false)} disabled={emergencyBusy || sandbox?.emergency_stop === false || emergencyConfirmation !== EMAIL_EMERGENCY_STOP_DISABLE_CONFIRMATION}>{emergencyBusy ? "Updating" : "Disable stop"}</button>
+        <small>Disabling allows approved LIVE TEST email to reach an external SMTP provider.</small>
+        {emergencyError && <p role="alert" className="error-text">{emergencyError}</p>}
       </div>
     </section>
     {state === "loading" && <div className="state-card">Loading inbound email…</div>}
@@ -351,6 +445,22 @@ export function EmailInboxPage() {
         <p>This mode can send exactly one plain-text SMTP message after approval and final typed confirmation. SMTP accepted does not mean delivered.</p>
       </div>}
       <div className="automation-grid">
+        <label>Exact sender allowlist
+          <input value={senderEmail} onChange={(event) => setSenderEmail(event.target.value)} placeholder="sender@example.com" />
+        </label>
+        <button type="button" onClick={addSandboxSenderFromEmail} disabled={!senderEmail || senderBusy}>{senderBusy ? "Updating" : "Add exact sender"}</button>
+        <label>Allow active mailbox sender
+          <select value={senderMailboxId} onChange={(event) => setSenderMailboxId(event.target.value)}>
+            <option value="">Select active mailbox</option>
+            {mailboxes.filter((mailbox) => mailbox.status === "active").map((mailbox) => <option key={mailbox.id} value={mailbox.id}>{mailbox.display_name}</option>)}
+          </select>
+        </label>
+        <button type="button" onClick={addSandboxSenderFromMailbox} disabled={!senderMailboxId || senderBusy}>{senderBusy ? "Updating" : "Allow mailbox sender"}</button>
+        <div className="state-card">
+          <strong>Allowed test senders</strong>
+          {sandbox?.sender_allowlist.length ? <ul className="compact-list">{sandbox.sender_allowlist.map((sender) => <li key={sender}><span>{sender}</span><button type="button" onClick={() => void removeSandboxSender(sender)} disabled={senderBusy}>Remove</button></li>)}</ul> : <p>No exact senders configured.</p>}
+          {senderError && <p role="alert" className="error-text">{senderError}</p>}
+        </div>
         <label>Exact recipient allowlist
           <input value={allowlistEmail} onChange={(event) => setAllowlistEmail(event.target.value)} placeholder="person@example.com" />
         </label>
@@ -384,6 +494,11 @@ export function EmailInboxPage() {
       {singleError && <p role="alert" className="error-text">{singleError}</p>}
       {!singleForm.provider_connection_id && <p className="settings-note">Select an active tested mailbox before preview.</p>}
       {!singleForm.recipient_email && <p className="settings-note">Enter exactly one allowlisted recipient before preview.</p>}
+      {sandbox && sandbox.sender_allowlist.length === 0 && <p className="settings-note">Add the active mailbox sender to the exact sender allowlist before preview.</p>}
+      {singleMode === "live_test" && sandbox?.emergency_stop && <p className="warning-text">Emergency stop is ACTIVE. LIVE TEST preview and execution remain blocked until an authorized administrator disables it explicitly.</p>}
+      {Object.keys(singleFailureChecks).length > 0 && <div className="sandbox-grid" aria-label="Blocked preview policy checks">
+        {Object.entries(singleFailureChecks).map(([key, value]) => <span key={key}><strong>{key.replaceAll("_", " ")}</strong> {value ? "OK" : "Blocked"}</span>)}
+      </div>}
       {singlePreview && !previewIsCurrent && <p className="warning-text">Message fields changed. Preview again before requesting approval.</p>}
       {singleApproval && singleApprovalStatus !== "approved" && <p className="settings-note">Approval status is {singleApprovalStatus || "pending"}. Execution remains disabled until approval is complete.</p>}
       <div className="automation-actions">

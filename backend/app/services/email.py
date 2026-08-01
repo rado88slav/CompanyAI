@@ -31,7 +31,7 @@ from app.repositories.provider_connection import ProviderConnectionRepository
 from app.repositories.provider_execution import ProviderExecutionRepository
 from app.repositories.agent import AgentRepository
 from app.schemas.approval import ApprovalDecisionCreate, ApprovalRequestCreate, AuthorizationAction, AuthorizationConditionsV1, ReservationCreate
-from app.schemas.email import ReplyProposalWrite, SendReplyRequest, SingleMessageApprovalRequest, SingleMessageApprovalResponse, SingleMessageApprovalReview, SingleMessageApprovalReviewList, SingleMessageLiveExecutionRequest, SingleMessageLiveExecutionResponse, SingleMessageMode, SingleMessagePreviewRequest, SingleMessagePreviewResponse, SingleMessageRecipientAllowlistUpdate, SingleMessageRecipientAllowlistResponse, SingleMessageSimulationRequest, SingleMessageSimulationResponse, TestInboundEmailImport, normalize_email
+from app.schemas.email import EmailSandboxEmergencyStopUpdate, EmailSandboxStatusResponse, ReplyProposalWrite, SendReplyRequest, SingleMessageApprovalRequest, SingleMessageApprovalResponse, SingleMessageApprovalReview, SingleMessageApprovalReviewList, SingleMessageLiveExecutionRequest, SingleMessageLiveExecutionResponse, SingleMessageMode, SingleMessagePreviewRequest, SingleMessagePreviewResponse, SingleMessageRecipientAllowlistUpdate, SingleMessageRecipientAllowlistResponse, SingleMessageSenderAllowlistUpdate, SingleMessageSimulationRequest, SingleMessageSimulationResponse, TestInboundEmailImport, normalize_email
 from app.services.authorization_evaluator import AuthorizationDeniedError, AuthorizationEvaluatorService
 from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY, GenericSmtpLiveTransport, MailboxSendAuthenticationError, MailboxSendError, MailboxSendOutcomeUncertainError, MailboxSendResult
 from app.services.approval_manager import ApprovalManagerService
@@ -42,9 +42,10 @@ class EmailNotFoundError(Exception): pass
 class EmailConflictError(Exception): pass
 class EmailForbiddenError(Exception): pass
 class EmailSandboxRejectedError(EmailForbiddenError):
-    def __init__(self, reason_code: str) -> None:
+    def __init__(self, reason_code: str, policy_checks: dict[str, bool] | None = None) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
+        self.policy_checks = policy_checks or {}
 
 
 SINGLE_MESSAGE_SCHEMA = "email_single_message_test.v1"
@@ -149,7 +150,37 @@ class EmailWorkflowService:
             "max_messages_per_hour": int(policy.get("max_messages_per_hour", 5)),
             "max_messages_per_day": int(policy.get("max_messages_per_day", 10)),
             "working_hours": policy.get("working_hours"),
+            "approval_required": bool(policy.get("approval_required", True)),
+            "emergency_stop": bool(policy.get("emergency_stop", False)),
+            "followups_enabled": bool(policy.get("followups_enabled", False)),
+            "bulk_sending_enabled": bool(policy.get("bulk_sending_enabled", False)),
+            "attachments_enabled": bool(policy.get("attachments_enabled", False)),
         }
+
+    def email_sandbox_status(self, *, company_id: UUID) -> EmailSandboxStatusResponse:
+        policy = self._single_message_policy(company_id)
+        return self._sandbox_status_from_policy(policy)
+
+    def _sandbox_status_from_policy(self, policy: dict) -> EmailSandboxStatusResponse:
+        recipients = sorted(self._exact_allowlist(policy.get("recipient_allowlist", [])))
+        senders = sorted(self._exact_allowlist(policy.get("sender_allowlist", [])))
+        emergency_stop = bool(policy.get("emergency_stop", False))
+        return EmailSandboxStatusResponse(
+            recipient_allowlist=recipients,
+            sender_allowlist=senders,
+            enabled=bool(policy.get("enabled", True)),
+            emergency_stop=emergency_stop,
+            emergency_stop_status="active" if emergency_stop else "inactive",
+            max_recipients_per_message=int(policy.get("max_recipients_per_message", 1)),
+            max_messages_per_hour=int(policy.get("max_messages_per_hour", 5)),
+            max_messages_per_day=int(policy.get("max_messages_per_day", 10)),
+            required_subject_prefix=str(policy.get("required_subject_prefix") or SINGLE_MESSAGE_PREFIX),
+            approval_required=bool(policy.get("approval_required", True)),
+            followups_enabled=bool(policy.get("followups_enabled", False)),
+            bulk_sending_enabled=bool(policy.get("bulk_sending_enabled", False)),
+            attachments_enabled=bool(policy.get("attachments_enabled", False)),
+            disabled_features=DISABLED_SINGLE_MESSAGE_FEATURES,
+        )
 
     def single_message_recipient_allowlist(self, *, company_id: UUID) -> SingleMessageRecipientAllowlistResponse:
         recipients = sorted(self._exact_allowlist(self._single_message_policy(company_id).get("recipient_allowlist", [])))
@@ -171,16 +202,59 @@ class EmailWorkflowService:
             remove=True,
         )
 
+    def add_single_message_sender_allowlist(self, *, company_id: UUID, data: SingleMessageSenderAllowlistUpdate, actor: Administrator) -> EmailSandboxStatusResponse:
+        sender_email = self._sender_from_allowlist_update(company_id=company_id, data=data, actor=actor)
+        return self._update_single_message_sender_allowlist(company_id=company_id, sender_email=sender_email, actor=actor, remove=False)
+
+    def remove_single_message_sender_allowlist(self, *, company_id: UUID, data: SingleMessageSenderAllowlistUpdate, actor: Administrator) -> EmailSandboxStatusResponse:
+        sender_email = self._sender_from_allowlist_update(company_id=company_id, data=data, actor=actor)
+        return self._update_single_message_sender_allowlist(company_id=company_id, sender_email=sender_email, actor=actor, remove=True)
+
+    def update_email_sandbox_emergency_stop(self, *, company_id: UUID, data: EmailSandboxEmergencyStopUpdate, actor: Administrator) -> EmailSandboxStatusResponse:
+        try:
+            setting, policy = self._locked_sandbox_policy(company_id)
+            previous = bool(policy.get("emergency_stop", False))
+            policy["emergency_stop"] = data.emergency_stop
+            self._save_sandbox_policy_setting(company_id=company_id, setting=setting, policy=policy)
+            self.audit.append_company_event(
+                company_id=company_id,
+                actor_administrator_id=actor.id,
+                action=AuditAction.EMAIL_AUTOMATION_SETTINGS_UPDATED.value,
+                resource_type="email_automation",
+                resource_id=None,
+                details={
+                    "operation": "email_sandbox_emergency_stop_updated",
+                    "changed": previous != data.emergency_stop,
+                    "status": "active" if data.emergency_stop else "inactive",
+                },
+            )
+            self.session.commit()
+            return self._sandbox_status_from_policy(policy)
+        except Exception:
+            self.session.rollback()
+            raise
+
+    def _locked_sandbox_policy(self, company_id: UUID) -> tuple[CompanySetting | None, dict]:
+        setting = self.session.scalar(
+            select(CompanySetting).where(
+                CompanySetting.company_id == company_id,
+                CompanySetting.category == "email_sandbox",
+                CompanySetting.key == "policy",
+            ).with_for_update()
+        )
+        policy = dict(setting.value) if setting is not None and isinstance(setting.value, dict) else self._sandbox_policy(company_id)
+        return setting, policy
+
+    def _save_sandbox_policy_setting(self, *, company_id: UUID, setting: CompanySetting | None, policy: dict) -> None:
+        if setting is None:
+            setting = CompanySetting(company_id=company_id, category="email_sandbox", key="policy", value=policy)
+            self.session.add(setting)
+        else:
+            setting.value = policy
+
     def _update_single_message_recipient_allowlist(self, *, company_id: UUID, recipient_email: str, actor: Administrator, remove: bool) -> SingleMessageRecipientAllowlistResponse:
         try:
-            setting = self.session.scalar(
-                select(CompanySetting).where(
-                    CompanySetting.company_id == company_id,
-                    CompanySetting.category == "email_sandbox",
-                    CompanySetting.key == "policy",
-                ).with_for_update()
-            )
-            policy = dict(setting.value) if setting is not None and isinstance(setting.value, dict) else self._sandbox_policy(company_id)
+            setting, policy = self._locked_sandbox_policy(company_id)
             recipients = self._exact_allowlist(policy.get("recipient_allowlist", []))
             previous = set(recipients)
             if remove:
@@ -188,11 +262,7 @@ class EmailWorkflowService:
             else:
                 recipients.add(recipient_email)
             policy["recipient_allowlist"] = sorted(recipients)
-            if setting is None:
-                setting = CompanySetting(company_id=company_id, category="email_sandbox", key="policy", value=policy)
-                self.session.add(setting)
-            else:
-                setting.value = policy
+            self._save_sandbox_policy_setting(company_id=company_id, setting=setting, policy=policy)
             operation = "single_message_recipient_allowlist_removed" if remove else "single_message_recipient_allowlist_updated"
             self.audit.append_company_event(
                 company_id=company_id,
@@ -212,6 +282,44 @@ class EmailWorkflowService:
             self.session.rollback()
             raise
 
+    def _update_single_message_sender_allowlist(self, *, company_id: UUID, sender_email: str, actor: Administrator, remove: bool) -> EmailSandboxStatusResponse:
+        try:
+            setting, policy = self._locked_sandbox_policy(company_id)
+            senders = self._exact_allowlist(policy.get("sender_allowlist", []))
+            previous = set(senders)
+            if remove:
+                senders.discard(sender_email)
+            else:
+                senders.add(sender_email)
+            policy["sender_allowlist"] = sorted(senders)
+            self._save_sandbox_policy_setting(company_id=company_id, setting=setting, policy=policy)
+            operation = "single_message_sender_allowlist_removed" if remove else "single_message_sender_allowlist_updated"
+            self.audit.append_company_event(
+                company_id=company_id,
+                actor_administrator_id=actor.id,
+                action=AuditAction.EMAIL_AUTOMATION_SETTINGS_UPDATED.value,
+                resource_type="email_automation",
+                resource_id=None,
+                details={
+                    "operation": operation,
+                    "changed": previous != senders,
+                    "sender_count": len(senders),
+                },
+            )
+            self.session.commit()
+            return self._sandbox_status_from_policy(policy)
+        except Exception:
+            self.session.rollback()
+            raise
+
+    def _sender_from_allowlist_update(self, *, company_id: UUID, data: SingleMessageSenderAllowlistUpdate, actor: Administrator) -> str:
+        if data.sender_email is not None:
+            return data.sender_email
+        if data.provider_connection_id is None:
+            raise EmailConflictError
+        _connection, sender_email = self._mailbox_sender(company_id=company_id, provider_connection_id=data.provider_connection_id, actor=actor)
+        return sender_email
+
     def _exact_allowlist(self, values: object) -> set[str]:
         if not isinstance(values, list):
             return set()
@@ -228,7 +336,7 @@ class EmailWorkflowService:
                 continue
         return normalized
 
-    def _reject_single_message(self, company_id: UUID, actor: Administrator, reason_code: str, resource_id: UUID | None = None) -> None:
+    def _reject_single_message(self, company_id: UUID, actor: Administrator, reason_code: str, resource_id: UUID | None = None, policy_checks: dict[str, bool] | None = None) -> None:
         self.audit.append_company_event(
             company_id=company_id,
             actor_administrator_id=actor.id,
@@ -238,7 +346,7 @@ class EmailWorkflowService:
             details={"operation_key": "send_email", "reason_code": reason_code, "sandbox": True, "simulation_only": True},
         )
         self.session.commit()
-        raise EmailSandboxRejectedError(reason_code)
+        raise EmailSandboxRejectedError(reason_code, policy_checks=policy_checks)
 
     def _mailbox_sender(self, *, company_id: UUID, provider_connection_id: UUID, actor: Administrator) -> tuple[object, str]:
         connection = self.connections.connection(company_id=company_id, connection_id=provider_connection_id, for_update=True)
@@ -259,30 +367,45 @@ class EmailWorkflowService:
             self._reject_single_message(company_id, actor, "sender_missing")
         return connection, sender_email
 
-    def _enforce_single_message_policy(self, *, company_id: UUID, actor: Administrator, sender_email: str, data: SingleMessagePreviewRequest | SingleMessageApprovalRequest) -> dict:
-        policy = self._single_message_policy(company_id)
-        if not bool(policy.get("enabled", True)):
-            self._reject_single_message(company_id, actor, "sandbox_disabled")
-        if bool(policy.get("emergency_stop", False)):
-            self._reject_single_message(company_id, actor, "emergency_stop_enabled")
-        if int(policy.get("max_recipients_per_message", 1)) != 1:
-            self._reject_single_message(company_id, actor, "one_recipient_required")
+    def _single_message_policy_checks(self, *, company_id: UUID, sender_email: str, data: SingleMessagePreviewRequest | SingleMessageApprovalRequest, policy: dict) -> dict[str, bool]:
         allowed_recipients = self._exact_allowlist(policy.get("recipient_allowlist", []))
-        if not allowed_recipients or data.recipient_email.casefold() not in allowed_recipients:
-            self._reject_single_message(company_id, actor, "recipient_not_allowlisted")
         allowed_senders = self._exact_allowlist(policy.get("sender_allowlist", []))
-        if not allowed_senders or sender_email.casefold() not in allowed_senders:
-            self._reject_single_message(company_id, actor, "sender_not_allowlisted")
         prefix = str(policy.get("required_subject_prefix") or SINGLE_MESSAGE_PREFIX).strip()
-        if prefix and not data.subject.startswith(prefix):
-            self._reject_single_message(company_id, actor, "subject_prefix_required")
-        if self._sent_count_since(company_id, datetime.now(UTC) - timedelta(hours=1)) >= int(policy.get("max_messages_per_hour", 5)):
-            self._reject_single_message(company_id, actor, "hourly_quota_exceeded")
-        if self._sent_count_since(company_id, datetime.now(UTC) - timedelta(days=1)) >= int(policy.get("max_messages_per_day", 10)):
-            self._reject_single_message(company_id, actor, "daily_quota_exceeded")
-        if not self._inside_working_hours(policy):
-            self._reject_single_message(company_id, actor, "outside_working_hours")
-        return policy
+        return {
+            "sandbox_enabled": bool(policy.get("enabled", True)),
+            "mailbox_active": True,
+            "mailbox_tested": True,
+            "credential_active": True,
+            "one_recipient_required": int(policy.get("max_recipients_per_message", 1)) == 1,
+            "recipient_allowlisted": bool(allowed_recipients) and data.recipient_email.casefold() in allowed_recipients,
+            "sender_allowlisted": bool(allowed_senders) and sender_email.casefold() in allowed_senders,
+            "subject_prefix": not prefix or data.subject.startswith(prefix),
+            "hourly_quota_available": self._sent_count_since(company_id, datetime.now(UTC) - timedelta(hours=1)) < int(policy.get("max_messages_per_hour", 5)),
+            "daily_quota_available": self._sent_count_since(company_id, datetime.now(UTC) - timedelta(days=1)) < int(policy.get("max_messages_per_day", 10)),
+            "working_hours": self._inside_working_hours(policy),
+            "emergency_stop_disabled": not bool(policy.get("emergency_stop", False)),
+            "approval_required": bool(policy.get("approval_required", True)),
+        }
+
+    def _enforce_single_message_policy(self, *, company_id: UUID, actor: Administrator, sender_email: str, data: SingleMessagePreviewRequest | SingleMessageApprovalRequest) -> tuple[dict, dict[str, bool]]:
+        policy = self._single_message_policy(company_id)
+        checks = self._single_message_policy_checks(company_id=company_id, sender_email=sender_email, data=data, policy=policy)
+        failure_order = [
+            ("sandbox_enabled", "sandbox_disabled"),
+            ("one_recipient_required", "one_recipient_required"),
+            ("recipient_allowlisted", "recipient_not_allowlisted"),
+            ("sender_allowlisted", "sender_not_allowlisted"),
+            ("subject_prefix", "subject_prefix_required"),
+            ("hourly_quota_available", "hourly_quota_exceeded"),
+            ("daily_quota_available", "daily_quota_exceeded"),
+            ("working_hours", "outside_working_hours"),
+        ]
+        if data.mode is SingleMessageMode.LIVE_TEST:
+            failure_order.insert(1, ("emergency_stop_disabled", "emergency_stop_enabled"))
+        for key, reason_code in failure_order:
+            if not checks[key]:
+                self._reject_single_message(company_id, actor, reason_code, policy_checks=checks)
+        return policy, checks
 
     def _inside_working_hours(self, policy: dict) -> bool:
         working = policy.get("working_hours")
@@ -303,7 +426,7 @@ class EmailWorkflowService:
         current = now.time().isoformat(timespec="minutes")
         return start <= current < end
 
-    def _single_message_preview(self, *, connection_id: UUID, sender_email: str, recipient_email: str, subject: str, body: str, idempotency_key: str, mode: SingleMessageMode) -> SingleMessagePreviewResponse:
+    def _single_message_preview(self, *, connection_id: UUID, sender_email: str, recipient_email: str, subject: str, body: str, idempotency_key: str, mode: SingleMessageMode, policy_checks: dict[str, bool]) -> SingleMessagePreviewResponse:
         digest = single_message_digest(provider_connection_id=connection_id, sender_email=sender_email, recipient_email=recipient_email, subject=subject, body=body)
         return SingleMessagePreviewResponse(
             provider_connection_id=connection_id,
@@ -315,39 +438,28 @@ class EmailWorkflowService:
             idempotency_key=idempotency_key,
             approval_required=True,
             simulation_only=mode is SingleMessageMode.SIMULATION,
-            live_send_available=mode is SingleMessageMode.LIVE_TEST,
+            live_send_available=mode is SingleMessageMode.LIVE_TEST and policy_checks.get("emergency_stop_disabled", False),
             disabled_features=DISABLED_SINGLE_MESSAGE_FEATURES,
             mode=mode,
-            policy_checks={
-                "mailbox_active": True,
-                "mailbox_tested": True,
-                "credential_active": True,
-                "sender_allowlisted": True,
-                "recipient_allowlisted": True,
-                "subject_prefix": True,
-                "quota_available": True,
-                "working_hours": True,
-                "emergency_stop_disabled": True,
-                "approval_required": True,
-            },
+            policy_checks=policy_checks,
         )
 
     def preview_single_message(self, *, company_id: UUID, data: SingleMessagePreviewRequest, actor: Administrator) -> SingleMessagePreviewResponse:
         connection, sender_email = self._mailbox_sender(company_id=company_id, provider_connection_id=data.provider_connection_id, actor=actor)
-        self._enforce_single_message_policy(company_id=company_id, actor=actor, sender_email=sender_email, data=data)
+        _policy, checks = self._enforce_single_message_policy(company_id=company_id, actor=actor, sender_email=sender_email, data=data)
         if self.executions.by_key(company_id, data.idempotency_key) is not None:
             self._reject_single_message(company_id, actor, "duplicate_idempotency_key")
-        preview = self._single_message_preview(connection_id=connection.id, sender_email=sender_email, recipient_email=data.recipient_email, subject=data.subject, body=data.body, idempotency_key=data.idempotency_key, mode=data.mode)
+        preview = self._single_message_preview(connection_id=connection.id, sender_email=sender_email, recipient_email=data.recipient_email, subject=data.subject, body=data.body, idempotency_key=data.idempotency_key, mode=data.mode, policy_checks=checks)
         self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.EMAIL_SINGLE_MESSAGE_SIMULATED.value, resource_type="email_single_message_test", resource_id=None, details={"message_digest": preview.payload_digest, "simulation_only": preview.simulation_only, "live_send_available": preview.live_send_available})
         self.session.commit()
         return preview
 
     def request_single_message_approval(self, *, company_id: UUID, data: SingleMessageApprovalRequest, actor: Administrator) -> SingleMessageApprovalResponse:
         connection, sender_email = self._mailbox_sender(company_id=company_id, provider_connection_id=data.provider_connection_id, actor=actor)
-        self._enforce_single_message_policy(company_id=company_id, actor=actor, sender_email=sender_email, data=data)
+        _policy, checks = self._enforce_single_message_policy(company_id=company_id, actor=actor, sender_email=sender_email, data=data)
         if self.executions.by_key(company_id, data.idempotency_key) is not None:
             self._reject_single_message(company_id, actor, "duplicate_idempotency_key")
-        preview = self._single_message_preview(connection_id=connection.id, sender_email=sender_email, recipient_email=data.recipient_email, subject=data.subject, body=data.body, idempotency_key=data.idempotency_key, mode=data.mode)
+        preview = self._single_message_preview(connection_id=connection.id, sender_email=sender_email, recipient_email=data.recipient_email, subject=data.subject, body=data.body, idempotency_key=data.idempotency_key, mode=data.mode, policy_checks=checks)
         if preview.payload_digest != data.preview_payload_digest:
             raise EmailConflictError
         execution_mode = ExecutionMode.LIVE.value if data.mode is SingleMessageMode.LIVE_TEST else ExecutionMode.DRY_RUN.value

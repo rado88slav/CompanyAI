@@ -1,5 +1,5 @@
 import { companyApi } from "./client";
-import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal, SingleMessageApproval, SingleMessageApprovalReview, SingleMessageApprovalReviewList, SingleMessageLiveExecution, SingleMessagePreview, SingleMessageRecipientAllowlist, SingleMessageTestPayload, SingleMessageSimulation, WorkerSimulation } from "../types/email";
+import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, EmailSandboxStatus, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal, SingleMessageApproval, SingleMessageApprovalReview, SingleMessageApprovalReviewList, SingleMessageLiveExecution, SingleMessagePreview, SingleMessageRecipientAllowlist, SingleMessageTestPayload, SingleMessageSimulation, WorkerSimulation } from "../types/email";
 import type { ActivityEventList } from "../types/activity";
 
 export const emailApi = {
@@ -43,6 +43,15 @@ export const emailApi = {
     companyApi<SingleMessageRecipientAllowlist>("/emails/single-message-tests/recipient-allowlist", {method: "POST", body: JSON.stringify({recipient_email: recipientEmail})}),
   removeSingleMessageRecipientAllowlist: (recipientEmail: string) =>
     companyApi<SingleMessageRecipientAllowlist>("/emails/single-message-tests/recipient-allowlist", {method: "DELETE", body: JSON.stringify({recipient_email: recipientEmail})}),
+  emailSandbox: () => companyApi<EmailSandboxStatus>("/emails/sandbox"),
+  addEmailSandboxSender: (senderEmail: string) =>
+    companyApi<EmailSandboxStatus>("/emails/sandbox/sender-allowlist", {method: "POST", body: JSON.stringify({sender_email: senderEmail})}),
+  addEmailSandboxMailboxSender: (providerConnectionId: string) =>
+    companyApi<EmailSandboxStatus>("/emails/sandbox/sender-allowlist", {method: "POST", body: JSON.stringify({provider_connection_id: providerConnectionId})}),
+  removeEmailSandboxSender: (senderEmail: string) =>
+    companyApi<EmailSandboxStatus>("/emails/sandbox/sender-allowlist", {method: "DELETE", body: JSON.stringify({sender_email: senderEmail})}),
+  setEmailSandboxEmergencyStop: (emergencyStop: boolean, confirmationText?: string) =>
+    companyApi<EmailSandboxStatus>("/emails/sandbox/emergency-stop", {method: "PATCH", body: JSON.stringify({emergency_stop: emergencyStop, confirmation_text: confirmationText})}),
   simulateWorker: () =>
     companyApi<WorkerSimulation>("/email-automation/worker/simulate", {method: "POST", body: JSON.stringify({max_actions: 10, idempotency_key: `worker-sim-${Date.now()}`})}),
 };

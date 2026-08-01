@@ -255,6 +255,24 @@ class SingleMessageRecipientAllowlistResponse(BaseModel):
     exact_only: bool = True
 
 
+class EmailSandboxStatusResponse(BaseModel):
+    recipient_allowlist: list[str]
+    sender_allowlist: list[str]
+    exact_only: bool = True
+    enabled: bool
+    emergency_stop: bool
+    emergency_stop_status: str
+    max_recipients_per_message: int
+    max_messages_per_hour: int
+    max_messages_per_day: int
+    required_subject_prefix: str
+    approval_required: bool
+    followups_enabled: bool
+    bulk_sending_enabled: bool
+    attachments_enabled: bool
+    disabled_features: list[str]
+
+
 class SingleMessageRecipientAllowlistUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     recipient_email: str
@@ -266,6 +284,40 @@ class SingleMessageRecipientAllowlistUpdate(BaseModel):
         if "*" in normalized or normalized.startswith("@"):
             raise ValueError("Only exact recipient email addresses are allowed.")
         return normalized
+
+
+class SingleMessageSenderAllowlistUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    sender_email: str | None = None
+    provider_connection_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def require_exactly_one_source(self) -> "SingleMessageSenderAllowlistUpdate":
+        if bool(self.sender_email) == bool(self.provider_connection_id):
+            raise ValueError("Provide either one exact sender email or one mailbox connection.")
+        return self
+
+    @field_validator("sender_email")
+    @classmethod
+    def validate_sender(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        normalized = _reject_multiple_recipients(value)
+        if "*" in normalized or normalized.startswith("@"):
+            raise ValueError("Only exact sender email addresses are allowed.")
+        return normalized
+
+
+class EmailSandboxEmergencyStopUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    emergency_stop: bool
+    confirmation_text: str | None = Field(default=None, max_length=120)
+
+    @model_validator(mode="after")
+    def validate_disable_confirmation(self) -> "EmailSandboxEmergencyStopUpdate":
+        if self.emergency_stop is False and self.confirmation_text != "DISABLE EMAIL EMERGENCY STOP":
+            raise ValueError("Explicit emergency-stop disable confirmation is required.")
+        return self
 
 
 class SingleMessageApprovalReview(BaseModel):

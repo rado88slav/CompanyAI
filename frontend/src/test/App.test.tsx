@@ -146,6 +146,27 @@ const campaignSchedule = {
   worker_enabled: false,
 };
 
+function sandboxStatus(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    recipient_allowlist: [],
+    sender_allowlist: [],
+    exact_only: true,
+    enabled: true,
+    emergency_stop: true,
+    emergency_stop_status: "active",
+    max_recipients_per_message: 1,
+    max_messages_per_hour: 5,
+    max_messages_per_day: 10,
+    required_subject_prefix: "[COMPANYAI TEST]",
+    approval_required: true,
+    followups_enabled: false,
+    bulk_sending_enabled: false,
+    attachments_enabled: false,
+    disabled_features: ["cc", "bcc", "attachments", "tracking", "follow_ups", "recipient_lists"],
+    ...overrides,
+  };
+}
+
 function setToken(companyId = "company-id") {
   sessionStorage.setItem("companyai.accessToken", "opaque-test-session-value");
   sessionStorage.setItem("companyai.companyId", companyId);
@@ -1015,14 +1036,15 @@ test("renders inbox empty state and refresh", async () => {
       deactivated_at: null,
       revoked_at: null,
     }], total: 1, limit: 50, offset: 0 }),
-    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
+    await jsonResponse(sandboxStatus({ emergency_stop: true, emergency_stop_status: "active" })),
   );
   window.history.pushState({}, "", "/email");
   render(<App />);
   expect(await screen.findByRole("heading", { name: "No imported email" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Email Sandbox Guide" })).toHaveAttribute("href", "/documentation/email-sandbox");
   expect(screen.getByRole("heading", { name: "Email Sandbox" })).toBeInTheDocument();
-  expect(screen.getByText("Backend enforced")).toBeInTheDocument();
+  expect(screen.getByText("ACTIVE")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Disable stop" })).toBeDisabled();
   expect(screen.getByRole("heading", { name: "Email Automation" })).toBeInTheDocument();
   expect(screen.getByDisplayValue("Europe/Sofia")).toBeInTheDocument();
   expect(screen.getByText("Welcome sequence")).toBeInTheDocument();
@@ -1036,9 +1058,11 @@ test("adds and removes exact single-message recipients with pending UI", async (
     await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
     await jsonResponse(campaignSchedule),
     await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
-    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
+    await jsonResponse(sandboxStatus()),
     await jsonResponse({ recipient_allowlist: ["allowed@example.test"], exact_only: true }),
+    await jsonResponse(sandboxStatus({ recipient_allowlist: ["allowed@example.test"] })),
     await jsonResponse({ recipient_allowlist: [], exact_only: true }),
+    await jsonResponse(sandboxStatus()),
   );
   window.history.pushState({}, "", "/email");
   render(<App />);
@@ -1052,6 +1076,46 @@ test("adds and removes exact single-message recipients with pending UI", async (
   expect(await screen.findByText("No exact recipients configured.")).toBeInTheDocument();
 });
 
+test("manages exact sandbox senders and emergency stop with explicit confirmation", async () => {
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse(campaignSchedule),
+    await jsonResponse({ items: [{
+      id: "mailbox-1",
+      provider_key: "generic_smtp_imap",
+      display_name: "Primary mailbox",
+      status: "active",
+    }], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse(sandboxStatus()),
+    await jsonResponse(sandboxStatus({ sender_allowlist: ["sender@example.test"] })),
+    await jsonResponse(sandboxStatus({ sender_allowlist: ["mailbox-sender@example.test"] })),
+    await jsonResponse(sandboxStatus({ sender_allowlist: [] })),
+    await jsonResponse(sandboxStatus({ emergency_stop: false, emergency_stop_status: "inactive" })),
+    await jsonResponse(sandboxStatus({ emergency_stop: true, emergency_stop_status: "active" })),
+  );
+  window.history.pushState({}, "", "/email");
+  render(<App />);
+
+  expect(await screen.findByText("No exact senders configured.")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Exact sender allowlist"), { target: { value: "sender@example.test" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add exact sender" }));
+  expect(await screen.findByText("sender@example.test")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Allow active mailbox sender"), { target: { value: "mailbox-1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Allow mailbox sender" }));
+  expect(await screen.findByText("mailbox-sender@example.test")).toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole("button", { name: "Remove" }).at(-1)!);
+  expect(await screen.findByText("No exact senders configured.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Disable stop" })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("Disable confirmation"), { target: { value: "DISABLE EMAIL EMERGENCY STOP" } });
+  fireEvent.click(screen.getByRole("button", { name: "Disable stop" }));
+  expect(await screen.findByText("INACTIVE")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Enable stop" }));
+  expect(await screen.findByText("ACTIVE")).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("password");
+});
+
 test("shows sanitized allowlist API errors without redirecting to login", async () => {
   setToken();
   await authenticatedFetchMock(
@@ -1059,7 +1123,7 @@ test("shows sanitized allowlist API errors without redirecting to login", async 
     await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
     await jsonResponse(campaignSchedule),
     await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
-    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
+    await jsonResponse(sandboxStatus()),
     await jsonResponse({ detail: "The requested operation could not be completed." }, false, 500),
   );
   window.history.pushState({}, "", "/email");
@@ -1073,6 +1137,34 @@ test("shows sanitized allowlist API errors without redirecting to login", async 
   expect(screen.getByRole("button", { name: "Logout" })).toBeInTheDocument();
 });
 
+test("shows blocked preview reason and policy checks without clearing the session", async () => {
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse(campaignSchedule),
+    await jsonResponse({ items: [{
+      id: "mailbox-1",
+      provider_key: "generic_smtp_imap",
+      display_name: "Primary mailbox",
+      status: "active",
+    }], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse(sandboxStatus({ recipient_allowlist: ["allowed@example.test"] })),
+    await jsonResponse({ detail: { code: "sender_not_allowlisted", message: "Email sandbox blocked the request: sender not allowlisted.", policy_checks: { recipient_allowlisted: true, sender_allowlisted: false, emergency_stop_disabled: true } } }, false, 403),
+  );
+  window.history.pushState({}, "", "/email");
+  render(<App />);
+
+  fireEvent.change(await screen.findByLabelText("Recipient"), { target: { value: "allowed@example.test" } });
+  fireEvent.change(screen.getByLabelText("Idempotency key"), { target: { value: "single-test-ui" } });
+  fireEvent.click(screen.getByRole("button", { name: "Preview one message" }));
+
+  expect(await screen.findByText("Email sandbox blocked the request: sender not allowlisted.")).toBeInTheDocument();
+  expect(screen.getByText("sender allowlisted")).toBeInTheDocument();
+  expect(screen.getByText("Blocked")).toBeInTheDocument();
+  expect(sessionStorage.getItem("companyai.accessToken")).toBe("opaque-test-session-value");
+});
+
 test("previews email automation dry-run slots", async () => {
   setToken();
   await authenticatedFetchMock(
@@ -1080,7 +1172,7 @@ test("previews email automation dry-run slots", async () => {
     await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
     await jsonResponse(campaignSchedule),
     await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
-    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
+    await jsonResponse(sandboxStatus()),
     await jsonResponse({
       settings: campaignSchedule,
       slots: [{
@@ -1123,7 +1215,7 @@ test("runs controlled single-message preview approval and simulation UI", async 
       display_name: "Primary mailbox",
       status: "active",
     }], total: 1, limit: 50, offset: 0 }),
-    await jsonResponse({ recipient_allowlist: ["allowed@example.test"], exact_only: true }),
+    await jsonResponse(sandboxStatus({ recipient_allowlist: ["allowed@example.test"], sender_allowlist: ["sender@example.test"], emergency_stop: false, emergency_stop_status: "inactive" })),
     await jsonResponse({
       provider_connection_id: "mailbox-1",
       sender_email: "sender@example.test",
@@ -1189,7 +1281,7 @@ test("runs controlled single-message preview approval and simulation UI", async 
   fireEvent.change(screen.getByLabelText("Idempotency key"), { target: { value: "single-test-ui" } });
   fireEvent.click(screen.getByRole("button", { name: "Preview one message" }));
   expect(await screen.findByRole("heading", { name: "Preview before approval" })).toBeInTheDocument();
-  expect(screen.getByText("sender@example.test")).toBeInTheDocument();
+  expect(screen.getAllByText("sender@example.test").length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("button", { name: "Request approval" }));
   expect(await screen.findByText(/Approval approval-1/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Execute simulation" })).toBeDisabled();

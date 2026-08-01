@@ -177,6 +177,26 @@ export type SingleMessageRecipientAllowlist = {
   exact_only: boolean;
 };
 
+export type EmailSandboxStatus = {
+  recipient_allowlist: string[];
+  sender_allowlist: string[];
+  exact_only: boolean;
+  enabled: boolean;
+  emergency_stop: boolean;
+  emergency_stop_status: "active" | "inactive" | string;
+  max_recipients_per_message: number;
+  max_messages_per_hour: number;
+  max_messages_per_day: number;
+  required_subject_prefix: string;
+  approval_required: boolean;
+  followups_enabled: boolean;
+  bulk_sending_enabled: boolean;
+  attachments_enabled: boolean;
+  disabled_features: string[];
+};
+
+export const EMAIL_EMERGENCY_STOP_DISABLE_CONFIRMATION = "DISABLE EMAIL EMERGENCY STOP";
+
 export type WorkerSimulation = {
   simulation_only: boolean;
   worker_enabled: boolean;

@@ -1512,6 +1512,16 @@ h1 {
   font-weight: 700;
 }
 
+.sandbox-stop span.is-inactive {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.sandbox-stop label {
+  width: 100%;
+  font-size: 0.78rem;
+}
+
 .automation-panel {
   display: grid;
   gap: 18px;

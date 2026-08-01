@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from email.message import EmailMessage
 from enum import StrEnum
 import imaplib
 import smtplib
@@ -117,6 +118,44 @@ class MailboxTimeoutError(MailboxTestError):
     safe_message = "The mailbox server did not respond before the timeout."
 
 
+class MailboxSendError(Exception):
+    safe_category = "smtp_send_failed_before_send"
+    safe_message = "SMTP send failed before the message was accepted."
+
+
+class MailboxSendConfigurationError(MailboxSendError):
+    safe_category = "invalid_configuration"
+    safe_message = "Mailbox settings are incomplete or invalid."
+
+
+class MailboxSendAuthenticationError(MailboxSendError):
+    safe_category = "authentication_failure"
+    safe_message = "Mailbox authentication failed."
+
+
+class MailboxSendTlsError(MailboxSendError):
+    safe_category = "tls_failure"
+    safe_message = "TLS certificate verification failed."
+
+
+class MailboxSendTimeoutError(MailboxSendError):
+    safe_category = "timeout_before_send"
+    safe_message = "SMTP server did not respond before the send started."
+
+
+class MailboxSendOutcomeUncertainError(MailboxSendError):
+    safe_category = "outcome_uncertain"
+    safe_message = "SMTP connection was lost during DATA; server acceptance is uncertain."
+
+
+@dataclass(frozen=True, slots=True)
+class MailboxSendResult:
+    status: str
+    accepted_at: datetime
+    server_response: str
+    provider_message_id: str | None = None
+
+
 def _require_string(configuration: dict, key: str) -> str:
     value = configuration.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -208,6 +247,69 @@ class StandardMailboxTransport:
             status, _ = client.select(folder, readonly=True)
             if status != "OK":
                 raise MailboxFolderError
+
+
+class GenericSmtpLiveTransport:
+    """Strict SMTP live transport for one plain-text message."""
+
+    name = "generic-smtp-live"
+
+    def _resolve(self, host: str, port: int) -> None:
+        socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+
+    def send_email(
+        self,
+        *,
+        configuration: dict,
+        password: str,
+        sender_email: str,
+        recipient_email: str,
+        subject: str,
+        body: str,
+        timeout_seconds: int,
+    ) -> MailboxSendResult:
+        try:
+            username = _require_string(configuration, "username")
+            host = _require_string(configuration, "smtp_host")
+            port = _require_port(configuration, "smtp_port")
+            security = _require_security(configuration, "smtp_security")
+            if not password:
+                raise InvalidMailboxConfigurationError
+        except MailboxTestError as exc:
+            raise MailboxSendConfigurationError from exc
+
+        message = EmailMessage()
+        message["From"] = sender_email
+        message["To"] = recipient_email
+        message["Subject"] = subject
+        message.set_content(body, subtype="plain")
+        try:
+            self._resolve(host, port)
+            context = ssl.create_default_context()
+            if security == "ssl_tls":
+                with smtplib.SMTP_SSL(host, port, timeout=timeout_seconds, context=context) as client:
+                    client.login(username, password)
+                    response = client.send_message(message, from_addr=sender_email, to_addrs=[recipient_email])
+            else:
+                with smtplib.SMTP(host, port, timeout=timeout_seconds) as client:
+                    client.starttls(context=context)
+                    client.login(username, password)
+                    response = client.send_message(message, from_addr=sender_email, to_addrs=[recipient_email])
+            if response:
+                raise MailboxSendError
+            return MailboxSendResult(status="accepted", accepted_at=datetime.now(UTC), server_response="accepted")
+        except MailboxSendError:
+            raise
+        except (TimeoutError, socket.timeout) as exc:
+            raise MailboxSendTimeoutError from exc
+        except (ssl.SSLCertVerificationError, ssl.SSLError) as exc:
+            raise MailboxSendTlsError from exc
+        except smtplib.SMTPAuthenticationError as exc:
+            raise MailboxSendAuthenticationError from exc
+        except (smtplib.SMTPDataError, smtplib.SMTPServerDisconnected) as exc:
+            raise MailboxSendOutcomeUncertainError from exc
+        except (socket.gaierror, ConnectionError, OSError, smtplib.SMTPConnectError) as exc:
+            raise MailboxSendError from exc
 
 
 class GenericMailboxTester:

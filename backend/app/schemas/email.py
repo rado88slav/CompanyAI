@@ -1,6 +1,7 @@
 """Strict public schemas for the thin email workflow."""
 
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 import re
@@ -159,11 +160,17 @@ class SingleMessageTestBase(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
+class SingleMessageMode(StrEnum):
+    SIMULATION = "simulation"
+    LIVE_TEST = "live_test"
+
+
 class SingleMessagePreviewRequest(SingleMessageTestBase):
-    pass
+    mode: SingleMessageMode = SingleMessageMode.SIMULATION
 
 
 class SingleMessageApprovalRequest(SingleMessageTestBase):
+    mode: SingleMessageMode = SingleMessageMode.SIMULATION
     confirmation_text: str = Field(min_length=1, max_length=80)
 
     @model_validator(mode="after")
@@ -185,6 +192,25 @@ class SingleMessageSimulationRequest(BaseModel):
         return self
 
 
+class SingleMessageLiveExecutionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider_execution_id: UUID
+    subject: str = Field(min_length=1, max_length=500)
+    body: str = Field(min_length=1, max_length=50_000)
+    confirmation_text: str = Field(min_length=1, max_length=80)
+
+    @field_validator("subject", mode="before")
+    @classmethod
+    def strip_subject(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validate_confirmation(self) -> "SingleMessageLiveExecutionRequest":
+        if self.confirmation_text != "SEND ONE TEST EMAIL":
+            raise ValueError("Explicit live-send confirmation is required.")
+        return self
+
+
 class SingleMessagePreviewResponse(BaseModel):
     provider_connection_id: UUID
     sender_email: str
@@ -197,6 +223,7 @@ class SingleMessagePreviewResponse(BaseModel):
     simulation_only: bool
     live_send_available: bool
     disabled_features: list[str]
+    mode: SingleMessageMode = SingleMessageMode.SIMULATION
 
 
 class SingleMessageApprovalResponse(SingleMessagePreviewResponse):
@@ -211,3 +238,29 @@ class SingleMessageSimulationResponse(BaseModel):
     result_metadata: dict
     simulation_only: bool
     external_action_taken: bool
+
+
+class SingleMessageLiveExecutionResponse(BaseModel):
+    provider_execution_id: UUID
+    status: str
+    result_metadata: dict
+    simulation_only: bool
+    external_action_taken: bool
+
+
+class SingleMessageRecipientAllowlistResponse(BaseModel):
+    recipient_allowlist: list[str]
+    exact_only: bool = True
+
+
+class SingleMessageRecipientAllowlistUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    recipient_email: str
+
+    @field_validator("recipient_email")
+    @classmethod
+    def validate_recipient(cls, value: str) -> str:
+        normalized = _reject_multiple_recipients(value)
+        if "*" in normalized or normalized.startswith("@"):
+            raise ValueError("Only exact recipient email addresses are allowed.")
+        return normalized

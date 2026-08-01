@@ -103,7 +103,8 @@ terminal transcripts or repository files.
 
 See `docs/MAILBOX_LIVE_ACCEPTANCE.md` for the operator checklist. See
 `docs/SINGLE_MESSAGE_TEST.md` for the follow-up approval-gated single-message
-simulation checklist.
+simulation checklist and `docs/LIVE_SINGLE_MESSAGE_SMTP_TEST.md` for the
+separate one-message LIVE TEST acceptance procedure.
 
 ## Email Worker Simulation
 

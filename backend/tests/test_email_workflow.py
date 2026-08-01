@@ -14,9 +14,9 @@ from app.models.company_membership import CompanyRole
 from app.models.approval import ApprovalRequest
 from app.models.email import EmailReplyProposal, OutboundEmail
 from app.schemas.approval import AuthorizationConditionsV1
-from app.schemas.email import ReplyProposalWrite, SingleMessageApprovalRequest, SingleMessagePreviewRequest, SingleMessageSimulationRequest, TestInboundEmailImport as InboundImportSchema
-from app.services.email import EmailSandboxRejectedError, EmailWorkflowService, content_digest, reply_subject
-from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY
+from app.schemas.email import ReplyProposalWrite, SingleMessageApprovalRequest, SingleMessageLiveExecutionRequest, SingleMessagePreviewRequest, SingleMessageSimulationRequest, TestInboundEmailImport as InboundImportSchema
+from app.services.email import EmailConflictError, EmailForbiddenError, EmailSandboxRejectedError, EmailWorkflowService, content_digest, reply_subject, single_message_digest
+from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY, MailboxSendOutcomeUncertainError, MailboxSendResult
 
 
 def test_import_schema_normalizes_email_and_rejects_unsupported_input():
@@ -266,17 +266,36 @@ class FakeAuthorizer:
         self.reserved = True
         return SimpleNamespace(id=uuid4())
 
-    def transition(self, *, company_id, usage_id, status, actor_administrator_id, commit=False):
+    def transition(self, *, company_id, usage_id, status, actor_administrator_id, failure_code=None, commit=False):
         self.transitioned = True
 
 
-def _single_message_service(monkeypatch, *, connection=None, credential=None, existing=None, policy=None, sent_count=0):
+class FakeEncryption:
+    def decrypt(self, *_args, **_kwargs):
+        return SimpleNamespace(secrets={"password": "synthetic-mailbox-password"})
+
+
+class FakeLiveTransport:
+    name = "fake-live-smtp"
+
+    def __init__(self, *, outcome="accepted"):
+        self.outcome = outcome
+        self.calls = []
+
+    def send_email(self, **kwargs):
+        self.calls.append(kwargs)
+        if self.outcome == "uncertain":
+            raise MailboxSendOutcomeUncertainError
+        return MailboxSendResult(status="accepted", accepted_at=datetime.now(UTC), server_response="accepted")
+
+
+def _single_message_service(monkeypatch, *, connection=None, credential=None, existing=None, policy=None, sent_count=0, live_transport=None):
     from app.core.config import get_settings
 
     monkeypatch.setenv("APP_ENV", "local-production")
     get_settings.cache_clear()
     service = EmailWorkflowService.__new__(EmailWorkflowService)
-    service.session = SimpleNamespace(commit=lambda: None, rollback=lambda: None)
+    service.session = SimpleNamespace(commit=lambda: None, rollback=lambda: None, flush=lambda: None)
     service.audit = FakeAudit()
     service.connections = FakeSingleMessageConnections(connection=connection, credential=credential)
     service.executions = FakeExecutions(existing=existing)
@@ -294,6 +313,8 @@ def _single_message_service(monkeypatch, *, connection=None, credential=None, ex
         "emergency_stop": False,
     }
     service._sent_count_since = lambda _company_id, _since: sent_count
+    service.encryption = FakeEncryption()
+    service.smtp_live_transport = live_transport or FakeLiveTransport()
     return service
 
 
@@ -303,13 +324,13 @@ def _active_mailbox(company_id, connection_id):
         company_id=company_id,
         provider_key="generic_smtp_imap",
         status="active",
-        configuration={"email_address": "sender@example.test"},
+        configuration={"email_address": "sender@example.test", "username": "sender@example.test", "smtp_host": "mail.example.test", "smtp_port": 465, "smtp_security": "ssl_tls"},
         metadata_={GENERIC_MAILBOX_HEALTH_KEY: {"smtp": {"status": "succeeded"}, "imap": {"status": "succeeded"}}},
     )
 
 
 def _credential(company_id, connection_id):
-    return SimpleNamespace(company_id=company_id, provider_connection_id=connection_id, expires_at=datetime.now(UTC) + timedelta(days=1))
+    return SimpleNamespace(id=uuid4(), company_id=company_id, provider_connection_id=connection_id, expires_at=datetime.now(UTC) + timedelta(days=1), encrypted_payload=b"ciphertext", nonce=b"123456789012", encryption_version=2, encryption_key_id="legacy")
 
 
 def _single_message_payload(connection_id):
@@ -401,6 +422,23 @@ def test_single_message_request_approval_records_dry_run_execution(monkeypatch):
     assert service.approval_service.requests[-1].requested_conditions.payload_digest == result.payload_digest
 
 
+def test_single_message_live_approval_records_live_execution_without_body(monkeypatch):
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id))
+    values = _single_message_payload(connection_id).model_dump()
+    values["mode"] = "live_test"
+    payload = SingleMessageApprovalRequest(**values, confirmation_text="CONFIRM ONE TEST EMAIL")
+
+    result = service.request_single_message_approval(company_id=company_id, data=payload, actor=SimpleNamespace(id=actor_id))
+
+    execution = service.executions.items[result.provider_execution_id]
+    assert execution.execution_mode == "live"
+    assert execution.request_payload["mode"] == "live_test"
+    assert "body" not in execution.request_payload
+    assert result.live_send_available is True
+    assert result.simulation_only is False
+
+
 def test_single_message_simulation_rejects_missing_approval(monkeypatch):
     company_id, connection_id, execution_id, actor_id = uuid4(), uuid4(), uuid4(), uuid4()
     service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id))
@@ -427,3 +465,60 @@ def test_single_message_simulation_uses_dry_run_adapter_only(monkeypatch):
     assert result.provider_execution_id == execution_id
     assert execution.status == "succeeded"
     assert service.executions.attempts[-1].adapter_name == "dry-run"
+
+
+def _live_execution(company_id, connection_id, execution_id, actor_id, *, body="One controlled message body."):
+    digest = single_message_digest(provider_connection_id=connection_id, sender_email="sender@example.test", recipient_email="allowed@example.test", subject="[COMPANYAI TEST] Controlled hello", body=body)
+    return SimpleNamespace(id=execution_id, company_id=company_id, provider_connection_id=connection_id, provider_key="generic_smtp_imap", operation_key="send_email", execution_mode="live", requested_by_administrator_id=actor_id, request_payload={"payload_schema": "email_single_message_test.v1", "mode": "live_test", "sender_email": "sender@example.test", "recipient_email": "allowed@example.test", "subject": "[COMPANYAI TEST] Controlled hello", "payload_digest": digest}, status="pending_authorization", authorization_reference=None, started_at=None, completed_at=None, result_metadata={}, error_category=None, error_message=None, idempotency_key="single-live-001")
+
+
+def test_single_message_live_executes_fake_smtp_after_approval(monkeypatch):
+    company_id, connection_id, execution_id, actor_id = uuid4(), uuid4(), uuid4(), uuid4()
+    transport = FakeLiveTransport()
+    service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id), live_transport=transport)
+    execution = _live_execution(company_id, connection_id, execution_id, actor_id)
+    service.executions.items[execution_id] = execution
+    monkeypatch.setattr("app.services.email.AuthorizationEvaluatorService", lambda *args, **kwargs: FakeAuthorizer(status="authorized"))
+
+    result = service.execute_single_message_live(company_id=company_id, data=SingleMessageLiveExecutionRequest(provider_execution_id=execution_id, subject="[COMPANYAI TEST] Controlled hello", body="One controlled message body.", confirmation_text="SEND ONE TEST EMAIL"), actor=SimpleNamespace(id=actor_id))
+
+    assert result.status == "succeeded"
+    assert result.external_action_taken is True
+    assert execution.status == "succeeded"
+    assert service.executions.attempts[-1].adapter_name == "fake-live-smtp"
+    assert transport.calls[0]["password"] == "synthetic-mailbox-password"
+    assert "synthetic-mailbox-password" not in repr(execution.result_metadata)
+    assert "One controlled message body." not in repr(execution.result_metadata)
+
+
+def test_single_message_live_outcome_uncertain_does_not_retry(monkeypatch):
+    company_id, connection_id, execution_id, actor_id = uuid4(), uuid4(), uuid4(), uuid4()
+    transport = FakeLiveTransport(outcome="uncertain")
+    service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id), live_transport=transport)
+    execution = _live_execution(company_id, connection_id, execution_id, actor_id)
+    service.executions.items[execution_id] = execution
+    monkeypatch.setattr("app.services.email.AuthorizationEvaluatorService", lambda *args, **kwargs: FakeAuthorizer(status="authorized"))
+
+    result = service.execute_single_message_live(company_id=company_id, data=SingleMessageLiveExecutionRequest(provider_execution_id=execution_id, subject="[COMPANYAI TEST] Controlled hello", body="One controlled message body.", confirmation_text="SEND ONE TEST EMAIL"), actor=SimpleNamespace(id=actor_id))
+
+    assert result.status == "outcome_uncertain"
+    assert result.external_action_taken is True
+    assert len(transport.calls) == 1
+    assert service.executions.attempts[-1].status == "outcome_uncertain"
+    with pytest.raises(EmailConflictError):
+        service.execute_single_message_live(company_id=company_id, data=SingleMessageLiveExecutionRequest(provider_execution_id=execution_id, subject="[COMPANYAI TEST] Controlled hello", body="One controlled message body.", confirmation_text="SEND ONE TEST EMAIL"), actor=SimpleNamespace(id=actor_id))
+    assert len(transport.calls) == 1
+
+
+def test_single_message_live_rejects_changed_body_before_smtp(monkeypatch):
+    company_id, connection_id, execution_id, actor_id = uuid4(), uuid4(), uuid4(), uuid4()
+    transport = FakeLiveTransport()
+    service = _single_message_service(monkeypatch, connection=_active_mailbox(company_id, connection_id), credential=_credential(company_id, connection_id), live_transport=transport)
+    execution = _live_execution(company_id, connection_id, execution_id, actor_id)
+    service.executions.items[execution_id] = execution
+    monkeypatch.setattr("app.services.email.AuthorizationEvaluatorService", lambda *args, **kwargs: FakeAuthorizer(status="authorized"))
+
+    with pytest.raises(EmailForbiddenError):
+        service.execute_single_message_live(company_id=company_id, data=SingleMessageLiveExecutionRequest(provider_execution_id=execution_id, subject="[COMPANYAI TEST] Controlled hello", body="Changed body.", confirmation_text="SEND ONE TEST EMAIL"), actor=SimpleNamespace(id=actor_id))
+
+    assert transport.calls == []

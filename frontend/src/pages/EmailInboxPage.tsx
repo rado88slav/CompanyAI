@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { emailApi } from "../api/email";
-import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailCampaign, InboundEmail, SingleMessageApproval, SingleMessagePreview, SingleMessageTestPayload, WorkerSimulation } from "../types/email";
+import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailCampaign, InboundEmail, SingleMessageApproval, SingleMessagePreview, SingleMessageRecipientAllowlist, SingleMessageTestPayload, WorkerSimulation } from "../types/email";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -17,6 +17,10 @@ export function EmailInboxPage() {
   const [workerSimulation, setWorkerSimulation] = useState<WorkerSimulation | null>(null);
   const [singlePreview, setSinglePreview] = useState<SingleMessagePreview | null>(null);
   const [singleApproval, setSingleApproval] = useState<SingleMessageApproval | null>(null);
+  const [singleMode, setSingleMode] = useState<"simulation" | "live_test">("simulation");
+  const [liveConfirmation, setLiveConfirmation] = useState("");
+  const [allowlist, setAllowlist] = useState<SingleMessageRecipientAllowlist | null>(null);
+  const [allowlistEmail, setAllowlistEmail] = useState("");
   const [singleForm, setSingleForm] = useState<SingleMessageTestPayload>({
     provider_connection_id: "",
     recipient_email: "",
@@ -29,11 +33,12 @@ export function EmailInboxPage() {
   const [state, setState] = useState<"loading"|"ready"|"error">("loading");
   const load = useCallback(() => {
     setState("loading");
-    Promise.all([emailApi.list(), emailApi.campaigns(), emailApi.schedule(), emailApi.connections()])
-      .then(([emailValue, campaignValue, scheduleValue, connectionValue]) => {
+    Promise.all([emailApi.list(), emailApi.campaigns(), emailApi.schedule(), emailApi.connections(), emailApi.singleMessageRecipientAllowlist()])
+      .then(([emailValue, campaignValue, scheduleValue, connectionValue, allowlistValue]) => {
         setItems(emailValue.items);
         setCampaigns(campaignValue.items);
         setSchedule(scheduleValue);
+        setAllowlist(allowlistValue);
         setMailboxes(connectionValue.items.filter((item) => item.provider_key === "generic_smtp_imap"));
         setSingleForm((current) => ({...current, provider_connection_id: current.provider_connection_id || connectionValue.items.find((item) => item.provider_key === "generic_smtp_imap" && item.status === "active")?.id || ""}));
         setState("ready");
@@ -65,23 +70,37 @@ export function EmailInboxPage() {
   }
   async function previewSingleMessage() {
     setMessage("");
-    const value = await emailApi.previewSingleMessage(singleForm);
+    const value = await emailApi.previewSingleMessage({...singleForm, mode: singleMode});
     setSinglePreview(value);
     setSingleApproval(null);
     setMessage("Single-message preview ready.");
   }
   async function requestSingleApproval() {
     setMessage("");
-    const value = await emailApi.requestSingleMessageApproval(singleForm);
+    const value = await emailApi.requestSingleMessageApproval({...singleForm, mode: singleMode});
     setSinglePreview(value);
     setSingleApproval(value);
-    setMessage("Approval request created for one simulated test email.");
+    setMessage(singleMode === "live_test" ? "Approval request created for one LIVE TEST email." : "Approval request created for one simulated test email.");
   }
   async function executeSingleSimulation() {
     if (!singleApproval) return;
     setMessage("");
     const value = await emailApi.executeSingleMessageSimulation(singleApproval.provider_execution_id);
     setMessage(`Simulation ${value.status}; external action: ${value.external_action_taken ? "yes" : "no"}.`);
+  }
+  async function executeSingleLive() {
+    if (!singleApproval || liveConfirmation !== "SEND ONE TEST EMAIL") return;
+    setMessage("");
+    const value = await emailApi.executeSingleMessageLive(singleApproval.provider_execution_id, singleForm.subject, singleForm.body);
+    setMessage(`LIVE TEST ${value.status}; SMTP accepted: ${value.status === "succeeded" ? "yes" : "no"}; delivery claimed: no.`);
+    setLiveConfirmation("");
+  }
+  async function addAllowlistRecipient() {
+    setMessage("");
+    const value = await emailApi.addSingleMessageRecipientAllowlist(allowlistEmail);
+    setAllowlist(value);
+    setAllowlistEmail("");
+    setMessage("Exact test recipient allowlist updated.");
   }
   async function pauseSchedule() {
     const value = await emailApi.pauseSchedule();
@@ -206,13 +225,31 @@ export function EmailInboxPage() {
     {state === "ready" && <section className="single-message-panel">
       <div className="section-heading">
         <div><p className="eyebrow">Controlled single-message test</p><h2>One Test Email</h2></div>
-        <span className="status-pill">simulation only</span>
+        <span className="status-pill">{singleMode === "live_test" ? "LIVE TEST external action" : "simulation only"}</span>
+      </div>
+      <div className="segmented-control" role="group" aria-label="Single-message mode">
+        <button type="button" className={singleMode === "simulation" ? "is-active" : ""} onClick={() => { setSingleMode("simulation"); setSingleApproval(null); setSinglePreview(null); }}>Simulation</button>
+        <button type="button" className={singleMode === "live_test" ? "is-active" : ""} onClick={() => { setSingleMode("live_test"); setSingleApproval(null); setSinglePreview(null); }}>LIVE TEST</button>
       </div>
       <div className="sandbox-grid" aria-label="Single-message safeguards">
         <span><strong>Recipient</strong> exactly one</span>
         <span><strong>Subject</strong> [COMPANYAI TEST]</span>
         <span><strong>Approval</strong> required</span>
-        <span><strong>Live send</strong> disabled</span>
+        <span><strong>Live send</strong> {singleMode === "live_test" ? "manual only" : "disabled"}</span>
+      </div>
+      {singleMode === "live_test" && <div className="state-card warning">
+        <h3>LIVE TEST external action</h3>
+        <p>This mode can send exactly one plain-text SMTP message after approval and final typed confirmation. SMTP accepted does not mean delivered.</p>
+      </div>}
+      <div className="automation-grid">
+        <label>Exact recipient allowlist
+          <input value={allowlistEmail} onChange={(event) => setAllowlistEmail(event.target.value)} placeholder="person@example.com" />
+        </label>
+        <button type="button" onClick={addAllowlistRecipient} disabled={!allowlistEmail}>Add exact recipient</button>
+        <div className="state-card">
+          <strong>Allowed test recipients</strong>
+          <p>{allowlist?.recipient_allowlist.length ? allowlist.recipient_allowlist.join(", ") : "No exact recipients configured."}</p>
+        </div>
       </div>
       <div className="automation-grid">
         <label>Mailbox
@@ -238,7 +275,11 @@ export function EmailInboxPage() {
         <button type="button" onClick={previewSingleMessage} disabled={!singleForm.provider_connection_id || !singleForm.recipient_email}>Preview one message</button>
         <button type="button" onClick={requestSingleApproval} disabled={!singlePreview}>Request approval</button>
         <button type="button" onClick={executeSingleSimulation} disabled={!singleApproval}>Execute simulation</button>
+        <button type="button" onClick={executeSingleLive} disabled={!singleApproval || singleApproval.mode !== "live_test" || liveConfirmation !== "SEND ONE TEST EMAIL"}>Execute LIVE TEST</button>
       </div>
+      {singleApproval?.mode === "live_test" && <label>Final live confirmation
+        <input value={liveConfirmation} onChange={(event) => setLiveConfirmation(event.target.value)} placeholder="SEND ONE TEST EMAIL" />
+      </label>}
       {singlePreview && <div className="state-card">
         <h3>Preview before approval</h3>
         <p><strong>From:</strong> {singlePreview.sender_email}</p>

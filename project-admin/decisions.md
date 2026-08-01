@@ -640,3 +640,17 @@ operator may be locked out and the command is not an authenticated HTTP action.
 Administrator access tokens are currently stateless JWTs; there is no
 refresh/session table or administrator auth-version column to revoke existing
 sessions during reset.
+
+## 045 — One-Message SMTP LIVE TEST Boundary
+
+The first Generic SMTP/IMAP live send path is limited to a manually triggered,
+approval-gated one-message LIVE TEST. It reuses Provider Execution,
+ProviderCredential decryption and Email Sandbox policy checks, but does not
+enable campaigns, scheduler workers, recipient lists, attachments, tracking,
+follow-ups or automatic retries.
+
+The approved payload is bound by digest. ProviderExecution stores safe metadata
+and the digest, not the full body. At final execution the dashboard resubmits
+subject/body, the backend recomputes the digest, records `running` before SMTP
+contact and then records `succeeded`, `failed_before_send` or
+`outcome_uncertain`. SMTP accepted means server acceptance only, never delivery.

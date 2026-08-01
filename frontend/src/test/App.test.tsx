@@ -999,6 +999,7 @@ test("renders inbox empty state and refresh", async () => {
       deactivated_at: null,
       revoked_at: null,
     }], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
   );
   window.history.pushState({}, "", "/email");
   render(<App />);
@@ -1019,6 +1020,7 @@ test("previews email automation dry-run slots", async () => {
     await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
     await jsonResponse(campaignSchedule),
     await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
     await jsonResponse({
       settings: campaignSchedule,
       slots: [{
@@ -1061,6 +1063,7 @@ test("runs controlled single-message preview approval and simulation UI", async 
       display_name: "Primary mailbox",
       status: "active",
     }], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({ recipient_allowlist: ["allowed@example.test"], exact_only: true }),
     await jsonResponse({
       provider_connection_id: "mailbox-1",
       sender_email: "sender@example.test",
@@ -1073,6 +1076,7 @@ test("runs controlled single-message preview approval and simulation UI", async 
       simulation_only: true,
       live_send_available: false,
       disabled_features: ["cc", "bcc", "attachments", "tracking", "follow_ups", "recipient_lists"],
+      mode: "simulation",
     }),
     await jsonResponse({
       provider_connection_id: "mailbox-1",
@@ -1086,6 +1090,7 @@ test("runs controlled single-message preview approval and simulation UI", async 
       simulation_only: true,
       live_send_available: false,
       disabled_features: ["cc", "bcc", "attachments", "tracking", "follow_ups", "recipient_lists"],
+      mode: "simulation",
       provider_execution_id: "execution-1",
       approval_request_id: "approval-1",
       status: "pending_authorization",
@@ -1102,6 +1107,7 @@ test("runs controlled single-message preview approval and simulation UI", async 
   render(<App />);
 
   expect(await screen.findByRole("heading", { name: "One Test Email" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Execute LIVE TEST" })).toBeDisabled();
   fireEvent.change(screen.getByLabelText("Recipient"), { target: { value: "allowed@example.test" } });
   fireEvent.change(screen.getByLabelText("Idempotency key"), { target: { value: "single-test-ui" } });
   fireEvent.click(screen.getByRole("button", { name: "Preview one message" }));

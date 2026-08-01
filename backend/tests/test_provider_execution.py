@@ -102,7 +102,7 @@ def test_registry_has_local_test_email_operation():
     local = provider_operation_registry.require("local_test_email", "send_email")
     assert local.implemented is True and local.required_credential_status == "not_required"
     generic = provider_operation_registry.require("generic_smtp_imap", "send_email")
-    assert generic.implemented is False and generic.retry_attempts == 0 and generic.approval_required is True
+    assert generic.implemented is True and generic.retry_attempts == 0 and generic.approval_required is True
 
 
 def test_registry_exact_lookup_unknown_and_duplicate_rejection():

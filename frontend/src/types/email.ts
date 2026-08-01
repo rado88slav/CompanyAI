@@ -117,6 +117,7 @@ export type SingleMessageTestPayload = {
   subject: string;
   body: string;
   idempotency_key: string;
+  mode?: "simulation" | "live_test";
 };
 
 export type SingleMessagePreview = SingleMessageTestPayload & {
@@ -126,6 +127,7 @@ export type SingleMessagePreview = SingleMessageTestPayload & {
   simulation_only: boolean;
   live_send_available: boolean;
   disabled_features: string[];
+  mode: "simulation" | "live_test";
 };
 
 export type SingleMessageApproval = SingleMessagePreview & {
@@ -140,6 +142,13 @@ export type SingleMessageSimulation = {
   result_metadata: Record<string, string | boolean>;
   simulation_only: boolean;
   external_action_taken: boolean;
+};
+
+export type SingleMessageLiveExecution = SingleMessageSimulation;
+
+export type SingleMessageRecipientAllowlist = {
+  recipient_allowlist: string[];
+  exact_only: boolean;
 };
 
 export type WorkerSimulation = {

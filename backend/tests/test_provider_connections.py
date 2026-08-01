@@ -2,6 +2,7 @@
 import base64
 from datetime import UTC, datetime
 import json
+import smtplib
 import socket
 import ssl
 from types import SimpleNamespace
@@ -22,7 +23,7 @@ from app.models.audit_log import AuditAction
 from app.models.provider_connection import ProviderConnection, ProviderCredential
 from app.schemas.company_context import ActiveCompanyContext
 from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionResponse, ProviderConnectionUpdate, ProviderCredentialCreate
-from app.services.generic_smtp_imap import GenericMailboxTester, MailboxAuthenticationError, MailboxFolderError, MailboxProtocol, MailboxTimeoutError
+from app.services.generic_smtp_imap import GenericMailboxTester, GenericSmtpLiveTransport, MailboxAuthenticationError, MailboxFolderError, MailboxProtocol, MailboxSendOutcomeUncertainError, MailboxTimeoutError
 from app.services.audit_log import AuditLogService
 from app.services.provider_connection import ProviderConflictError, ProviderConnectionService, ProviderCredentialAlreadyConfiguredError, ProviderCredentialConfigurationError, ProviderCredentialValidationError, ProviderLifecycleError, ProviderNotFoundError, get_provider_connection_service
 
@@ -848,6 +849,89 @@ def test_generic_mailbox_credential_storage_is_encrypted_and_not_exposed() -> No
     assert b"mailbox-secret" not in credential.encrypted_payload
     assert "mailbox-secret" not in repr(credential)
     assert "mailbox-secret" not in repr(audit.append_company_event.call_args.kwargs["details"])
+
+
+def test_generic_smtp_live_transport_uses_strict_tls_and_plain_text_message(monkeypatch) -> None:
+    calls: dict[str, object] = {}
+
+    class FakeSmtpSsl:
+        def __init__(self, host, port, *, timeout, context):
+            calls["host"] = host
+            calls["port"] = port
+            calls["timeout"] = timeout
+            calls["check_hostname"] = context.check_hostname
+            calls["verify_mode"] = context.verify_mode
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def login(self, username, password):
+            calls["username"] = username
+            calls["password"] = password
+
+        def send_message(self, message, *, from_addr, to_addrs):
+            calls["from_addr"] = from_addr
+            calls["to_addrs"] = to_addrs
+            calls["content_type"] = message.get_content_type()
+            calls["body"] = message.get_content()
+            return {}
+
+    monkeypatch.setattr("socket.getaddrinfo", lambda *args, **kwargs: [object()])
+    monkeypatch.setattr("smtplib.SMTP_SSL", FakeSmtpSsl)
+
+    result = GenericSmtpLiveTransport().send_email(
+        configuration={"username": "sender@example.test", "smtp_host": "mail.example.test", "smtp_port": 465, "smtp_security": "ssl_tls"},
+        password="synthetic-password",
+        sender_email="sender@example.test",
+        recipient_email="allowed@example.test",
+        subject="[COMPANYAI TEST] hello",
+        body="Plain body.",
+        timeout_seconds=15,
+    )
+
+    assert result.status == "accepted"
+    assert calls["host"] == "mail.example.test"
+    assert calls["port"] == 465
+    assert calls["check_hostname"] is True
+    assert calls["verify_mode"] == ssl.CERT_REQUIRED
+    assert calls["to_addrs"] == ["allowed@example.test"]
+    assert calls["content_type"] == "text/plain"
+    assert calls["body"] == "Plain body.\n"
+
+
+def test_generic_smtp_live_transport_marks_data_disconnect_uncertain(monkeypatch) -> None:
+    class DisconnectingSmtpSsl:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def login(self, *_args):
+            return None
+
+        def send_message(self, *_args, **_kwargs):
+            raise smtplib.SMTPServerDisconnected("lost after DATA")
+
+    monkeypatch.setattr("socket.getaddrinfo", lambda *args, **kwargs: [object()])
+    monkeypatch.setattr("smtplib.SMTP_SSL", DisconnectingSmtpSsl)
+
+    with pytest.raises(MailboxSendOutcomeUncertainError):
+        GenericSmtpLiveTransport().send_email(
+            configuration={"username": "sender@example.test", "smtp_host": "mail.example.test", "smtp_port": 465, "smtp_security": "ssl_tls"},
+            password="synthetic-password",
+            sender_email="sender@example.test",
+            recipient_email="allowed@example.test",
+            subject="[COMPANYAI TEST] hello",
+            body="Plain body.",
+            timeout_seconds=15,
+        )
 
 
 def test_generic_mailbox_first_inactive_zero_credential_create_succeeds() -> None:

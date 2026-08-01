@@ -32,7 +32,7 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0014_email_workflow"
+        "0015_provider_execution_live_outcomes"
     ]
 
 
@@ -151,6 +151,14 @@ def test_credential_keyring_contract_follows_expand_revision() -> None:
     )
     assert revision is not None
     assert revision.down_revision == "0012_credential_keyring_expand"
+
+
+def test_provider_execution_live_outcomes_follow_email_workflow() -> None:
+    revision = ScriptDirectory.from_config(create_alembic_config()).get_revision(
+        "0015_provider_execution_live_outcomes"
+    )
+    assert revision is not None
+    assert revision.down_revision == "0014_email_workflow"
 
 
 def test_credential_keyring_contract_fails_when_null_references_remain(

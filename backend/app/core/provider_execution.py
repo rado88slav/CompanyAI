@@ -89,10 +89,10 @@ provider_operation_registry.register(ProviderOperationDescriptor(
 ))
 provider_operation_registry.register(ProviderOperationDescriptor(
     "generic_smtp_imap", "send_email", "Generic SMTP/IMAP email send",
-    "Approval-gated single-message email boundary. Live adapter is not implemented.", "email",
+    "Approval-gated single-message SMTP live test boundary.", "email",
     ExecutionRisk.HIGH, True, frozenset({ExecutionMode.DRY_RUN, ExecutionMode.LIVE}),
     input_fields=frozenset({"sender_email", "recipient_email", "subject", "body", "payload_digest", "confirmation_text"}),
-    redaction_fields=frozenset({"body"}), timeout_seconds=15, retry_attempts=0, implemented=False,
+    redaction_fields=frozenset({"body"}), timeout_seconds=15, retry_attempts=0, implemented=True,
 ))
 for _provider, _ops in {
     "retell": ("list_agents", "get_agent", "create_call"), "twilio": ("list_phone_numbers", "get_call", "create_call"),

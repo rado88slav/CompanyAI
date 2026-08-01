@@ -1,5 +1,5 @@
 import { companyApi } from "./client";
-import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal, SingleMessageApproval, SingleMessagePreview, SingleMessageTestPayload, SingleMessageSimulation, WorkerSimulation } from "../types/email";
+import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal, SingleMessageApproval, SingleMessageLiveExecution, SingleMessagePreview, SingleMessageRecipientAllowlist, SingleMessageTestPayload, SingleMessageSimulation, WorkerSimulation } from "../types/email";
 import type { ActivityEventList } from "../types/activity";
 
 export const emailApi = {
@@ -29,6 +29,12 @@ export const emailApi = {
     companyApi<SingleMessageApproval>("/emails/single-message-tests/request-approval", {method: "POST", body: JSON.stringify({...data, confirmation_text: "CONFIRM ONE TEST EMAIL"})}),
   executeSingleMessageSimulation: (providerExecutionId: string) =>
     companyApi<SingleMessageSimulation>("/emails/single-message-tests/execute-simulation", {method: "POST", body: JSON.stringify({provider_execution_id: providerExecutionId, confirmation_text: "CONFIRM SIMULATION ONLY"})}),
+  executeSingleMessageLive: (providerExecutionId: string, subject: string, body: string) =>
+    companyApi<SingleMessageLiveExecution>("/emails/single-message-tests/execute-live", {method: "POST", body: JSON.stringify({provider_execution_id: providerExecutionId, subject, body, confirmation_text: "SEND ONE TEST EMAIL"})}),
+  singleMessageRecipientAllowlist: () =>
+    companyApi<SingleMessageRecipientAllowlist>("/emails/single-message-tests/recipient-allowlist"),
+  addSingleMessageRecipientAllowlist: (recipientEmail: string) =>
+    companyApi<SingleMessageRecipientAllowlist>("/emails/single-message-tests/recipient-allowlist", {method: "POST", body: JSON.stringify({recipient_email: recipientEmail})}),
   simulateWorker: () =>
     companyApi<WorkerSimulation>("/email-automation/worker/simulate", {method: "POST", body: JSON.stringify({max_actions: 10, idempotency_key: `worker-sim-${Date.now()}`})}),
 };

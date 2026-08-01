@@ -1,7 +1,7 @@
 # Controlled Single-Message Test
 
-This guide covers the first approval-gated one-message test. It is prepared in
-the application, but development and automated tests execute simulation only.
+This guide covers the approval-gated one-message simulation test. Automated
+tests execute simulation only and never open SMTP connections.
 
 Prerequisites:
 
@@ -50,10 +50,9 @@ Rollback and stop:
 - Do not retry after an uncertain live send result; reconcile first through
   provider execution and mailbox evidence.
 
-Remaining before real delivery:
+LIVE TEST:
 
-- operator-entered live mailbox acceptance must pass;
-- exact sender and recipient allowlists must be configured;
-- a separate live adapter implementation and review are required;
-- the first live send must be approved as its own single action;
-- autonomous campaign workers remain disabled.
+The separate one-message SMTP LIVE TEST procedure is documented in
+`docs/LIVE_SINGLE_MESSAGE_SMTP_TEST.md`. It still requires exact allowlists,
+explicit LIVE TEST mode, approval, final typed confirmation and no automatic
+retry. Autonomous campaign workers remain disabled.

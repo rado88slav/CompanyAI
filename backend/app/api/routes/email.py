@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.dependencies.company_authorization import require_approvals_decide, require_approvals_read, require_emails_read, require_emails_write, require_provider_executions_manage
 from app.schemas.company_context import ActiveCompanyContext
-from app.schemas.email import EmailApprovalListResponse, InboundEmailDetail, InboundEmailListResponse, InboundEmailSummary, OutboundEmailResponse, ReplyProposalResponse, ReplyProposalWrite, SendReplyRequest, SingleMessageApprovalRequest, SingleMessageApprovalResponse, SingleMessagePreviewRequest, SingleMessagePreviewResponse, SingleMessageSimulationRequest, SingleMessageSimulationResponse, TestInboundEmailImport
+from app.schemas.email import EmailApprovalListResponse, InboundEmailDetail, InboundEmailListResponse, InboundEmailSummary, OutboundEmailResponse, ReplyProposalResponse, ReplyProposalWrite, SendReplyRequest, SingleMessageApprovalRequest, SingleMessageApprovalResponse, SingleMessageLiveExecutionRequest, SingleMessageLiveExecutionResponse, SingleMessagePreviewRequest, SingleMessagePreviewResponse, SingleMessageRecipientAllowlistResponse, SingleMessageRecipientAllowlistUpdate, SingleMessageSimulationRequest, SingleMessageSimulationResponse, TestInboundEmailImport
 from app.services.email import EmailConflictError, EmailForbiddenError, EmailNotFoundError, EmailWorkflowService, get_email_workflow_service
 from app.services.approval_manager import ApprovalConflictError, ApprovalForbiddenError, ApprovalNotFoundError, ApprovalValidationError
 
@@ -35,6 +35,24 @@ def request_single_message_test_approval(company_id: UUID, data: SingleMessageAp
 @router.post("/emails/single-message-tests/execute-simulation", response_model=SingleMessageSimulationResponse)
 def execute_single_message_test_simulation(company_id: UUID, data: SingleMessageSimulationRequest, context: Annotated[ActiveCompanyContext, Depends(require_provider_executions_manage)], service: Annotated[EmailWorkflowService, Depends(get_email_workflow_service)]):
     try: return service.execute_single_message_simulation(company_id=company_id, data=data, actor=context.administrator)
+    except Exception as exc: handle(exc)
+
+
+@router.post("/emails/single-message-tests/execute-live", response_model=SingleMessageLiveExecutionResponse)
+def execute_single_message_test_live(company_id: UUID, data: SingleMessageLiveExecutionRequest, context: Annotated[ActiveCompanyContext, Depends(require_provider_executions_manage)], service: Annotated[EmailWorkflowService, Depends(get_email_workflow_service)]):
+    try: return service.execute_single_message_live(company_id=company_id, data=data, actor=context.administrator)
+    except Exception as exc: handle(exc)
+
+
+@router.get("/emails/single-message-tests/recipient-allowlist", response_model=SingleMessageRecipientAllowlistResponse)
+def get_single_message_recipient_allowlist(company_id: UUID, _context: Annotated[ActiveCompanyContext, Depends(require_provider_executions_manage)], service: Annotated[EmailWorkflowService, Depends(get_email_workflow_service)]):
+    try: return service.single_message_recipient_allowlist(company_id=company_id)
+    except Exception as exc: handle(exc)
+
+
+@router.post("/emails/single-message-tests/recipient-allowlist", response_model=SingleMessageRecipientAllowlistResponse)
+def add_single_message_recipient_allowlist(company_id: UUID, data: SingleMessageRecipientAllowlistUpdate, context: Annotated[ActiveCompanyContext, Depends(require_provider_executions_manage)], service: Annotated[EmailWorkflowService, Depends(get_email_workflow_service)]):
+    try: return service.add_single_message_recipient_allowlist(company_id=company_id, data=data, actor=context.administrator)
     except Exception as exc: handle(exc)
 
 @router.post("/emails/test-import", response_model=InboundEmailSummary, status_code=status.HTTP_201_CREATED)

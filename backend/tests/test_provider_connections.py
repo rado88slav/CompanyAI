@@ -7,19 +7,24 @@ import ssl
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
+from fastapi.testclient import TestClient
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
+from app.api.dependencies.company_authorization import require_providers_manage
 from app.core.company_permissions import CompanyPermission, role_has_permission
 from app.core.credential_encryption import CURRENT_ENCRYPTION_VERSION, LEGACY_ENCRYPTION_KEY_ID, CredentialEncryptionError, CredentialEncryptionService, credential_aad, decode_encryption_key, parse_encryption_keyring
 from app.core.provider_connections import ProviderDescriptor, ProviderRegistry, provider_registry, validate_safe_object
 from app.main import app
 from app.models.audit_log import AuditAction
 from app.models.provider_connection import ProviderConnection, ProviderCredential
+from app.schemas.company_context import ActiveCompanyContext
 from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionResponse, ProviderConnectionUpdate, ProviderCredentialCreate
 from app.services.generic_smtp_imap import GenericMailboxTester, MailboxAuthenticationError, MailboxFolderError, MailboxProtocol, MailboxTimeoutError
-from app.services.provider_connection import ProviderConnectionService, ProviderLifecycleError, ProviderNotFoundError
+from app.services.audit_log import AuditLogService
+from app.services.provider_connection import ProviderConflictError, ProviderConnectionService, ProviderCredentialAlreadyConfiguredError, ProviderCredentialConfigurationError, ProviderCredentialValidationError, ProviderLifecycleError, ProviderNotFoundError, get_provider_connection_service
 
 
 def _encryption_service(
@@ -447,8 +452,8 @@ def test_credential_rotation_uses_v2_key_metadata_and_safe_audit() -> None:
     assert new.rotated_from_credential_id == old_id
     details = audit.append_company_event.call_args.kwargs["details"]
     assert details["encryption_version"] == 2
-    assert details["encryption_key_id"] == "current"
     assert details["encryption_revision"] == 0
+    assert "encryption_key_id" not in details
     serialized = repr(details)
     for forbidden in ("never-log-this", "old-ciphertext", "nonce", "api_key"):
         assert forbidden not in serialized
@@ -843,3 +848,220 @@ def test_generic_mailbox_credential_storage_is_encrypted_and_not_exposed() -> No
     assert b"mailbox-secret" not in credential.encrypted_payload
     assert "mailbox-secret" not in repr(credential)
     assert "mailbox-secret" not in repr(audit.append_company_event.call_args.kwargs["details"])
+
+
+def test_generic_mailbox_first_inactive_zero_credential_create_succeeds() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id, status="inactive")
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.active_credential.return_value = None
+    repository.create_credential.side_effect = lambda **values: ProviderCredential(**values)
+    repository.save_connection.side_effect = lambda item: item
+    audit_repository = Mock()
+    audit_repository.create.return_value = SimpleNamespace(id=uuid4())
+    audit = AuditLogService(audit_repository)
+    session = Mock()
+    service = ProviderConnectionService(repository, audit, session, _encryption_service())
+
+    credential = service.create_credential(
+        company_id=company_id,
+        connection_id=connection_id,
+        data=ProviderCredentialCreate(secrets={"password": "synthetic-password"}),
+        actor=SimpleNamespace(id=actor_id),
+    )
+
+    assert credential.status == "active"
+    assert credential.provider_connection_id == connection_id
+    assert connection.status == "inactive"
+    assert "generic_smtp_imap_health" not in connection.metadata_
+    assert repository.create_credential.call_count == 1
+    assert repository.active_credential.call_args.kwargs["for_update"] is True
+    details = audit_repository.create.call_args.kwargs["details"]
+    assert details["changed_fields"] == ["credential"]
+    assert details["mailbox_tests_invalidated"] is True
+    assert "encryption_key_id" not in details
+    assert "synthetic-password" not in repr(details)
+    assert "password" not in repr(details)
+
+
+def test_generic_mailbox_duplicate_set_password_is_conflict_without_duplicate() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id, status="inactive")
+    active = ProviderCredential(
+        id=uuid4(),
+        company_id=company_id,
+        provider_connection_id=connection_id,
+        status="active",
+        encrypted_payload=b"ciphertext",
+        nonce=b"123456789012",
+        expires_at=None,
+    )
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.active_credential.return_value = active
+    service = ProviderConnectionService(repository, Mock(), Mock(), _encryption_service())
+
+    with pytest.raises(ProviderCredentialAlreadyConfiguredError):
+        service.create_credential(
+            company_id=company_id,
+            connection_id=connection_id,
+            data=ProviderCredentialCreate(secrets={"password": "synthetic-password"}),
+            actor=SimpleNamespace(id=actor_id),
+        )
+
+    assert repository.create_credential.call_count == 0
+
+
+def test_generic_mailbox_concurrent_create_race_remains_conflict_without_secret_leakage() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id, status="inactive")
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.active_credential.return_value = None
+    repository.create_credential.side_effect = IntegrityError("insert provider credential", {}, Exception("unique active credential"))
+    session = Mock()
+    service = ProviderConnectionService(repository, Mock(), session, _encryption_service())
+
+    with pytest.raises(ProviderConflictError) as error:
+        service.create_credential(
+            company_id=company_id,
+            connection_id=connection_id,
+            data=ProviderCredentialCreate(secrets={"password": "synthetic-password"}),
+            actor=SimpleNamespace(id=actor_id),
+        )
+
+    assert "synthetic-password" not in repr(error.value)
+    assert session.rollback.called
+
+
+class FailingCredentialEncryption:
+    def encrypt(self, *_args, **_kwargs):
+        raise CredentialEncryptionError("Credential encryption failed.")
+
+
+def test_generic_mailbox_missing_encryption_configuration_is_sanitized() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    connection = _generic_connection(company_id, connection_id, status="inactive")
+    repository = Mock()
+    repository.connection.return_value = connection
+    repository.active_credential.return_value = None
+    session = Mock()
+    service = ProviderConnectionService(repository, Mock(), session, FailingCredentialEncryption())  # type: ignore[arg-type]
+
+    with pytest.raises(ProviderCredentialConfigurationError) as error:
+        service.create_credential(
+            company_id=company_id,
+            connection_id=connection_id,
+            data=ProviderCredentialCreate(secrets={"password": "synthetic-password"}),
+            actor=SimpleNamespace(id=actor_id),
+        )
+
+    assert "synthetic-password" not in repr(error.value)
+    assert repository.create_credential.call_count == 0
+    assert session.rollback.called
+
+
+def test_generic_mailbox_create_credential_rejects_wrong_company_and_revoked_connection() -> None:
+    connection = _generic_connection(uuid4(), uuid4(), status="inactive")
+    repository = Mock()
+    repository.connection.return_value = None
+    service = ProviderConnectionService(repository, Mock(), Mock(), _encryption_service())
+    with pytest.raises(ProviderNotFoundError):
+        service.create_credential(
+            company_id=uuid4(),
+            connection_id=connection.id,
+            data=ProviderCredentialCreate(secrets={"password": "synthetic-password"}),
+            actor=SimpleNamespace(id=uuid4()),
+        )
+
+    connection.status = "revoked"
+    repository.connection.return_value = connection
+    with pytest.raises(ProviderLifecycleError):
+        service.create_credential(
+            company_id=connection.company_id,
+            connection_id=connection.id,
+            data=ProviderCredentialCreate(secrets={"password": "synthetic-password"}),
+            actor=SimpleNamespace(id=uuid4()),
+        )
+
+
+def test_provider_credential_api_returns_sanitized_validation_and_duplicate_errors() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    context = ActiveCompanyContext(
+        administrator=SimpleNamespace(id=actor_id),
+        company=SimpleNamespace(id=company_id),
+        membership=SimpleNamespace(role="admin"),
+        is_platform_superuser=False,
+    )
+
+    class ValidationService:
+        def create_credential(self, **_kwargs):
+            raise ProviderCredentialValidationError
+
+    app.dependency_overrides[require_providers_manage] = lambda: context
+    app.dependency_overrides[get_provider_connection_service] = lambda: ValidationService()
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/v1/companies/{company_id}/provider-connections/{connection_id}/credentials",
+                json={"secrets": {"api_key": "synthetic-not-a-password"}},
+                headers={"Authorization": "Bearer test", "X-Company-ID": str(company_id)},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "provider_credential_validation_failed"
+    assert "synthetic-not-a-password" not in repr(response.json())
+    assert "api_key" not in repr(response.json())
+
+    class DuplicateService:
+        def create_credential(self, **_kwargs):
+            raise ProviderCredentialAlreadyConfiguredError
+
+    app.dependency_overrides[require_providers_manage] = lambda: context
+    app.dependency_overrides[get_provider_connection_service] = lambda: DuplicateService()
+    try:
+        with TestClient(app) as client:
+            duplicate = client.post(
+                f"/api/v1/companies/{company_id}/provider-connections/{connection_id}/credentials",
+                json={"secrets": {"password": "synthetic-password"}},
+                headers={"Authorization": "Bearer test", "X-Company-ID": str(company_id)},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert duplicate.status_code == 409
+    assert duplicate.json()["detail"]["code"] == "provider_credential_already_configured"
+    assert "synthetic-password" not in repr(duplicate.json())
+
+
+def test_provider_credential_api_returns_sanitized_encryption_unavailable_error() -> None:
+    company_id, connection_id, actor_id = uuid4(), uuid4(), uuid4()
+    context = ActiveCompanyContext(
+        administrator=SimpleNamespace(id=actor_id),
+        company=SimpleNamespace(id=company_id),
+        membership=SimpleNamespace(role="admin"),
+        is_platform_superuser=False,
+    )
+
+    class EncryptionUnavailableService:
+        def create_credential(self, **_kwargs):
+            raise ProviderCredentialConfigurationError
+
+    app.dependency_overrides[require_providers_manage] = lambda: context
+    app.dependency_overrides[get_provider_connection_service] = lambda: EncryptionUnavailableService()
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                f"/api/v1/companies/{company_id}/provider-connections/{connection_id}/credentials",
+                json={"secrets": {"password": "synthetic-password"}},
+                headers={"Authorization": "Bearer test", "X-Company-ID": str(company_id)},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "provider_credential_encryption_unavailable"
+    assert "synthetic-password" not in repr(response.json())

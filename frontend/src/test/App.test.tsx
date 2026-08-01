@@ -745,6 +745,52 @@ test("recovers a partial Generic SMTP/IMAP connection by setting the password", 
   expect(document.body.textContent).not.toContain("not-rendered-mailbox-password");
 });
 
+test("shows sanitized Set password API failures and safely recovers duplicate retries", async () => {
+  setToken();
+  const missingConnection = genericConnection();
+  const configuredConnection = genericConnection({ credential_status: "configured" });
+  await authenticatedFetchMock(
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [missingConnection], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({
+      detail: {
+        code: "provider_credential_validation_failed",
+        message: "Credential payload must include exactly the required secret fields for this provider.",
+      },
+    }, false, 422),
+    await jsonResponse({
+      detail: {
+        code: "provider_credential_already_configured",
+        message: "A password credential is already configured. Refresh and use Replace password.",
+      },
+    }, false, 409),
+    await jsonResponse([genericProviderDescriptor]),
+    await jsonResponse({ items: [configuredConnection], total: 1, limit: 50, offset: 0 }),
+  );
+  window.history.pushState({}, "", "/providers");
+  render(<App />);
+
+  expect(await screen.findByText("Password missing")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Set password" }));
+  fireEvent.change(screen.getByLabelText("Mailbox password"), { target: { value: "not-rendered-mailbox-password" } });
+  fireEvent.change(screen.getByLabelText("Confirm mailbox password"), { target: { value: "not-rendered-mailbox-password" } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Set password" }).at(-1) as HTMLElement);
+
+  expect(await screen.findByText("Password could not be stored. Enter the mailbox password and try again.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Mailbox password")).toHaveValue("");
+  expect(screen.getByLabelText("Confirm mailbox password")).toHaveValue("");
+  expect(document.body.textContent).not.toContain("not-rendered-mailbox-password");
+
+  fireEvent.change(screen.getByLabelText("Mailbox password"), { target: { value: "retry-not-rendered" } });
+  fireEvent.change(screen.getByLabelText("Confirm mailbox password"), { target: { value: "retry-not-rendered" } });
+  fireEvent.click(screen.getAllByRole("button", { name: "Set password" }).at(-1) as HTMLElement);
+
+  expect(await screen.findByText("Mailbox password is already configured. Use Replace password to change it.")).toBeInTheDocument();
+  expect(await screen.findByText("Password configured")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Test SMTP" })).not.toBeDisabled();
+  expect(document.body.textContent).not.toContain("retry-not-rendered");
+});
+
 test("replaces a Generic SMTP/IMAP password through credential rotation metadata only", async () => {
   setToken();
   const configuredConnection = genericConnection({ credential_status: "configured" });

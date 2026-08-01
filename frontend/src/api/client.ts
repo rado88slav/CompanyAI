@@ -4,11 +4,13 @@ export const SESSION_EXPIRED_EVENT = "companyai:session-expired";
 
 export class ApiError extends Error {
   status: number;
+  code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -110,6 +112,24 @@ async function parseJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function apiError(response: Response, fallback: string): Promise<ApiError> {
+  try {
+    const body = await response.json() as { detail?: unknown };
+    const detail = body.detail;
+    if (detail && typeof detail === "object" && !Array.isArray(detail)) {
+      const code = "code" in detail && typeof detail.code === "string" ? detail.code : undefined;
+      const message = "message" in detail && typeof detail.message === "string" ? detail.message : fallback;
+      return new ApiError(message, response.status, code);
+    }
+    if (typeof detail === "string") {
+      return new ApiError(detail, response.status);
+    }
+  } catch {
+    // Fall through to a stable generic message.
+  }
+  return new ApiError(fallback, response.status);
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = accessToken();
   const response = await fetch(path, {
@@ -121,8 +141,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     },
   });
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) notifySessionExpired();
-    throw new ApiError("The requested operation could not be completed.", response.status);
+    if (response.status === 401 || response.status === 403) {
+      notifySessionExpired();
+      throw new ApiError("Authentication is required.", response.status);
+    }
+    throw await apiError(response, "The requested operation could not be completed.");
   }
   return parseJson<T>(response);
 }
@@ -133,14 +156,14 @@ export async function login(email: string, password: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  if (!response.ok) throw new ApiError("Sign in failed.", response.status);
+  if (!response.ok) throw await apiError(response, "Sign in failed.");
   const payload = await parseJson<{ access_token: string }>(response);
   saveAccessToken(payload.access_token);
 }
 
 export async function fetchFirstRunStatus(signal?: AbortSignal): Promise<FirstRunStatus> {
   const response = await fetch("/api/v1/first-run/status", { signal });
-  if (!response.ok) throw new ApiError("Setup status is unavailable.", response.status);
+  if (!response.ok) throw await apiError(response, "Setup status is unavailable.");
   return parseJson<FirstRunStatus>(response);
 }
 
@@ -150,7 +173,7 @@ export async function initializeFirstRun(payload: FirstRunInitializeInput): Prom
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!response.ok) throw new ApiError("First-run setup could not be completed.", response.status);
+  if (!response.ok) throw await apiError(response, "First-run setup could not be completed.");
   return parseJson<FirstRunInitializeResponse>(response);
 }
 
@@ -179,8 +202,11 @@ export async function companyApi<T>(path: string, init: RequestInit = {}): Promi
     },
   });
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) notifySessionExpired();
-    throw new ApiError("The requested operation could not be completed.", response.status);
+    if (response.status === 401 || response.status === 403) {
+      notifySessionExpired();
+      throw new ApiError("Authentication is required.", response.status);
+    }
+    throw await apiError(response, "The requested operation could not be completed.");
   }
   return parseJson<T>(response);
 }

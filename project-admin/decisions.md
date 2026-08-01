@@ -618,3 +618,10 @@ username, SMTP/IMAP host, port, security or folder clear stored SMTP/IMAP health
 If the connection was active, it returns to inactive until both protocol tests
 succeed again. Audit details record changed safe field names only, never
 passwords or field values.
+
+The first password credential creation path must not audit credential-encryption
+key identifiers. `encryption_key_id` is intentionally treated as an unsafe audit
+detail key; including it causes audit validation to fail and rolls back the
+credential transaction. Credential rows still store required encryption metadata,
+but audit details expose only safe field names and non-secret version/revision
+metadata.

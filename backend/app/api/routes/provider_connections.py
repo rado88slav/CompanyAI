@@ -12,7 +12,7 @@ from app.models.administrator import Administrator
 from app.schemas.company_context import ActiveCompanyContext
 from app.schemas.provider_connection import ProviderConnectionCreate, ProviderConnectionListResponse, ProviderConnectionResponse, ProviderConnectionTestResponse, ProviderConnectionUpdate, ProviderCredentialCreate, ProviderCredentialListResponse, ProviderCredentialResponse, ProviderDescriptorResponse
 from app.services.generic_smtp_imap import MailboxProtocol
-from app.services.provider_connection import ProviderConflictError, ProviderConnectionService, ProviderLifecycleError, ProviderNotFoundError, get_provider_connection_service
+from app.services.provider_connection import ProviderConflictError, ProviderConnectionService, ProviderCredentialAlreadyConfiguredError, ProviderCredentialConfigurationError, ProviderCredentialValidationError, ProviderLifecycleError, ProviderNotFoundError, get_provider_connection_service
 
 router = APIRouter(tags=["provider-connections"])
 
@@ -25,6 +25,12 @@ def _connection_response(item, service: ProviderConnectionService) -> ProviderCo
 def _error(exc: Exception) -> None:
     if isinstance(exc, ProviderNotFoundError):
         raise HTTPException(404, "Provider connection resource was not found.") from exc
+    if isinstance(exc, ProviderCredentialAlreadyConfiguredError):
+        raise HTTPException(409, {"code": "provider_credential_already_configured", "message": "A password credential is already configured. Refresh and use Replace password."}) from exc
+    if isinstance(exc, ProviderCredentialValidationError):
+        raise HTTPException(422, {"code": "provider_credential_validation_failed", "message": "Credential payload must include exactly the required secret fields for this provider."}) from exc
+    if isinstance(exc, ProviderCredentialConfigurationError):
+        raise HTTPException(503, {"code": "provider_credential_encryption_unavailable", "message": "Credential encryption is unavailable. Check Local Edition health and retry."}) from exc
     if isinstance(exc, (ProviderConflictError, ProviderLifecycleError, ValueError)):
         raise HTTPException(409, "Provider connection operation conflicts with current state.") from exc
     raise exc
@@ -128,13 +134,13 @@ def list_credentials(company_id: UUID, connection_id: UUID, _context: Annotated[
 @router.post("/companies/{company_id}/provider-connections/{connection_id}/credentials", response_model=ProviderCredentialResponse, status_code=201)
 def create_credential(company_id: UUID, connection_id: UUID, data: ProviderCredentialCreate, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderCredentialResponse:
     try: return ProviderCredentialResponse.model_validate(service.create_credential(company_id=company_id, connection_id=connection_id, data=data, actor=context.administrator))
-    except (ProviderConflictError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc: _error(exc)
+    except (ProviderConflictError, ProviderCredentialAlreadyConfiguredError, ProviderCredentialConfigurationError, ProviderCredentialValidationError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc: _error(exc)
 
 
 @router.post("/companies/{company_id}/provider-connections/{connection_id}/credentials/{credential_id}/rotate", response_model=ProviderCredentialResponse, status_code=201)
 def rotate_credential(company_id: UUID, connection_id: UUID, credential_id: UUID, data: ProviderCredentialCreate, context: Annotated[ActiveCompanyContext, Depends(require_providers_manage)], service: Annotated[ProviderConnectionService, Depends(get_provider_connection_service)]) -> ProviderCredentialResponse:
     try: return ProviderCredentialResponse.model_validate(service.rotate_credential(company_id=company_id, connection_id=connection_id, credential_id=credential_id, data=data, actor=context.administrator))
-    except (ProviderConflictError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc: _error(exc)
+    except (ProviderConflictError, ProviderCredentialConfigurationError, ProviderCredentialValidationError, ProviderLifecycleError, ProviderNotFoundError, ValueError) as exc: _error(exc)
 
 
 @router.post("/companies/{company_id}/provider-connections/{connection_id}/credentials/{credential_id}/revoke", response_model=ProviderCredentialResponse)

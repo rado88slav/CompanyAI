@@ -9,7 +9,7 @@ from fastapi import Depends, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.credential_encryption import CredentialEncryptionService, DecryptedCredential
+from app.core.credential_encryption import CredentialEncryptionError, CredentialEncryptionService, DecryptedCredential
 from app.core.provider_connections import provider_registry, validate_safe_object
 from app.db.session import get_db_session
 from app.models.administrator import Administrator
@@ -26,6 +26,9 @@ class ProviderNotFoundError(Exception): pass
 class ProviderConflictError(Exception): pass
 class ProviderLifecycleError(Exception): pass
 class ProviderCredentialError(Exception): pass
+class ProviderCredentialAlreadyConfiguredError(ProviderLifecycleError): pass
+class ProviderCredentialValidationError(ValueError): pass
+class ProviderCredentialConfigurationError(Exception): pass
 
 GENERIC_MAILBOX_CRITICAL_CONFIGURATION_FIELDS = frozenset(
     {
@@ -248,20 +251,29 @@ class ProviderConnectionService:
 
     def _new_credential(self, *, item: ProviderConnection, data: ProviderCredentialCreate, actor: Administrator, rotated_from: UUID | None) -> ProviderCredential:
         descriptor = provider_registry.require(item.provider_key)
-        secrets = data.validated_secrets(descriptor)
+        try:
+            secrets = data.validated_secrets(descriptor)
+        except ValueError as exc:
+            raise ProviderCredentialValidationError from exc
         credential_id = uuid4()
-        encrypted = self._encryption.encrypt(
-            secrets,
-            company_id=item.company_id,
-            connection_id=item.id,
-            credential_id=credential_id,
-            provider_key=item.provider_key,
-        )
+        try:
+            encrypted = self._encryption.encrypt(
+                secrets,
+                company_id=item.company_id,
+                connection_id=item.id,
+                credential_id=credential_id,
+                provider_key=item.provider_key,
+            )
+        except CredentialEncryptionError as exc:
+            raise ProviderCredentialConfigurationError from exc
         return self._repository.create_credential(id=credential_id, company_id=item.company_id, provider_connection_id=item.id, status="active", encrypted_payload=encrypted.ciphertext, nonce=encrypted.nonce, encryption_version=encrypted.encryption_version, encryption_key_id=encrypted.encryption_key_id, encryption_revision=encrypted.encryption_revision, credential_schema_version=1, rotated_from_credential_id=rotated_from, created_by_administrator_id=actor.id, expires_at=data.expires_at)
 
     def create_credential(self, *, company_id: UUID, connection_id: UUID, data: ProviderCredentialCreate, actor: Administrator) -> ProviderCredential:
         item = self._connection(company_id, connection_id, lock=True)
-        if item.status == "revoked" or self._repository.active_credential(company_id=company_id, connection_id=connection_id, for_update=True): raise ProviderLifecycleError
+        if item.status == "revoked":
+            raise ProviderLifecycleError
+        if self._repository.active_credential(company_id=company_id, connection_id=connection_id, for_update=True):
+            raise ProviderCredentialAlreadyConfiguredError
         try:
             credential = self._new_credential(item=item, data=data, actor=actor, rotated_from=None)
             if item.provider_key == "generic_smtp_imap":
@@ -273,10 +285,12 @@ class ProviderConnectionService:
                     item.deactivated_at = datetime.now(UTC)
                     item.deactivated_by_administrator_id = actor.id
                 self._repository.save_connection(item)
-            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_CREATED, resource_id=credential.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(credential.id), "changed_fields": ["credential"], "mailbox_tests_invalidated": item.provider_key == "generic_smtp_imap", "expiration_present": credential.expires_at is not None, "encryption_version": credential.encryption_version, "encryption_key_id": credential.encryption_key_id, "encryption_revision": credential.encryption_revision})
+            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_CREATED, resource_id=credential.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(credential.id), "changed_fields": ["credential"], "mailbox_tests_invalidated": item.provider_key == "generic_smtp_imap", "expiration_present": credential.expires_at is not None, "encryption_version": credential.encryption_version, "encryption_revision": credential.encryption_revision})
             self._session.commit(); return credential
         except IntegrityError as exc:
             self._session.rollback(); raise ProviderConflictError from exc
+        except (ProviderCredentialConfigurationError, ProviderCredentialValidationError):
+            self._session.rollback(); raise
         except Exception:
             self._session.rollback(); raise
 
@@ -297,7 +311,7 @@ class ProviderConnectionService:
                     item.deactivated_at = datetime.now(UTC)
                     item.deactivated_by_administrator_id = actor.id
                 self._repository.save_connection(item)
-            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_ROTATED, resource_id=new.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(new.id), "previous_credential_id": str(old.id), "changed_fields": ["credential"], "mailbox_tests_invalidated": item.provider_key == "generic_smtp_imap", "expiration_present": new.expires_at is not None, "encryption_version": new.encryption_version, "encryption_key_id": new.encryption_key_id, "encryption_revision": new.encryption_revision})
+            self._audit_event(company_id=company_id, actor=actor, action=AuditAction.PROVIDER_CREDENTIAL_ROTATED, resource_id=new.id, details={"connection_id": str(item.id), "provider_key": item.provider_key, "credential_id": str(new.id), "previous_credential_id": str(old.id), "changed_fields": ["credential"], "mailbox_tests_invalidated": item.provider_key == "generic_smtp_imap", "expiration_present": new.expires_at is not None, "encryption_version": new.encryption_version, "encryption_revision": new.encryption_revision})
             self._session.commit(); return new
         except Exception:
             self._session.rollback(); raise

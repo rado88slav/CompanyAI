@@ -79,6 +79,12 @@ both protocol tests must succeed again before activation. Use **Edit mailbox
 settings** only for non-secret mailbox fields such as host, port, username,
 folder and display name; the password is never part of that form.
 
+If Set password reports that credential encryption is unavailable, run the Local
+Edition health check and retry after the backend is healthy. If it reports that
+the password is already configured, refresh the card and use **Replace
+password** for further changes. The API returns sanitized credential error codes
+and never includes the submitted password in the response.
+
 ## Single-Message Test Is Rejected
 
 The controlled one-message test is intentionally strict. Check:

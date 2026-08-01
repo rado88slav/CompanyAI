@@ -77,6 +77,15 @@ function hasMailboxPassword(connection: ProviderConnection): boolean {
 
 function credentialFailureMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    if (error.code === "provider_credential_already_configured") {
+      return "Password is already configured. Use Replace password to change it.";
+    }
+    if (error.code === "provider_credential_validation_failed") {
+      return "Password could not be stored. Enter the mailbox password and try again.";
+    }
+    if (error.code === "provider_credential_encryption_unavailable") {
+      return "Password could not be stored. Credential encryption is unavailable; run Local Edition health checks and try again.";
+    }
     if (error.status === 400 || error.status === 409 || error.status === 422) {
       return "Password could not be stored. Check the password field and try again.";
     }
@@ -230,8 +239,16 @@ export function ProviderConnectionsPage() {
         await rotateProviderCredential(connection.id, active.id, { secrets: { password } });
         setFormMessage("Mailbox password replaced. Run SMTP and IMAP tests again before activation.");
       } else {
-        await createProviderCredential(connection.id, { secrets: { password } });
-        setFormMessage("Mailbox password configured. Run SMTP and IMAP tests before activation.");
+        try {
+          await createProviderCredential(connection.id, { secrets: { password } });
+          setFormMessage("Mailbox password configured. Run SMTP and IMAP tests before activation.");
+        } catch (createError) {
+          if (createError instanceof ApiError && createError.code === "provider_credential_already_configured") {
+            setFormMessage("Mailbox password is already configured. Use Replace password to change it.");
+          } else {
+            throw createError;
+          }
+        }
       }
       form.reset();
       setPasswordConnectionId("");

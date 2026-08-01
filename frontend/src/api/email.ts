@@ -1,5 +1,5 @@
 import { companyApi } from "./client";
-import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal } from "../types/email";
+import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal, SingleMessageApproval, SingleMessagePreview, SingleMessageTestPayload, SingleMessageSimulation, WorkerSimulation } from "../types/email";
 import type { ActivityEventList } from "../types/activity";
 
 export const emailApi = {
@@ -23,4 +23,12 @@ export const emailApi = {
   previewSchedule: (recipientCount: number) => companyApi<CampaignSchedulePreview>("/email-automation/schedule/preview", {method: "POST", body: JSON.stringify({recipient_count: recipientCount, include_follow_ups: true})}),
   pauseSchedule: (reason = "manual") => companyApi<CampaignScheduleSettings>("/email-automation/schedule/pause", {method: "POST", body: JSON.stringify({reason})}),
   resumeSchedule: () => companyApi<CampaignScheduleSettings>("/email-automation/schedule/resume", {method: "POST"}),
+  previewSingleMessage: (data: SingleMessageTestPayload) =>
+    companyApi<SingleMessagePreview>("/emails/single-message-tests/preview", {method: "POST", body: JSON.stringify(data)}),
+  requestSingleMessageApproval: (data: SingleMessageTestPayload) =>
+    companyApi<SingleMessageApproval>("/emails/single-message-tests/request-approval", {method: "POST", body: JSON.stringify({...data, confirmation_text: "CONFIRM ONE TEST EMAIL"})}),
+  executeSingleMessageSimulation: (providerExecutionId: string) =>
+    companyApi<SingleMessageSimulation>("/emails/single-message-tests/execute-simulation", {method: "POST", body: JSON.stringify({provider_execution_id: providerExecutionId, confirmation_text: "CONFIRM SIMULATION ONLY"})}),
+  simulateWorker: () =>
+    companyApi<WorkerSimulation>("/email-automation/worker/simulate", {method: "POST", body: JSON.stringify({max_actions: 10, idempotency_key: `worker-sim-${Date.now()}`})}),
 };

@@ -108,6 +108,9 @@ class AuditAction(StrEnum):
     EMAIL_AUTOMATION_PREVIEWED = "email_automation.previewed"
     EMAIL_AUTOMATION_PAUSED = "email_automation.paused"
     EMAIL_AUTOMATION_RESUMED = "email_automation.resumed"
+    EMAIL_AUTOMATION_WORKER_SIMULATED = "email_automation.worker_simulated"
+    EMAIL_SINGLE_MESSAGE_APPROVAL_REQUESTED = "email_single_message.approval_requested"
+    EMAIL_SINGLE_MESSAGE_SIMULATED = "email_single_message.simulated"
 
 
 class AuditLog(Base):

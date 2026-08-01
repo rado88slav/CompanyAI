@@ -24,6 +24,8 @@ from app.schemas.email_campaign import (
     CampaignSchedulePreviewResponse,
     CampaignSchedulePreviewSlot,
     CampaignScheduleSettings,
+    EmailAutomationWorkerSimulationRequest,
+    EmailAutomationWorkerSimulationResponse,
     MailboxRotationStrategy,
     PauseReason,
 )
@@ -204,6 +206,51 @@ class EmailAutomationService:
                 "execution": "not_implemented",
                 "preview_only": True,
             },
+        )
+
+    def simulate_worker(
+        self,
+        *,
+        company_id: UUID,
+        request: EmailAutomationWorkerSimulationRequest,
+        actor: Administrator,
+    ) -> EmailAutomationWorkerSimulationResponse:
+        settings = self.get_settings(company_id=company_id)
+        if settings.status in {"paused", "completed", "failed"}:
+            slots: list[CampaignSchedulePreviewSlot] = []
+            skipped = [self._skipped(settings, "skipped", settings.pause_reason.value if settings.pause_reason else settings.status)]
+        else:
+            self._validate_connection_references(company_id=company_id, settings=settings)
+            mailboxes = self._eligible_mailboxes(company_id=company_id, settings=settings)
+            slots, skipped = self._plan(settings=settings, mailboxes=mailboxes, recipient_count=request.max_actions)
+        try:
+            self._audit.append_company_event(
+                company_id=company_id,
+                actor_administrator_id=actor.id,
+                action=AuditAction.EMAIL_AUTOMATION_WORKER_SIMULATED.value,
+                resource_type="email_automation",
+                resource_id=None,
+                details={
+                    "operation": "worker_simulation",
+                    "status": settings.status,
+                    "dry_run": True,
+                    "simulation_only": True,
+                },
+            )
+            self._session.commit()
+        except Exception:
+            self._session.rollback()
+            raise
+        return EmailAutomationWorkerSimulationResponse(
+            simulation_only=True,
+            worker_enabled=False,
+            status=settings.status,
+            idempotency_key=request.idempotency_key,
+            would_execute=slots,
+            skipped=skipped,
+            external_action_taken=False,
+            provider_execution_created=False,
+            audit_recorded=True,
         )
 
     def _save_status(

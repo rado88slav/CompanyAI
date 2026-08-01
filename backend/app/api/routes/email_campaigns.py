@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.dependencies.company_authorization import require_emails_read, require_emails_write
 from app.schemas.company_context import ActiveCompanyContext
-from app.schemas.email_campaign import CampaignSchedulePauseRequest, CampaignSchedulePreviewRequest, CampaignSchedulePreviewResponse, CampaignScheduleSettings, EmailCampaignListResponse
+from app.schemas.email_campaign import CampaignSchedulePauseRequest, CampaignSchedulePreviewRequest, CampaignSchedulePreviewResponse, CampaignScheduleSettings, EmailAutomationWorkerSimulationRequest, EmailAutomationWorkerSimulationResponse, EmailCampaignListResponse
 from app.services.email_automation import EmailAutomationService, EmailAutomationValidationError, get_email_automation_service
 from app.services.email_campaign import MockEmailCampaignService, get_mock_email_campaign_service
 
@@ -95,5 +95,18 @@ def resume_email_automation_schedule(
 ) -> CampaignScheduleSettings:
     try:
         return service.resume(company_id=company_id, actor=context.administrator)
+    except Exception as exc:
+        _handle_automation_error(exc)
+
+
+@router.post("/email-automation/worker/simulate", response_model=EmailAutomationWorkerSimulationResponse)
+def simulate_email_automation_worker(
+    company_id: UUID,
+    data: EmailAutomationWorkerSimulationRequest,
+    context: Annotated[ActiveCompanyContext, Depends(require_emails_write)],
+    service: Annotated[EmailAutomationService, Depends(get_email_automation_service)],
+) -> EmailAutomationWorkerSimulationResponse:
+    try:
+        return service.simulate_worker(company_id=company_id, request=data, actor=context.administrator)
     except Exception as exc:
         _handle_automation_error(exc)

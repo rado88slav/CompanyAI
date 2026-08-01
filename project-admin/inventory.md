@@ -202,6 +202,7 @@ Generated automatically by:
 ./docs/OFFLINE_UPDATES.md
 ./docs/OPENCLAW_ADAPTER_CONTRACT.md
 ./docs/ROADMAP.md
+./docs/SINGLE_MESSAGE_TEST.md
 ./docs/TROUBLESHOOTING_LOCAL.md
 ./docs/WINDOWS_INSTALLER_PLAN.md
 ./frontend/Dockerfile

@@ -64,6 +64,23 @@ SMTP tests do not send email. IMAP tests open the configured folder read-only
 and do not change, move, mark or delete messages. A mailbox remains inactive
 until an active encrypted credential exists and both protocol tests succeed.
 
+## Single-Message Test Is Rejected
+
+The controlled one-message test is intentionally strict. Check:
+
+- the selected provider is an active Generic SMTP/IMAP mailbox;
+- SMTP and IMAP tests both succeeded after the latest credential/config change;
+- the recipient and sender are exact allowlist entries;
+- the subject starts with `[COMPANYAI TEST]`;
+- the idempotency key has not been used before;
+- emergency stop is disabled only for the test window;
+- any configured working-hours policy currently allows the action;
+- a different authorized administrator approved the exact Approval Manager
+  request before simulation execution.
+
+Current execution is simulation only. A rejection does not mean SMTP was
+contacted.
+
 ## AI Agent Preview Task Is Denied
 
 The Email Operations Preview Agent denies forbidden sends by design. Confirm:

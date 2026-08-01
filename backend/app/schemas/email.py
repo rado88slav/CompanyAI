@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 import re
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,189}$")
 
@@ -132,3 +132,82 @@ class SendReplyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     provider_connection_id: UUID
     controlled_failure: bool = False
+
+
+def _reject_multiple_recipients(value: str) -> str:
+    if any(separator in value for separator in [",", ";", "\n", "\r"]):
+        raise ValueError("Exactly one recipient is required.")
+    return normalize_email(value)
+
+
+class SingleMessageTestBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider_connection_id: UUID
+    recipient_email: str
+    subject: str = Field(min_length=1, max_length=500)
+    body: str = Field(min_length=1, max_length=50_000)
+    idempotency_key: str = Field(min_length=12, max_length=200, pattern=r"^[a-zA-Z0-9_.:-]+$")
+
+    @field_validator("recipient_email")
+    @classmethod
+    def validate_single_recipient(cls, value: str) -> str:
+        return _reject_multiple_recipients(value)
+
+    @field_validator("subject", mode="before")
+    @classmethod
+    def strip_single_subject(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class SingleMessagePreviewRequest(SingleMessageTestBase):
+    pass
+
+
+class SingleMessageApprovalRequest(SingleMessageTestBase):
+    confirmation_text: str = Field(min_length=1, max_length=80)
+
+    @model_validator(mode="after")
+    def validate_confirmation(self) -> "SingleMessageApprovalRequest":
+        if self.confirmation_text != "CONFIRM ONE TEST EMAIL":
+            raise ValueError("Explicit confirmation is required.")
+        return self
+
+
+class SingleMessageSimulationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider_execution_id: UUID
+    confirmation_text: str = Field(min_length=1, max_length=80)
+
+    @model_validator(mode="after")
+    def validate_confirmation(self) -> "SingleMessageSimulationRequest":
+        if self.confirmation_text != "CONFIRM SIMULATION ONLY":
+            raise ValueError("Explicit simulation confirmation is required.")
+        return self
+
+
+class SingleMessagePreviewResponse(BaseModel):
+    provider_connection_id: UUID
+    sender_email: str
+    recipient_email: str
+    subject: str
+    body: str
+    payload_digest: str
+    idempotency_key: str
+    approval_required: bool
+    simulation_only: bool
+    live_send_available: bool
+    disabled_features: list[str]
+
+
+class SingleMessageApprovalResponse(SingleMessagePreviewResponse):
+    provider_execution_id: UUID
+    approval_request_id: UUID
+    status: str
+
+
+class SingleMessageSimulationResponse(BaseModel):
+    provider_execution_id: UUID
+    status: str
+    result_metadata: dict
+    simulation_only: bool
+    external_action_taken: bool

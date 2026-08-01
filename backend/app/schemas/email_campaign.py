@@ -254,3 +254,22 @@ class CampaignSchedulePreviewResponse(BaseModel):
     skipped: list[CampaignSchedulePreviewSlot]
     worker_enabled: bool
     worker_contract: dict[str, str | bool]
+
+
+class EmailAutomationWorkerSimulationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    max_actions: int = Field(default=10, ge=1, le=25)
+    idempotency_key: str = Field(min_length=8, max_length=120, pattern=r"^[a-zA-Z0-9_.:-]+$")
+
+
+class EmailAutomationWorkerSimulationResponse(BaseModel):
+    simulation_only: bool
+    worker_enabled: bool
+    status: str
+    idempotency_key: str
+    would_execute: list[CampaignSchedulePreviewSlot]
+    skipped: list[CampaignSchedulePreviewSlot]
+    external_action_taken: bool
+    provider_execution_created: bool
+    audit_recorded: bool

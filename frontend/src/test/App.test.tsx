@@ -849,6 +849,72 @@ test("previews email automation dry-run slots", async () => {
   expect(screen.getByText("initial")).toBeInTheDocument();
 });
 
+test("runs controlled single-message preview approval and simulation UI", async () => {
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse(campaignSchedule),
+    await jsonResponse({ items: [{
+      id: "mailbox-1",
+      provider_key: "generic_smtp_imap",
+      display_name: "Primary mailbox",
+      status: "active",
+    }], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({
+      provider_connection_id: "mailbox-1",
+      sender_email: "sender@example.test",
+      recipient_email: "allowed@example.test",
+      subject: "[COMPANYAI TEST] Controlled mailbox test",
+      body: "This is a controlled CompanyAI single-message test preview.",
+      payload_digest: "a".repeat(64),
+      idempotency_key: "single-test-ui",
+      approval_required: true,
+      simulation_only: true,
+      live_send_available: false,
+      disabled_features: ["cc", "bcc", "attachments", "tracking", "follow_ups", "recipient_lists"],
+    }),
+    await jsonResponse({
+      provider_connection_id: "mailbox-1",
+      sender_email: "sender@example.test",
+      recipient_email: "allowed@example.test",
+      subject: "[COMPANYAI TEST] Controlled mailbox test",
+      body: "This is a controlled CompanyAI single-message test preview.",
+      payload_digest: "a".repeat(64),
+      idempotency_key: "single-test-ui",
+      approval_required: true,
+      simulation_only: true,
+      live_send_available: false,
+      disabled_features: ["cc", "bcc", "attachments", "tracking", "follow_ups", "recipient_lists"],
+      provider_execution_id: "execution-1",
+      approval_request_id: "approval-1",
+      status: "pending_authorization",
+    }, true, 201),
+    await jsonResponse({
+      provider_execution_id: "execution-1",
+      status: "succeeded",
+      result_metadata: { simulated: true, external_action_taken: false },
+      simulation_only: true,
+      external_action_taken: false,
+    }),
+  );
+  window.history.pushState({}, "", "/email");
+  render(<App />);
+
+  expect(await screen.findByRole("heading", { name: "One Test Email" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Recipient"), { target: { value: "allowed@example.test" } });
+  fireEvent.change(screen.getByLabelText("Idempotency key"), { target: { value: "single-test-ui" } });
+  fireEvent.click(screen.getByRole("button", { name: "Preview one message" }));
+  expect(await screen.findByRole("heading", { name: "Preview before approval" })).toBeInTheDocument();
+  expect(screen.getByText("sender@example.test")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Request approval" }));
+  expect(await screen.findByText(/Approval approval-1/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Execute simulation" }));
+  expect(await screen.findByText("Simulation succeeded; external action: no.")).toBeInTheDocument();
+  expect(document.body.textContent).not.toContain("password");
+  expect(document.body.textContent).not.toContain("api_key");
+});
+
 test("renders inbox error state", async () => {
   setToken();
   await authenticatedFetchMock({ ok: false, status: 500 } as Response);

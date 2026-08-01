@@ -353,6 +353,8 @@ Email Sandbox est la safety boundary obligatoire avant tout outreach pilot réel
 4. Dix messages par jour.
 5. Préfixe sujet `[COMPANYAI TEST]` lorsqu'il est configuré.
 6. Aucun automatic follow-up, bulk sending ou attachment.
+## Controlled single-message test
+Email Operations peut prévisualiser un Generic SMTP/IMAP test message, demander une Approval Manager authorization et exécuter uniquement une simulation. Le flow actuel crée des dry-run Provider Execution records, mais ne déchiffre pas les credentials, n'ouvre pas SMTP, n'envoie pas d'email, n'active pas tracking et ne retry pas les uncertain results.
 > [!WARNING] N'utilisez pas de vrais HVAC prospects pendant le sandbox acceptance testing.
 ## Si un send est rejeté
 Vérifiez visible reason, approval state, allowlist et emergency stop. Les rejections sont auditées avec des sanitized reasons.

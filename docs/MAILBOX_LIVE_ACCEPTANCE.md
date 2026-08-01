@@ -48,5 +48,6 @@ Safety guarantees for the connection tests:
 Stop points:
 
 - Stop before entering credentials until automated checks are complete.
-- Stop before any explicit one-message send test.
+- Stop before any explicit one-message send test until `docs/SINGLE_MESSAGE_TEST.md`
+  is reviewed.
 - Stop before any real outreach campaign.

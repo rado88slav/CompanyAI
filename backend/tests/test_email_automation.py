@@ -13,6 +13,7 @@ from app.schemas.email_campaign import (
     CampaignLimitSettings,
     CampaignSchedulePreviewRequest,
     CampaignScheduleSettings,
+    EmailAutomationWorkerSimulationRequest,
     MailboxRotationSettings,
     PauseReason,
     RandomizedTimingSettings,
@@ -146,6 +147,31 @@ def test_preview_returns_planned_slots_for_active_healthy_mailboxes() -> None:
     assert {slot.mailbox_connection_id for slot in result.slots} == {item.id}
     assert result.worker_enabled is False
     assert result.worker_contract["preview_only"] is True
+
+
+def test_worker_simulation_records_audit_without_provider_execution() -> None:
+    company_id = uuid4()
+    item = mailbox(company_id)
+    settings = FakeSettings()
+    audit = FakeAudit()
+    settings.value = CampaignScheduleSettings(
+        randomized_timing=RandomizedTimingSettings(minimum_delay_minutes=1, maximum_delay_minutes=1, jitter_minutes=0),
+        limits=CampaignLimitSettings(campaign_hourly=5, campaign_daily=5, mailbox_hourly=5, mailbox_daily=5),
+        mailbox_rotation=MailboxRotationSettings(allowed_connection_ids=[item.id]),
+    ).model_dump(mode="json")
+
+    result = service(settings=settings, providers=FakeProviderConnections([item], {item.id: SimpleNamespace(expires_at=None)}), audit=audit).simulate_worker(
+        company_id=company_id,
+        request=EmailAutomationWorkerSimulationRequest(max_actions=2, idempotency_key="worker-sim-test"),
+        actor=SimpleNamespace(id=uuid4()),
+    )
+
+    assert result.simulation_only is True
+    assert result.external_action_taken is False
+    assert result.provider_execution_created is False
+    assert len(result.would_execute) == 2
+    assert audit.events[-1]["action"] == "email_automation.worker_simulated"
+    assert audit.events[-1]["details"]["simulation_only"] is True
 
 
 def test_preview_skips_when_no_suitable_mailbox_exists() -> None:

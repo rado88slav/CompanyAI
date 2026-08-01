@@ -25,6 +25,21 @@ The backend send path checks company scope, approval state, provider connection,
 
 Rejected attempts are audited with sanitized reason codes. Provider credentials are never exposed to frontend state, logs or diagnostics.
 
+## Single-Message Test
+
+Email Operations now includes a controlled one-message test panel. It requires
+one active Generic SMTP/IMAP mailbox whose SMTP and IMAP acceptance checks have
+succeeded, one explicit recipient, a unique idempotency key, the
+`[COMPANYAI TEST]` subject prefix and an Approval Manager request.
+
+In the current implementation the final action is simulation only. It creates
+or consumes Provider Execution and Approval Manager records in dry-run mode and
+does not open SMTP, decrypt mailbox credentials, send email, retry uncertain
+results, use CC/BCC, attach files, enable tracking, schedule follow-ups or
+accept recipient lists.
+
+Operator procedure: `docs/SINGLE_MESSAGE_TEST.md`.
+
 ## Pilot Boundary
 
 Do not use real HVAC prospects during sandbox acceptance. Initial sends must go only to team-controlled allowlisted addresses.

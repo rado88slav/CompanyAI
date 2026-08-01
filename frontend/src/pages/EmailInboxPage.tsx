@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { emailApi } from "../api/email";
-import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailCampaign, InboundEmail } from "../types/email";
+import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailCampaign, InboundEmail, SingleMessageApproval, SingleMessagePreview, SingleMessageTestPayload, WorkerSimulation } from "../types/email";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -14,6 +14,16 @@ export function EmailInboxPage() {
   const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
   const [schedule, setSchedule] = useState<CampaignScheduleSettings | null>(null);
   const [preview, setPreview] = useState<CampaignSchedulePreview | null>(null);
+  const [workerSimulation, setWorkerSimulation] = useState<WorkerSimulation | null>(null);
+  const [singlePreview, setSinglePreview] = useState<SingleMessagePreview | null>(null);
+  const [singleApproval, setSingleApproval] = useState<SingleMessageApproval | null>(null);
+  const [singleForm, setSingleForm] = useState<SingleMessageTestPayload>({
+    provider_connection_id: "",
+    recipient_email: "",
+    subject: "[COMPANYAI TEST] Controlled mailbox test",
+    body: "This is a controlled CompanyAI single-message test preview.",
+    idempotency_key: `single-test-${Date.now()}`,
+  });
   const [mailboxes, setMailboxes] = useState<Array<{id: string; provider_key: string; display_name: string; status: string}>>([]);
   const [message, setMessage] = useState("");
   const [state, setState] = useState<"loading"|"ready"|"error">("loading");
@@ -25,6 +35,7 @@ export function EmailInboxPage() {
         setCampaigns(campaignValue.items);
         setSchedule(scheduleValue);
         setMailboxes(connectionValue.items.filter((item) => item.provider_key === "generic_smtp_imap"));
+        setSingleForm((current) => ({...current, provider_connection_id: current.provider_connection_id || connectionValue.items.find((item) => item.provider_key === "generic_smtp_imap" && item.status === "active")?.id || ""}));
         setState("ready");
       })
       .catch(() => setState("error"));
@@ -45,6 +56,32 @@ export function EmailInboxPage() {
     const value = await emailApi.previewSchedule(12);
     setPreview(value);
     setMessage("Dry-run preview refreshed.");
+  }
+  async function simulateWorker() {
+    setMessage("");
+    const value = await emailApi.simulateWorker();
+    setWorkerSimulation(value);
+    setMessage("Worker simulation recorded.");
+  }
+  async function previewSingleMessage() {
+    setMessage("");
+    const value = await emailApi.previewSingleMessage(singleForm);
+    setSinglePreview(value);
+    setSingleApproval(null);
+    setMessage("Single-message preview ready.");
+  }
+  async function requestSingleApproval() {
+    setMessage("");
+    const value = await emailApi.requestSingleMessageApproval(singleForm);
+    setSinglePreview(value);
+    setSingleApproval(value);
+    setMessage("Approval request created for one simulated test email.");
+  }
+  async function executeSingleSimulation() {
+    if (!singleApproval) return;
+    setMessage("");
+    const value = await emailApi.executeSingleMessageSimulation(singleApproval.provider_execution_id);
+    setMessage(`Simulation ${value.status}; external action: ${value.external_action_taken ? "yes" : "no"}.`);
   }
   async function pauseSchedule() {
     const value = await emailApi.pauseSchedule();
@@ -158,11 +195,59 @@ export function EmailInboxPage() {
       <div className="automation-actions">
         <button type="button" onClick={saveSchedule}>Save settings</button>
         <button type="button" onClick={previewSchedule}>Preview dry run</button>
+        <button type="button" onClick={simulateWorker}>Simulate worker</button>
         <button type="button" onClick={pauseSchedule}>Pause</button>
         <button type="button" onClick={resumeSchedule}>Resume</button>
         {message && <span>{message}</span>}
       </div>
       {preview && <div className="table-wrap"><table><thead><tr><th>#</th><th>Planned local</th><th>Mailbox</th><th>Step</th><th>Status</th></tr></thead><tbody>{preview.slots.slice(0, 12).map((slot) => <tr key={`${slot.sequence}-${slot.recipient_step}`}><td>{slot.sequence}</td><td>{slot.planned_at_local ? new Date(slot.planned_at_local).toLocaleString() : "-"}</td><td>{slot.mailbox_display_name || "None"}</td><td>{slot.recipient_step}</td><td>{slot.status}</td></tr>)}{preview.skipped.map((slot) => <tr key={`skipped-${slot.reason}`}><td>-</td><td>-</td><td>None</td><td>{slot.recipient_step}</td><td>{slot.reason || slot.status}</td></tr>)}</tbody></table></div>}
+      {workerSimulation && <div className="state-card"><h3>Worker simulation only</h3><p>Would execute {workerSimulation.would_execute.length} actions. Provider execution created: {workerSimulation.provider_execution_created ? "yes" : "no"}. External action: {workerSimulation.external_action_taken ? "yes" : "no"}.</p></div>}
+    </section>}
+    {state === "ready" && <section className="single-message-panel">
+      <div className="section-heading">
+        <div><p className="eyebrow">Controlled single-message test</p><h2>One Test Email</h2></div>
+        <span className="status-pill">simulation only</span>
+      </div>
+      <div className="sandbox-grid" aria-label="Single-message safeguards">
+        <span><strong>Recipient</strong> exactly one</span>
+        <span><strong>Subject</strong> [COMPANYAI TEST]</span>
+        <span><strong>Approval</strong> required</span>
+        <span><strong>Live send</strong> disabled</span>
+      </div>
+      <div className="automation-grid">
+        <label>Mailbox
+          <select value={singleForm.provider_connection_id} onChange={(event) => setSingleForm((current) => ({...current, provider_connection_id: event.target.value}))}>
+            <option value="">Select active mailbox</option>
+            {mailboxes.map((mailbox) => <option key={mailbox.id} value={mailbox.id}>{mailbox.display_name} ({mailbox.status})</option>)}
+          </select>
+        </label>
+        <label>Recipient
+          <input value={singleForm.recipient_email} onChange={(event) => setSingleForm((current) => ({...current, recipient_email: event.target.value}))} />
+        </label>
+        <label>Idempotency key
+          <input value={singleForm.idempotency_key} onChange={(event) => setSingleForm((current) => ({...current, idempotency_key: event.target.value}))} />
+        </label>
+      </div>
+      <label>Subject
+        <input value={singleForm.subject} onChange={(event) => setSingleForm((current) => ({...current, subject: event.target.value}))} />
+      </label>
+      <label>Body
+        <textarea value={singleForm.body} onChange={(event) => setSingleForm((current) => ({...current, body: event.target.value}))} />
+      </label>
+      <div className="automation-actions">
+        <button type="button" onClick={previewSingleMessage} disabled={!singleForm.provider_connection_id || !singleForm.recipient_email}>Preview one message</button>
+        <button type="button" onClick={requestSingleApproval} disabled={!singlePreview}>Request approval</button>
+        <button type="button" onClick={executeSingleSimulation} disabled={!singleApproval}>Execute simulation</button>
+      </div>
+      {singlePreview && <div className="state-card">
+        <h3>Preview before approval</h3>
+        <p><strong>From:</strong> {singlePreview.sender_email}</p>
+        <p><strong>To:</strong> {singlePreview.recipient_email}</p>
+        <p><strong>Subject:</strong> {singlePreview.subject}</p>
+        <p>{singlePreview.body}</p>
+        <small>Digest {singlePreview.payload_digest}. Live send available: {singlePreview.live_send_available ? "yes" : "no"}.</small>
+      </div>}
+      {singleApproval && <div className="state-card success"><h3>Approval request created</h3><p>Approval {singleApproval.approval_request_id}. Provider execution {singleApproval.provider_execution_id}. Status {singleApproval.status}.</p></div>}
     </section>}
     {state === "ready" && items.length === 0 && <div className="state-card"><h2>No imported email</h2><p>Use the authenticated test-import API to add one development message.</p></div>}
     {state === "ready" && items.length > 0 && <div className="table-wrap"><table><thead><tr><th>Sender</th><th>Subject</th><th>Received</th><th>Workflow</th><th>Approval</th><th>Delivery</th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td><strong>{item.sender_name || item.sender_email}</strong><small>{item.sender_email}</small></td><td><Link to={`/email/${item.id}`}>{item.subject || "(No subject)"}</Link></td><td>{new Date(item.received_at).toLocaleString()}</td><td>{item.proposal_status || item.status}</td><td>{item.approval_status || "Not requested"}</td><td>{item.send_status || "Not sent"}</td></tr>)}</tbody></table></div>}

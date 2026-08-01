@@ -38,7 +38,7 @@ class AuthorizationConditionsV1(BaseModel):
     fixed_timezone: str | None = None
     allowed_recipient_countries: list[str] | None = None
     maximum_followup_index: int | None = Field(default=None, ge=0)
-    payload_schema: Literal["email_reply.v1"] | None = None
+    payload_schema: Literal["email_reply.v1", "email_single_message_test.v1"] | None = None
     payload_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")

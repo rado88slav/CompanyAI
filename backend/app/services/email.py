@@ -6,6 +6,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends
 from sqlalchemy import func, select
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.authorization import AuthorizationMode, RiskLevel
-from app.core.provider_execution import LocalTestEmailAdapter, provider_operation_registry
+from app.core.provider_execution import DryRunProviderAdapter, ExecutionMode, LocalTestEmailAdapter, provider_operation_registry
 from app.db.session import get_db_session
 from app.models.administrator import Administrator
 from app.models.audit_log import AuditAction
@@ -27,8 +28,10 @@ from app.repositories.email import EmailRepository
 from app.repositories.provider_connection import ProviderConnectionRepository
 from app.repositories.provider_execution import ProviderExecutionRepository
 from app.repositories.agent import AgentRepository
-from app.schemas.approval import ApprovalDecisionCreate, ApprovalRequestCreate, AuthorizationConditionsV1
-from app.schemas.email import ReplyProposalWrite, SendReplyRequest, TestInboundEmailImport
+from app.schemas.approval import ApprovalDecisionCreate, ApprovalRequestCreate, AuthorizationAction, AuthorizationConditionsV1, ReservationCreate
+from app.schemas.email import ReplyProposalWrite, SendReplyRequest, SingleMessageApprovalRequest, SingleMessageApprovalResponse, SingleMessagePreviewRequest, SingleMessagePreviewResponse, SingleMessageSimulationRequest, SingleMessageSimulationResponse, TestInboundEmailImport
+from app.services.authorization_evaluator import AuthorizationDeniedError, AuthorizationEvaluatorService
+from app.services.generic_smtp_imap import GENERIC_MAILBOX_HEALTH_KEY
 from app.services.approval_manager import ApprovalManagerService
 from app.services.audit_log import AuditLogService
 
@@ -39,10 +42,31 @@ class EmailForbiddenError(Exception): pass
 class EmailSandboxRejectedError(EmailForbiddenError): pass
 
 
+SINGLE_MESSAGE_SCHEMA = "email_single_message_test.v1"
+SINGLE_MESSAGE_PREFIX = "[COMPANYAI TEST]"
+DISABLED_SINGLE_MESSAGE_FEATURES = ["cc", "bcc", "attachments", "tracking", "follow_ups", "recipient_lists", "automatic_retry"]
+
+
 def content_digest(recipient: str, subject: str, body: str) -> str:
     canonical = json.dumps(
         {"body": body, "recipient_email": recipient.casefold(), "subject": subject},
         ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def single_message_digest(*, provider_connection_id: UUID, sender_email: str, recipient_email: str, subject: str, body: str) -> str:
+    canonical = json.dumps(
+        {
+            "body": body,
+            "provider_connection_id": str(provider_connection_id),
+            "recipient_email": recipient_email.casefold(),
+            "sender_email": sender_email.casefold(),
+            "subject": subject,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
     )
     return hashlib.sha256(canonical.encode()).hexdigest()
 
@@ -104,6 +128,216 @@ class EmailWorkflowService:
             )
             or 0
         )
+
+    def _single_message_policy(self, company_id: UUID) -> dict:
+        policy = self._sandbox_policy(company_id)
+        return {
+            **policy,
+            "enabled": bool(policy.get("enabled", True)),
+            "required_subject_prefix": str(policy.get("required_subject_prefix") or SINGLE_MESSAGE_PREFIX),
+            "recipient_allowlist": policy.get("recipient_allowlist", []),
+            "sender_allowlist": policy.get("sender_allowlist", []),
+            "max_recipients_per_message": int(policy.get("max_recipients_per_message", 1)),
+            "max_messages_per_hour": int(policy.get("max_messages_per_hour", 5)),
+            "max_messages_per_day": int(policy.get("max_messages_per_day", 10)),
+            "working_hours": policy.get("working_hours"),
+        }
+
+    def _reject_single_message(self, company_id: UUID, actor: Administrator, reason_code: str, resource_id: UUID | None = None) -> None:
+        self.audit.append_company_event(
+            company_id=company_id,
+            actor_administrator_id=actor.id,
+            action=AuditAction.PROVIDER_EXECUTION_DENIED.value,
+            resource_type="email_single_message_test",
+            resource_id=resource_id,
+            details={"operation_key": "send_email", "reason_code": reason_code, "sandbox": True, "simulation_only": True},
+        )
+        self.session.commit()
+        raise EmailSandboxRejectedError
+
+    def _mailbox_sender(self, *, company_id: UUID, provider_connection_id: UUID, actor: Administrator) -> tuple[object, str]:
+        connection = self.connections.connection(company_id=company_id, connection_id=provider_connection_id, for_update=True)
+        if connection is None or connection.provider_key != "generic_smtp_imap" or connection.status != "active":
+            self._reject_single_message(company_id, actor, "mailbox_not_active")
+        credential = self.connections.active_credential(company_id=company_id, connection_id=connection.id, for_update=True)
+        if credential is None or (credential.expires_at is not None and credential.expires_at <= datetime.now(UTC)):
+            self._reject_single_message(company_id, actor, "credential_not_active")
+        health = connection.metadata_.get(GENERIC_MAILBOX_HEALTH_KEY)
+        smtp = health.get("smtp") if isinstance(health, dict) else None
+        imap = health.get("imap") if isinstance(health, dict) else None
+        if not isinstance(smtp, dict) or smtp.get("status") != "succeeded":
+            self._reject_single_message(company_id, actor, "smtp_not_tested")
+        if not isinstance(imap, dict) or imap.get("status") != "succeeded":
+            self._reject_single_message(company_id, actor, "imap_not_tested")
+        sender_email = str(connection.configuration.get("email_address") or "").strip().casefold()
+        if not sender_email:
+            self._reject_single_message(company_id, actor, "sender_missing")
+        return connection, sender_email
+
+    def _enforce_single_message_policy(self, *, company_id: UUID, actor: Administrator, sender_email: str, data: SingleMessagePreviewRequest | SingleMessageApprovalRequest) -> dict:
+        policy = self._single_message_policy(company_id)
+        if not bool(policy.get("enabled", True)):
+            self._reject_single_message(company_id, actor, "sandbox_disabled")
+        if bool(policy.get("emergency_stop", False)):
+            self._reject_single_message(company_id, actor, "emergency_stop_enabled")
+        if int(policy.get("max_recipients_per_message", 1)) != 1:
+            self._reject_single_message(company_id, actor, "one_recipient_required")
+        allowed_recipients = {str(item).strip().casefold() for item in policy.get("recipient_allowlist", [])}
+        if not allowed_recipients or data.recipient_email.casefold() not in allowed_recipients:
+            self._reject_single_message(company_id, actor, "recipient_not_allowlisted")
+        allowed_senders = {str(item).strip().casefold() for item in policy.get("sender_allowlist", [])}
+        if not allowed_senders or sender_email.casefold() not in allowed_senders:
+            self._reject_single_message(company_id, actor, "sender_not_allowlisted")
+        prefix = str(policy.get("required_subject_prefix") or SINGLE_MESSAGE_PREFIX).strip()
+        if prefix and not data.subject.startswith(prefix):
+            self._reject_single_message(company_id, actor, "subject_prefix_required")
+        if self._sent_count_since(company_id, datetime.now(UTC) - timedelta(hours=1)) >= int(policy.get("max_messages_per_hour", 5)):
+            self._reject_single_message(company_id, actor, "hourly_quota_exceeded")
+        if self._sent_count_since(company_id, datetime.now(UTC) - timedelta(days=1)) >= int(policy.get("max_messages_per_day", 10)):
+            self._reject_single_message(company_id, actor, "daily_quota_exceeded")
+        if not self._inside_working_hours(policy):
+            self._reject_single_message(company_id, actor, "outside_working_hours")
+        return policy
+
+    def _inside_working_hours(self, policy: dict) -> bool:
+        working = policy.get("working_hours")
+        if working is None:
+            return True
+        if not isinstance(working, dict):
+            return False
+        try:
+            zone = ZoneInfo(str(working.get("timezone") or "Europe/Sofia"))
+        except ZoneInfoNotFoundError:
+            return False
+        now = datetime.now(UTC).astimezone(zone)
+        weekdays = working.get("weekdays", [0, 1, 2, 3, 4])
+        if now.weekday() not in {int(day) for day in weekdays}:
+            return False
+        start = str(working.get("start") or "09:00")
+        end = str(working.get("end") or "17:00")
+        current = now.time().isoformat(timespec="minutes")
+        return start <= current < end
+
+    def _single_message_preview(self, *, connection_id: UUID, sender_email: str, recipient_email: str, subject: str, body: str, idempotency_key: str) -> SingleMessagePreviewResponse:
+        digest = single_message_digest(provider_connection_id=connection_id, sender_email=sender_email, recipient_email=recipient_email, subject=subject, body=body)
+        return SingleMessagePreviewResponse(
+            provider_connection_id=connection_id,
+            sender_email=sender_email,
+            recipient_email=recipient_email,
+            subject=subject,
+            body=body,
+            payload_digest=digest,
+            idempotency_key=idempotency_key,
+            approval_required=True,
+            simulation_only=True,
+            live_send_available=False,
+            disabled_features=DISABLED_SINGLE_MESSAGE_FEATURES,
+        )
+
+    def preview_single_message(self, *, company_id: UUID, data: SingleMessagePreviewRequest, actor: Administrator) -> SingleMessagePreviewResponse:
+        connection, sender_email = self._mailbox_sender(company_id=company_id, provider_connection_id=data.provider_connection_id, actor=actor)
+        self._enforce_single_message_policy(company_id=company_id, actor=actor, sender_email=sender_email, data=data)
+        if self.executions.by_key(company_id, data.idempotency_key) is not None:
+            self._reject_single_message(company_id, actor, "duplicate_idempotency_key")
+        return self._single_message_preview(connection_id=connection.id, sender_email=sender_email, recipient_email=data.recipient_email, subject=data.subject, body=data.body, idempotency_key=data.idempotency_key)
+
+    def request_single_message_approval(self, *, company_id: UUID, data: SingleMessageApprovalRequest, actor: Administrator) -> SingleMessageApprovalResponse:
+        connection, sender_email = self._mailbox_sender(company_id=company_id, provider_connection_id=data.provider_connection_id, actor=actor)
+        self._enforce_single_message_policy(company_id=company_id, actor=actor, sender_email=sender_email, data=data)
+        if self.executions.by_key(company_id, data.idempotency_key) is not None:
+            self._reject_single_message(company_id, actor, "duplicate_idempotency_key")
+        preview = self._single_message_preview(connection_id=connection.id, sender_email=sender_email, recipient_email=data.recipient_email, subject=data.subject, body=data.body, idempotency_key=data.idempotency_key)
+        execution = ProviderExecution(
+            company_id=company_id,
+            provider_connection_id=connection.id,
+            provider_key="generic_smtp_imap",
+            operation_key="send_email",
+            execution_mode=ExecutionMode.DRY_RUN.value,
+            status="pending_authorization",
+            requested_by_administrator_id=actor.id,
+            idempotency_key=data.idempotency_key,
+            request_payload={
+                "payload_schema": SINGLE_MESSAGE_SCHEMA,
+                "sender_email": sender_email,
+                "recipient_email": data.recipient_email,
+                "subject": data.subject,
+                "payload_digest": preview.payload_digest,
+                "confirmation_text": data.confirmation_text,
+            },
+            result_metadata={"simulation_only": True, "live_send_available": False},
+        )
+        try:
+            self.executions.add(execution)
+            approval = self.approval_service.create_request(company_id=company_id, actor=actor, commit=False, payload=ApprovalRequestCreate(
+                authorization_mode=AuthorizationMode.APPROVE_SINGLE_ACTION,
+                action_type="provider.execute.generic_smtp_imap.send_email",
+                tool_identifier="provider.generic_smtp_imap.send_email",
+                risk_level=RiskLevel.HIGH,
+                scope_type="company",
+                scope_id=company_id,
+                target_resource_type="provider_execution",
+                target_resource_id=execution.id,
+                provider_connection_id=connection.id,
+                requested_conditions=AuthorizationConditionsV1(payload_schema=SINGLE_MESSAGE_SCHEMA, payload_digest=preview.payload_digest),
+                reason="Approve exactly one controlled CompanyAI test email simulation.",
+            ))
+            self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.PROVIDER_EXECUTION_REQUESTED.value, resource_type="provider_execution", resource_id=execution.id, details={"provider_key": "generic_smtp_imap", "operation_key": "send_email", "execution_mode": "dry_run", "simulation_only": True})
+            self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.EMAIL_SINGLE_MESSAGE_APPROVAL_REQUESTED.value, resource_type="email_single_message_test", resource_id=execution.id, details={"provider_execution_id": str(execution.id), "approval_request_id": str(approval.id), "message_digest": preview.payload_digest, "simulation_only": True})
+            self.session.commit()
+            return SingleMessageApprovalResponse(**preview.model_dump(), provider_execution_id=execution.id, approval_request_id=approval.id, status=execution.status)
+        except IntegrityError as exc:
+            self.session.rollback()
+            raise EmailConflictError from exc
+        except Exception:
+            self.session.rollback()
+            raise
+
+    def execute_single_message_simulation(self, *, company_id: UUID, data: SingleMessageSimulationRequest, actor: Administrator) -> SingleMessageSimulationResponse:
+        execution = self.executions.get(company_id, data.provider_execution_id, lock=True)
+        if execution is None or execution.provider_key != "generic_smtp_imap" or execution.operation_key != "send_email":
+            raise EmailNotFoundError
+        if execution.requested_by_administrator_id != actor.id:
+            raise EmailForbiddenError
+        payload = execution.request_payload or {}
+        if payload.get("payload_schema") != SINGLE_MESSAGE_SCHEMA or not payload.get("payload_digest"):
+            raise EmailConflictError
+        connection = self.connections.connection(company_id=company_id, connection_id=execution.provider_connection_id, for_update=True)
+        if connection is None or connection.provider_key != "generic_smtp_imap" or connection.status != "active":
+            self._reject_single_message(company_id, actor, "mailbox_not_active", execution.id)
+        action = AuthorizationAction(company_id=company_id, actor_type="administrator", actor_administrator_id=actor.id, action_type="provider.execute.generic_smtp_imap.send_email", tool_identifier="provider.generic_smtp_imap.send_email", risk_level=RiskLevel.HIGH, scope_type="company", scope_id=company_id, target_resource_type="provider_execution", target_resource_id=execution.id, provider_connection_id=execution.provider_connection_id)
+        authorizer = AuthorizationEvaluatorService(self.approvals, self.authorizations, self.audit, self.session)
+        try:
+            decision_result = authorizer.evaluate(action)
+            if decision_result.status != "authorized" or decision_result.policy_id is None:
+                self._reject_single_message(company_id, actor, "approval_required", execution.id)
+            usage = authorizer.reserve(ReservationCreate(action=action, policy_id=decision_result.policy_id, reservation_key=execution.id, execution_id=execution.id, reservation_expires_at=datetime.now(UTC) + timedelta(minutes=5)), commit=False)
+        except AuthorizationDeniedError as exc:
+            self.session.rollback()
+            self._reject_single_message(company_id, actor, str(exc.args[0] if exc.args else "approval_required"), execution.id)
+        now = datetime.now(UTC)
+        execution.status = "running"
+        execution.authorization_reference = decision_result.policy_id
+        execution.started_at = now
+        attempt = ProviderExecutionAttempt(company_id=company_id, provider_execution_id=execution.id, attempt_number=1, status="running", adapter_name=DryRunProviderAdapter.name, request_metadata={"payload_schema": SINGLE_MESSAGE_SCHEMA}, response_metadata={}, error_metadata={}, started_at=now)
+        self.executions.add_attempt(attempt)
+        self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.PROVIDER_EXECUTION_AUTHORIZED.value, resource_type="provider_execution", resource_id=execution.id, details={"policy_id": str(decision_result.policy_id), "usage_id": str(usage.id), "operation_key": "send_email", "simulation_only": True})
+        self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.PROVIDER_EXECUTION_STARTED.value, resource_type="provider_execution", resource_id=execution.id, details={"operation_key": "send_email", "attempt_number": 1, "simulation_only": True})
+        result_metadata = DryRunProviderAdapter().execute(provider_operation_registry.require("generic_smtp_imap", "send_email"), payload, idempotency_key=execution.idempotency_key)
+        result_metadata["external_action_taken"] = False
+        result_metadata["live_send_available"] = False
+        result_metadata["payload_digest"] = payload["payload_digest"]
+        completed = datetime.now(UTC)
+        execution.status = "succeeded"
+        execution.completed_at = completed
+        execution.result_metadata = result_metadata
+        attempt.status = "succeeded"
+        attempt.completed_at = completed
+        attempt.response_metadata = {"simulation_only": True, "external_action_taken": False}
+        authorizer.transition(company_id=company_id, usage_id=usage.id, status="succeeded", actor_administrator_id=actor.id, commit=False)
+        self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.PROVIDER_EXECUTION_SUCCEEDED.value, resource_type="provider_execution", resource_id=execution.id, details={"operation_key": "send_email", "simulation_only": True})
+        self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.EMAIL_SINGLE_MESSAGE_SIMULATED.value, resource_type="email_single_message_test", resource_id=execution.id, details={"provider_execution_id": str(execution.id), "message_digest": payload["payload_digest"], "simulation_only": True})
+        self.session.commit()
+        return SingleMessageSimulationResponse(provider_execution_id=execution.id, status=execution.status, result_metadata=result_metadata, simulation_only=True, external_action_taken=False)
 
     def _reject_sandbox(self, company_id: UUID, actor: Administrator, proposal: EmailReplyProposal, reason_code: str) -> None:
         self._event(

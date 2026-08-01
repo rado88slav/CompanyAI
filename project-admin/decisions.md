@@ -574,3 +574,22 @@ reachable. Other proposals are evaluated through Approval Manager and audited.
 No provider execution, mailbox login, credential read, external model call,
 shell command, Docker socket access, direct database access, real email send or
 campaign launch is available through this milestone.
+
+## 042 — Controlled Single-Message Test Boundary
+
+The first Generic SMTP/IMAP send-facing product flow is a simulation-only
+single-message test. It creates a dry-run Provider Execution and a matching
+Approval Manager single-action request, but it does not call SMTP, decrypt
+mailbox credentials or send email.
+
+The flow accepts exactly one recipient, requires `[COMPANYAI TEST]` by default,
+rejects duplicate idempotency keys, blocks inactive or untested mailboxes,
+honors sandbox allowlists, quotas, emergency stop and optional working hours,
+and disables CC, BCC, attachments, tracking, follow-ups and recipient lists by
+schema. A future live adapter must remain behind Provider Execution,
+Approval Manager, audit logging and the same idempotency ledger.
+
+Email automation also gains a simulation-only worker façade. It plans what a
+future worker would execute and records safe audit events, but creates no
+Provider Execution, opens no provider connection and performs no external
+action.

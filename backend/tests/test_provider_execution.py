@@ -97,10 +97,12 @@ def _execution_service(decision):
 
 def test_registry_has_local_test_email_operation():
     items = provider_operation_registry.all()
-    assert len(items) == 23
-    assert {item.provider_key for item in items} == {"retell", "twilio", "telnyx", "microsoft_365", "google_workspace", "lemlist", "instantly", "smartlead", "local_test_email"}
+    assert len(items) == 24
+    assert {item.provider_key for item in items} == {"retell", "twilio", "telnyx", "microsoft_365", "google_workspace", "lemlist", "instantly", "smartlead", "local_test_email", "generic_smtp_imap"}
     local = provider_operation_registry.require("local_test_email", "send_email")
     assert local.implemented is True and local.required_credential_status == "not_required"
+    generic = provider_operation_registry.require("generic_smtp_imap", "send_email")
+    assert generic.implemented is False and generic.retry_attempts == 0 and generic.approval_required is True
 
 
 def test_registry_exact_lookup_unknown_and_duplicate_rejection():

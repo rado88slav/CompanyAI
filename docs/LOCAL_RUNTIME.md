@@ -79,7 +79,17 @@ Manual live mailbox acceptance remains pending until real credentials are
 provided by the operator. Do not use real mailbox passwords in tickets, docs,
 terminal transcripts or repository files.
 
-See `docs/MAILBOX_LIVE_ACCEPTANCE.md` for the operator checklist.
+See `docs/MAILBOX_LIVE_ACCEPTANCE.md` for the operator checklist. See
+`docs/SINGLE_MESSAGE_TEST.md` for the follow-up approval-gated single-message
+simulation checklist.
+
+## Email Worker Simulation
+
+Email Operations can run a simulation-only worker preview. It plans what a
+future scheduler worker would execute, records a safe audit event and returns
+`external_action_taken=false` and `provider_execution_created=false`. It does
+not start a live worker process or call SMTP, IMAP, telephony or external
+providers.
 
 ## AI Agents
 

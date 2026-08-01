@@ -353,6 +353,8 @@ Email Sandbox е задължителната safety boundary преди реа�
 4. Десет messages на ден.
 5. `[COMPANYAI TEST]` subject prefix, когато е configured.
 6. Няма automatic follow-ups, bulk sending или attachments.
+## Controlled single-message test
+Email Operations може да preview-не един Generic SMTP/IMAP test message, да поиска Approval Manager authorization и да изпълни само simulation. Текущият flow създава dry-run Provider Execution records, но не decrypt-ва credentials, не отваря SMTP, не изпраща email, не включва tracking и не retry-ва uncertain results.
 > [!WARNING] Не използвайте реални HVAC prospects по време на sandbox acceptance testing.
 ## Ако send бъде rejected
 Проверете visible reason, approval state, allowlist и emergency stop. Rejections се audit-ват със sanitized reasons.

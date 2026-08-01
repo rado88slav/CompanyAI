@@ -110,3 +110,46 @@ export type CampaignSchedulePreview = {
   worker_enabled: boolean;
   worker_contract: Record<string, string | boolean>;
 };
+
+export type SingleMessageTestPayload = {
+  provider_connection_id: string;
+  recipient_email: string;
+  subject: string;
+  body: string;
+  idempotency_key: string;
+};
+
+export type SingleMessagePreview = SingleMessageTestPayload & {
+  sender_email: string;
+  payload_digest: string;
+  approval_required: boolean;
+  simulation_only: boolean;
+  live_send_available: boolean;
+  disabled_features: string[];
+};
+
+export type SingleMessageApproval = SingleMessagePreview & {
+  provider_execution_id: string;
+  approval_request_id: string;
+  status: string;
+};
+
+export type SingleMessageSimulation = {
+  provider_execution_id: string;
+  status: string;
+  result_metadata: Record<string, string | boolean>;
+  simulation_only: boolean;
+  external_action_taken: boolean;
+};
+
+export type WorkerSimulation = {
+  simulation_only: boolean;
+  worker_enabled: boolean;
+  status: string;
+  idempotency_key: string;
+  would_execute: CampaignSchedulePreviewSlot[];
+  skipped: CampaignSchedulePreviewSlot[];
+  external_action_taken: boolean;
+  provider_execution_created: boolean;
+  audit_recorded: boolean;
+};

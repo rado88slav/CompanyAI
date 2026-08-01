@@ -230,6 +230,16 @@ allowlists, approval state, provider connection, duplicate-send protection,
 quotas, subject prefix and emergency stop before provider execution. Rejected
 attempts are audited with sanitized reason codes.
 
+The controlled single-message test flow extends this boundary for Generic
+SMTP/IMAP mailboxes. It validates an active mailbox, successful SMTP and IMAP
+acceptance health, active credential metadata, one recipient, subject prefix,
+allowlists, quotas, optional working hours, explicit confirmation and a unique
+idempotency key. The request creates a dry-run Provider Execution and an
+Approval Manager single-action request. Current execution is simulation only:
+it never opens SMTP, decrypts credentials, sends email, retries uncertain
+results, accepts recipient lists or enables CC, BCC, attachments, tracking or
+follow-ups.
+
 Provider Credential model, repository and service integration are keyring-aware. The repository runtime contract now requires `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON. Application creation parses the complete immutable keyring once before FastAPI is constructed and shares it with Provider Connections through application state. Standalone `CREDENTIAL_ENCRYPTION_KEY` and ambiguous mixed legacy/new configuration are rejected without fallback. New credentials and business rotations use encryption version 2, store the configured active key ID and revision `0`, and authenticate the key ID together with the existing company, connection, credential and provider identity. Previous configured keys are decryption-only because encryption always selects the active key.
 
 Historical version-1 rows retain their original AAD. NULL key IDs are readable only when the configured keyring contains the explicit `legacy` entry; the active key is never guessed. Stored v1/v2 key IDs are resolved through the keyring, reads never mutate historical rows, and missing, malformed or unknown key IDs fail closed with sanitized errors.

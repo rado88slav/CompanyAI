@@ -201,6 +201,7 @@
 - [x] Add Generic SMTP/IMAP mailbox connection management with encrypted credential storage, separate SMTP/IMAP tests and activation gating.
 - [x] Add first safe Agent Runtime dashboard view and deterministic read-only internal tool invocation.
 - [x] Add deterministic mock email campaign listing with Tool Registry-backed Agent Runtime invocation.
+- [x] Add preview-only Email Automation schedule settings and dry-run campaign planner.
 - [x] Add first Lemlist read-only campaign adapter contract with fake transport tests.
 - [ ] Add credential-backed read-only Lemlist transport after approved secure credential provisioning.
 - [x] Add CompanyAI Local Edition Beta production-local runtime foundation.
@@ -214,6 +215,7 @@
 - [ ] Complete automatic encrypted configuration restore after separate security review.
 - [ ] Complete real HVAC workstation acceptance checklist.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
+- [ ] Implement the Email Automation background worker after separate scheduler design and approval integration.
 - [ ] Add agent health information.
 - [ ] Add dashboard health information.
 - [ ] Create `scripts/docker/reset-dev.sh`.
@@ -286,4 +288,4 @@ The following features must not delay the MVP:
 
 ## Last Updated
 
-2026-07-26
+2026-08-01

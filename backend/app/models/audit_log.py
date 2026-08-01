@@ -102,6 +102,10 @@ class AuditAction(StrEnum):
     EMAIL_REPLY_SUBMITTED = "email_reply.submitted"
     EMAIL_REPLY_SENT = "email_reply.sent"
     EMAIL_REPLY_SEND_FAILED = "email_reply.send_failed"
+    EMAIL_AUTOMATION_SETTINGS_UPDATED = "email_automation.settings_updated"
+    EMAIL_AUTOMATION_PREVIEWED = "email_automation.previewed"
+    EMAIL_AUTOMATION_PAUSED = "email_automation.paused"
+    EMAIL_AUTOMATION_RESUMED = "email_automation.resumed"
 
 
 class AuditLog(Base):

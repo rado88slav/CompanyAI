@@ -89,3 +89,8 @@ docker compose --env-file .env.local -f docker-compose.local.yml exec -T backend
 
 24. Optional encrypted configuration backup
 COMPANYAI_BACKUP_PASSPHRASE=<strong-passphrase> scripts/local/backup.sh
+
+25. Email Automation schedule settings validation
+npm run typecheck
+npm run test -- --run
+docker run --rm --user root -e PIP_ROOT_USER_ACTION=ignore -e PYTHONPYCACHEPREFIX=/tmp/company-ai-pycache -e APP_SECRET_KEY=test-secret-key-with-at-least-32-characters -e ACCESS_TOKEN_EXPIRE_MINUTES=60 -e CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID=legacy -e CREDENTIAL_ENCRYPTION_KEYRING='{"legacy":"0000000000000000000000000000000000000000000000000000000000000000"}' -v "$PWD/backend:/app:ro" -w /app company-ai-backend:dev sh -c 'python -m pip install --no-cache-dir -r requirements-dev.txt >/dev/null && python -m compileall -q app migrations tests && python -m pytest -p no:cacheprovider tests/test_email_automation.py tests/test_email_campaigns.py'

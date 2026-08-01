@@ -1,23 +1,61 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { emailApi } from "../api/email";
-import type { EmailCampaign, InboundEmail } from "../types/email";
+import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailCampaign, InboundEmail } from "../types/email";
+
+const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function asTime(value: string) {
+  return value.slice(0, 5);
+}
 
 export function EmailInboxPage() {
   const [items, setItems] = useState<InboundEmail[]>([]);
   const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
+  const [schedule, setSchedule] = useState<CampaignScheduleSettings | null>(null);
+  const [preview, setPreview] = useState<CampaignSchedulePreview | null>(null);
+  const [mailboxes, setMailboxes] = useState<Array<{id: string; provider_key: string; display_name: string; status: string}>>([]);
+  const [message, setMessage] = useState("");
   const [state, setState] = useState<"loading"|"ready"|"error">("loading");
   const load = useCallback(() => {
     setState("loading");
-    Promise.all([emailApi.list(), emailApi.campaigns()])
-      .then(([emailValue, campaignValue]) => {
+    Promise.all([emailApi.list(), emailApi.campaigns(), emailApi.schedule(), emailApi.connections()])
+      .then(([emailValue, campaignValue, scheduleValue, connectionValue]) => {
         setItems(emailValue.items);
         setCampaigns(campaignValue.items);
+        setSchedule(scheduleValue);
+        setMailboxes(connectionValue.items.filter((item) => item.provider_key === "generic_smtp_imap"));
         setState("ready");
       })
       .catch(() => setState("error"));
   }, []);
   useEffect(load, [load]);
+  function updateSchedule(mutator: (current: CampaignScheduleSettings) => CampaignScheduleSettings) {
+    setSchedule((current) => current ? mutator(current) : current);
+  }
+  async function saveSchedule() {
+    if (!schedule) return;
+    setMessage("");
+    const saved = await emailApi.saveSchedule(schedule);
+    setSchedule(saved);
+    setMessage("Schedule settings saved.");
+  }
+  async function previewSchedule() {
+    setMessage("");
+    const value = await emailApi.previewSchedule(12);
+    setPreview(value);
+    setMessage("Dry-run preview refreshed.");
+  }
+  async function pauseSchedule() {
+    const value = await emailApi.pauseSchedule();
+    setSchedule(value);
+    setMessage("Automation paused.");
+  }
+  async function resumeSchedule() {
+    const value = await emailApi.resumeSchedule();
+    setSchedule(value);
+    setMessage("Automation resumed.");
+  }
   return <section className="module-page">
     <div className="page-heading page-heading--split"><div><p className="eyebrow">Email</p><h1>Email Operations</h1><p>Company-scoped inbox, read-only campaigns and restricted sandbox testing.</p></div><div className="heading-actions"><Link className="button button--light" to="/documentation/email-sandbox">Email Sandbox Guide</Link><button onClick={load} disabled={state === "loading"}>Refresh</button></div></div>
     <section className="sandbox-panel">
@@ -41,6 +79,91 @@ export function EmailInboxPage() {
     </section>
     {state === "loading" && <div className="state-card">Loading inbound email…</div>}
     {state === "error" && <div className="state-card error"><h2>Inbox unavailable</h2><button onClick={load}>Retry</button></div>}
+    {state === "ready" && schedule && <section className="automation-panel">
+      <div className="section-heading"><div><p className="eyebrow">Campaign scheduler</p><h2>Email Automation</h2></div><span className="status-pill">{schedule.status}</span></div>
+      <div className="automation-grid">
+        <label>Timezone
+          <input value={schedule.timezone} onChange={(event) => updateSchedule((current) => ({...current, timezone: event.target.value}))} />
+        </label>
+        <label>Approval mode
+          <select value={schedule.approval_mode} onChange={(event) => updateSchedule((current) => ({...current, approval_mode: event.target.value as CampaignScheduleSettings["approval_mode"]}))}>
+            <option value="draft_only">Draft only</option>
+            <option value="campaign">Campaign</option>
+            <option value="batch">Batch</option>
+            <option value="period">Period</option>
+            <option value="mailboxes">Mailboxes</option>
+            <option value="per_action">Per action</option>
+          </select>
+        </label>
+        <label>Start date
+          <input type="date" value={schedule.start_date || ""} onChange={(event) => updateSchedule((current) => ({...current, start_date: event.target.value || null}))} />
+        </label>
+        <label>End date
+          <input type="date" value={schedule.end_date || ""} onChange={(event) => updateSchedule((current) => ({...current, end_date: event.target.value || null}))} />
+        </label>
+      </div>
+      <div className="weekday-row" aria-label="Allowed weekdays">
+        {weekdays.map((label, index) => <label key={label}><input type="checkbox" checked={schedule.allowed_weekdays.includes(index)} onChange={(event) => updateSchedule((current) => ({...current, allowed_weekdays: event.target.checked ? [...current.allowed_weekdays, index].sort() : current.allowed_weekdays.filter((item) => item !== index)}))} />{label}</label>)}
+      </div>
+      <div className="automation-grid">
+        {schedule.send_windows.map((window, index) => <div className="window-row" key={`${window.start}-${index}`}>
+          <label>Window start
+            <input type="time" value={asTime(window.start)} onChange={(event) => updateSchedule((current) => ({...current, send_windows: current.send_windows.map((item, itemIndex) => itemIndex === index ? {...item, start: event.target.value} : item)}))} />
+          </label>
+          <label>Window end
+            <input type="time" value={asTime(window.end)} onChange={(event) => updateSchedule((current) => ({...current, send_windows: current.send_windows.map((item, itemIndex) => itemIndex === index ? {...item, end: event.target.value} : item)}))} />
+          </label>
+          <button type="button" onClick={() => updateSchedule((current) => ({...current, send_windows: current.send_windows.filter((_, itemIndex) => itemIndex !== index)}))}>Remove</button>
+        </div>)}
+        <button type="button" onClick={() => updateSchedule((current) => ({...current, send_windows: [...current.send_windows, {start: "09:00", end: "11:00"}]}))}>Add window</button>
+      </div>
+      <div className="automation-grid">
+        <label>Minimum delay
+          <input type="number" min="1" value={schedule.randomized_timing.minimum_delay_minutes} onChange={(event) => updateSchedule((current) => ({...current, randomized_timing: {...current.randomized_timing, minimum_delay_minutes: Number(event.target.value)}}))} />
+        </label>
+        <label>Maximum delay
+          <input type="number" min="1" value={schedule.randomized_timing.maximum_delay_minutes} onChange={(event) => updateSchedule((current) => ({...current, randomized_timing: {...current.randomized_timing, maximum_delay_minutes: Number(event.target.value)}}))} />
+        </label>
+        <label>Jitter
+          <input type="number" min="0" value={schedule.randomized_timing.jitter_minutes} onChange={(event) => updateSchedule((current) => ({...current, randomized_timing: {...current.randomized_timing, jitter_minutes: Number(event.target.value)}}))} />
+        </label>
+        <label>Daily campaign limit
+          <input type="number" min="1" value={schedule.limits.campaign_daily} onChange={(event) => updateSchedule((current) => ({...current, limits: {...current.limits, campaign_daily: Number(event.target.value)}}))} />
+        </label>
+        <label>Mailbox daily limit
+          <input type="number" min="1" value={schedule.limits.mailbox_daily} onChange={(event) => updateSchedule((current) => ({...current, limits: {...current.limits, mailbox_daily: Number(event.target.value)}}))} />
+        </label>
+        <label>Mailbox rotation
+          <select value={schedule.mailbox_rotation.strategy} onChange={(event) => updateSchedule((current) => ({...current, mailbox_rotation: {...current.mailbox_rotation, strategy: event.target.value as CampaignScheduleSettings["mailbox_rotation"]["strategy"]}}))}>
+            <option value="round_robin">Round robin</option>
+            <option value="random">Random</option>
+            <option value="preferred_with_fallback">Preferred fallback</option>
+          </select>
+        </label>
+      </div>
+      <div className="mailbox-picker">
+        <div><strong>Mailboxes</strong><span>{mailboxes.filter((item) => item.status === "active").length}/{mailboxes.length} active Generic SMTP/IMAP</span></div>
+        {mailboxes.length === 0 ? <p>No Generic SMTP/IMAP mailboxes configured.</p> : mailboxes.map((mailbox) => <label key={mailbox.id}><input type="checkbox" checked={schedule.mailbox_rotation.allowed_connection_ids.includes(mailbox.id)} onChange={(event) => updateSchedule((current) => ({...current, mailbox_rotation: {...current.mailbox_rotation, allowed_connection_ids: event.target.checked ? [...current.mailbox_rotation.allowed_connection_ids, mailbox.id] : current.mailbox_rotation.allowed_connection_ids.filter((item) => item !== mailbox.id)}}))} />{mailbox.display_name}<span>{mailbox.status}</span></label>)}
+      </div>
+      <div className="automation-grid">
+        <label>Maximum follow-ups
+          <input type="number" min="0" max="10" value={schedule.maximum_follow_ups} onChange={(event) => updateSchedule((current) => ({...current, maximum_follow_ups: Number(event.target.value)}))} />
+        </label>
+        <label>Bounce pause %
+          <input type="number" min="0" max="100" value={schedule.auto_pause.bounce_rate_percent} onChange={(event) => updateSchedule((current) => ({...current, auto_pause: {...current.auto_pause, bounce_rate_percent: Number(event.target.value)}}))} />
+        </label>
+        <label><input type="checkbox" checked={schedule.auto_pause.approval_unavailable} onChange={(event) => updateSchedule((current) => ({...current, auto_pause: {...current.auto_pause, approval_unavailable: event.target.checked}}))} />Approval unavailable</label>
+        <label><input type="checkbox" checked={schedule.mailbox_rotation.reply_monitoring_required} onChange={(event) => updateSchedule((current) => ({...current, mailbox_rotation: {...current.mailbox_rotation, reply_monitoring_required: event.target.checked}}))} />Reply monitoring</label>
+      </div>
+      <div className="automation-actions">
+        <button type="button" onClick={saveSchedule}>Save settings</button>
+        <button type="button" onClick={previewSchedule}>Preview dry run</button>
+        <button type="button" onClick={pauseSchedule}>Pause</button>
+        <button type="button" onClick={resumeSchedule}>Resume</button>
+        {message && <span>{message}</span>}
+      </div>
+      {preview && <div className="table-wrap"><table><thead><tr><th>#</th><th>Planned local</th><th>Mailbox</th><th>Step</th><th>Status</th></tr></thead><tbody>{preview.slots.slice(0, 12).map((slot) => <tr key={`${slot.sequence}-${slot.recipient_step}`}><td>{slot.sequence}</td><td>{slot.planned_at_local ? new Date(slot.planned_at_local).toLocaleString() : "-"}</td><td>{slot.mailbox_display_name || "None"}</td><td>{slot.recipient_step}</td><td>{slot.status}</td></tr>)}{preview.skipped.map((slot) => <tr key={`skipped-${slot.reason}`}><td>-</td><td>-</td><td>None</td><td>{slot.recipient_step}</td><td>{slot.reason || slot.status}</td></tr>)}</tbody></table></div>}
+    </section>}
     {state === "ready" && items.length === 0 && <div className="state-card"><h2>No imported email</h2><p>Use the authenticated test-import API to add one development message.</p></div>}
     {state === "ready" && items.length > 0 && <div className="table-wrap"><table><thead><tr><th>Sender</th><th>Subject</th><th>Received</th><th>Workflow</th><th>Approval</th><th>Delivery</th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td><strong>{item.sender_name || item.sender_email}</strong><small>{item.sender_email}</small></td><td><Link to={`/email/${item.id}`}>{item.subject || "(No subject)"}</Link></td><td>{new Date(item.received_at).toLocaleString()}</td><td>{item.proposal_status || item.status}</td><td>{item.approval_status || "Not requested"}</td><td>{item.send_status || "Not sent"}</td></tr>)}</tbody></table></div>}
     {state === "ready" && <section className="activity-panel"><div className="section-heading"><div><p className="eyebrow">Mock provider</p><h2>Email campaigns</h2></div></div>

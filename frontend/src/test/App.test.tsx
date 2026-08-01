@@ -100,6 +100,52 @@ const firstRunReady = {
   bootstrap_method: "local_cli",
 };
 
+const campaignSchedule = {
+  campaign_key: "default",
+  status: "draft",
+  timezone: "Europe/Sofia",
+  allowed_weekdays: [0, 1, 2, 3, 4],
+  send_windows: [{ start: "09:00:00", end: "12:00:00" }],
+  randomized_timing: {
+    minimum_delay_minutes: 15,
+    maximum_delay_minutes: 45,
+    jitter_minutes: 10,
+  },
+  limits: {
+    campaign_hourly: 20,
+    campaign_daily: 100,
+    mailbox_hourly: 10,
+    mailbox_daily: 40,
+    mailbox_max_consecutive: 3,
+    company_daily: null,
+  },
+  mailbox_rotation: {
+    strategy: "round_robin",
+    allowed_connection_ids: [],
+    preferred_connection_id: null,
+    reply_monitoring_required: true,
+    paused_connection_ids: [],
+  },
+  follow_up_steps: [],
+  maximum_follow_ups: 3,
+  start_date: null,
+  end_date: null,
+  approval_mode: "draft_only",
+  auto_pause: {
+    authentication_failures: 3,
+    tls_or_connection_failures: 3,
+    provider_quota_reached: true,
+    hourly_or_daily_limit_reached: true,
+    bounce_rate_percent: 8,
+    unsubscribe_received: true,
+    missing_mailbox: true,
+    approval_unavailable: true,
+    internal_error: true,
+  },
+  pause_reason: null,
+  worker_enabled: false,
+};
+
 function setToken(companyId = "company-id") {
   sessionStorage.setItem("companyai.accessToken", "opaque-test-session-value");
   sessionStorage.setItem("companyai.companyId", companyId);
@@ -686,6 +732,23 @@ test("renders inbox empty state and refresh", async () => {
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-02T00:00:00Z",
     }], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse(campaignSchedule),
+    await jsonResponse({ items: [{
+      id: "mailbox-1",
+      company_id: "company-id",
+      provider_key: "generic_smtp_imap",
+      display_name: "Primary mailbox",
+      slug: "primary-mailbox",
+      authentication_type: "username_password",
+      status: "active",
+      configuration: {},
+      metadata: {},
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+      activated_at: "2026-01-01T00:00:00Z",
+      deactivated_at: null,
+      revoked_at: null,
+    }], total: 1, limit: 50, offset: 0 }),
   );
   window.history.pushState({}, "", "/email");
   render(<App />);
@@ -693,8 +756,47 @@ test("renders inbox empty state and refresh", async () => {
   expect(screen.getByRole("link", { name: "Email Sandbox Guide" })).toHaveAttribute("href", "/documentation/email-sandbox");
   expect(screen.getByRole("heading", { name: "Email Sandbox" })).toBeInTheDocument();
   expect(screen.getByText("Backend enforced")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Email Automation" })).toBeInTheDocument();
+  expect(screen.getByDisplayValue("Europe/Sofia")).toBeInTheDocument();
   expect(screen.getByText("Welcome sequence")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+});
+
+test("previews email automation dry-run slots", async () => {
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse(campaignSchedule),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({
+      settings: campaignSchedule,
+      slots: [{
+        sequence: 1,
+        planned_at_utc: "2026-08-03T06:00:00Z",
+        planned_at_local: "2026-08-03T09:00:00+03:00",
+        timezone: "Europe/Sofia",
+        mailbox_connection_id: "mailbox-1",
+        mailbox_display_name: "Primary mailbox",
+        campaign_key: "default",
+        recipient_step: "initial",
+        status: "planned",
+        reason: null,
+        applicable_limits: { campaign_daily: 100 },
+      }],
+      skipped: [],
+      worker_enabled: false,
+      worker_contract: { preview_only: true },
+    }),
+  );
+  window.history.pushState({}, "", "/email");
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Preview dry run" }));
+
+  expect(await screen.findByText("Dry-run preview refreshed.")).toBeInTheDocument();
+  expect(screen.getByText("Primary mailbox")).toBeInTheDocument();
+  expect(screen.getByText("initial")).toBeInTheDocument();
 });
 
 test("renders inbox error state", async () => {

@@ -423,6 +423,7 @@ The real company will later be created as a separate Company Context without cha
 - The first Lemlist read-only campaign adapter contract is implemented behind the provider abstraction. It normalizes fake transport records into the internal `EmailCampaignSummary` schema, adds the `email.campaign.read` Lemlist capability and includes tests for provider-key matching, deterministic company-scoped IDs, safe normalized output and no secret-bearing response fields. No live Lemlist transport, API key, network call, campaign mutation or send action was added.
 - Thin local-test email workflow: implemented, committed and pushed as `214c5a2 Complete local thin email E2E validation support`; the real local E2E covered Local Test Email Provider setup, idempotent setup, import, duplicate import rejection, proposal creation/edit/submit, post-submit edit blocking, approval by a separate administrator, explicit deterministic local test send, duplicate-send protection, provider execution/attempt persistence, immutable approved outbound snapshot, inbox/detail sent status, audit events, health, readiness, Alembic current and no external email delivery.
 - Generic SMTP/IMAP mailbox connection management is implemented through Provider Connections. The trusted `generic_smtp_imap` descriptor exposes email send/read/reply capabilities, mailbox passwords use encrypted Provider Credentials, SMTP and IMAP tests are separate strict-TLS no-send/no-mutation actions, safe health is stored in provider connection metadata, and activation is blocked until an active credential plus successful SMTP and IMAP tests exist. Automated tests use fakes; live credential testing is pending and no real mailbox connection or real email send was attempted.
+- Email Automation schedule settings and dry-run campaign planning are implemented without a scheduler worker or live sending. The backend persists non-secret policy in `company_settings`, validates company-owned mailbox references, plans timezone-aware weekday/window slots with randomized timing, campaign/mailbox/company limits, mailbox rotation, start/end boundaries, pause/resume state, follow-up preview support and sanitized audit events. The dashboard exposes these controls in Email Operations and can request a dry-run preview. No provider execution, mailbox login, external network call, real credential read or email send is performed by this slice.
 - Retained local E2E evidence: CompanyTest `0138bfbe-80af-4304-ad91-14d1914a9869`, requester administrator `7723d6f1-fbc7-4c77-a217-338f84e95007`, approver administrator `4824fd95-3d03-44b4-95c2-d109f13890ab`, provider connection `fd4e4bb1-8a8c-4363-9869-8eeddcdb4409`, inbound email `7999408b-21e1-4831-be41-7bfba61d0176`, reply proposal `64233291-3a39-44eb-b475-b823390d22e8`, approval request `77012c14-6209-4140-b110-cc9c0a2ce8b4`, outbound email `c76163b3-c9c2-41c5-a274-0de535788e17`, provider execution `e9932017-a428-4ce9-84c7-514a72b28c1a`, provider execution attempt `ee690071-4bbb-4a40-b9bc-b0c530a3056d` and deterministic provider message ID `local-test-2c802d000f0201cc56f205a4`.
 - Dashboard Summary uses one aggregate count statement plus one bounded deterministic recent-audit query, existing read permissions and explicit safe schemas. It performs no writes, credential decryption, provider execution or external call.
 - No credential payload was read, decrypted, modified or backfilled, and no real credential or external provider execution was created.
@@ -447,8 +448,9 @@ Continue Phase 3 with:
 1. complete real workstation acceptance for CompanyAI Local Edition Beta before any real HVAC prospect pilot;
 2. implement a graphical first-run wizard or equivalent audited single-use bootstrap closure;
 3. harden encrypted configuration backup and restore for provider credentials;
-4. perform live Generic SMTP/IMAP credential acceptance with operator-provided credentials, then add credential-backed read-only provider transports only after secure credential provisioning;
-5. transition Email Sandbox from team-controlled addresses to a 20-50 prospect pilot only after the acceptance checklist passes.
+4. implement the Email Automation background worker only after a separate scheduler design wires Approval Manager decisions and provider execution safeguards;
+5. perform live Generic SMTP/IMAP credential acceptance with operator-provided credentials, then add credential-backed read-only provider transports only after secure credential provisioning;
+6. transition Email Sandbox from team-controlled addresses to a 20-50 prospect pilot only after the acceptance checklist passes.
 
 ## Local Edition Beta Runtime Foundation
 
@@ -469,5 +471,5 @@ Continue Phase 3 with:
 
 ## Last Updated
 
-2026-07-26
+2026-08-01
 Manual preparation: restored source files after SMTP/IMAP prototype, preserved prototype patch, and created Codex handoff specification at project-admin/codex-handoff/GENERIC-SMTP-IMAP.md.

@@ -1,5 +1,5 @@
 import { companyApi } from "./client";
-import type { EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal } from "../types/email";
+import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailApproval, EmailCampaign, InboundEmail, InboundEmailDetail, OutboundEmail, ReplyProposal } from "../types/email";
 import type { ActivityEventList } from "../types/activity";
 
 export const emailApi = {
@@ -16,6 +16,11 @@ export const emailApi = {
   approve: (id: string) => companyApi(`/email-approvals/${encodeURIComponent(id)}/approve`, {method: "POST"}),
   deny: (id: string) => companyApi(`/email-approvals/${encodeURIComponent(id)}/reject`, {method: "POST"}),
   audit: () => companyApi<ActivityEventList>("/activity"),
-  connections: () => companyApi<{items: Array<{id: string; provider_key: string; status: string}>}>("/provider-connections"),
+  connections: () => companyApi<{items: Array<{id: string; provider_key: string; display_name: string; status: string}>}>("/provider-connections"),
   campaigns: () => companyApi<{items: EmailCampaign[]; total: number}>("/email-campaigns"),
+  schedule: () => companyApi<CampaignScheduleSettings>("/email-automation/schedule"),
+  saveSchedule: (data: CampaignScheduleSettings) => companyApi<CampaignScheduleSettings>("/email-automation/schedule", {method: "PUT", body: JSON.stringify(data)}),
+  previewSchedule: (recipientCount: number) => companyApi<CampaignSchedulePreview>("/email-automation/schedule/preview", {method: "POST", body: JSON.stringify({recipient_count: recipientCount, include_follow_ups: true})}),
+  pauseSchedule: (reason = "manual") => companyApi<CampaignScheduleSettings>("/email-automation/schedule/pause", {method: "POST", body: JSON.stringify({reason})}),
+  resumeSchedule: () => companyApi<CampaignScheduleSettings>("/email-automation/schedule/resume", {method: "POST"}),
 };

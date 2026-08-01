@@ -141,6 +141,26 @@ Email Operations prend en charge les preuves local test email et la visibilité 
 - Utiliser Providers pour savoir si un live credential existe.
 
 ---
+slug: email-automation
+title: Email Automation
+category: Email
+summary: Configure preview-only campaign schedule policy before a worker exists.
+keywords: email, automation, schedule, timezone, preview, mailbox, follow-up, approval
+related: email-campaigns,providers,email-sandbox
+---
+# Email Automation
+Email Automation stores company-specific campaign schedule policy and previews planned send slots. It does not send email, create provider executions or run a background scheduler.
+## Étapes
+1. Open Email Operations.
+2. Set timezone, weekdays, send windows, randomized delays and limits.
+3. Select Generic SMTP/IMAP mailboxes when they are active and healthy.
+4. Save settings, then run a dry-run preview.
+> [!WARNING] Worker execution is intentionally disabled. Preview output is planning evidence only.
+## Bonnes pratiques
+- Keep approval mode conservative until scheduler work is reviewed.
+- Use pause when mailbox health or business timing is uncertain.
+
+---
 slug: approvals
 title: Approvals
 category: Gouvernance

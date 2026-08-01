@@ -141,6 +141,26 @@ Email Operations поддържа local test email evidence и mock/read-only ca
 - В Providers вижте дали изобщо има live credential.
 
 ---
+slug: email-automation
+title: Email Automation
+category: Email
+summary: Preview-only campaign schedule policy преди реален worker.
+keywords: email, automation, schedule, timezone, preview, mailbox, follow-up, approval
+related: email-campaigns,providers,email-sandbox
+---
+# Email Automation
+Email Automation пази company-specific campaign schedule policy и може да покаже dry-run send slots. Не изпраща email, не създава provider executions и не стартира background scheduler.
+## Стъпки
+1. Отворете Email Operations.
+2. Настройте timezone, weekdays, send windows, randomized delays и limits.
+3. Изберете Generic SMTP/IMAP mailboxes, когато са active и healthy.
+4. Запазете settings и пуснете dry-run preview.
+> [!WARNING] Worker execution е изключен нарочно. Preview output е само planning evidence.
+## Добри практики
+- Дръжте approval mode conservative до отделен scheduler review.
+- Използвайте pause при несигурен mailbox health или бизнес timing.
+
+---
 slug: approvals
 title: Approvals
 category: Governance

@@ -1508,6 +1508,105 @@ h1 {
   font-weight: 700;
 }
 
+.automation-panel {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 22px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(16, 26, 45, 0.07);
+}
+
+.automation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.automation-grid label,
+.window-row label,
+.mailbox-picker label {
+  display: grid;
+  gap: 7px;
+  color: #465267;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.automation-grid input,
+.automation-grid select,
+.window-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid #cdd6e3;
+  border-radius: 8px;
+  color: #162033;
+  font: inherit;
+  font-weight: 500;
+  background: #fff;
+}
+
+.weekday-row,
+.automation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.weekday-row label,
+.automation-grid label:has(input[type="checkbox"]),
+.mailbox-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weekday-row label,
+.mailbox-picker label {
+  padding: 9px 11px;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.window-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.mailbox-picker {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #e1e7ef;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.mailbox-picker > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #667388;
+}
+
+.mailbox-picker p {
+  margin: 0;
+  color: #667388;
+}
+
+.mailbox-picker span,
+.automation-actions span {
+  color: #667388;
+  font-size: 0.88rem;
+}
+
 .setup-required-panel {
   display: grid;
   grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);

@@ -63,3 +63,15 @@ Generic SMTP/IMAP tests return safe categories:
 SMTP tests do not send email. IMAP tests open the configured folder read-only
 and do not change, move, mark or delete messages. A mailbox remains inactive
 until an active encrypted credential exists and both protocol tests succeed.
+
+## AI Agent Preview Task Is Denied
+
+The Email Operations Preview Agent denies forbidden sends by design. Confirm:
+
+- the agent is active;
+- the task is one of the built-in synthetic preview tasks;
+- no real recipient list or credential-like input was entered;
+- Approval Manager status is reviewed before treating a proposal as actionable.
+
+OpenClaw is not integrated in this runtime. AI Agent results are produced by a
+deterministic local preview adapter only.

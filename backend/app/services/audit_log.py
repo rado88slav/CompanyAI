@@ -55,6 +55,11 @@ _SAFE_DETAIL_KEYS = frozenset(
         "dry_run",
         "provider_message_id",
         "seed_key",
+        "task_key",
+        "proposal_type",
+        "authorization_status",
+        "runtime_type",
+        "denied_reason",
     }
 )
 
@@ -188,7 +193,7 @@ class AuditLogService:
             normalized_action = AuditAction(action).value
         except ValueError as exc:
             raise ValueError("Unsupported company audit action.") from exc
-        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_credential", "agent_permission", "tool_definition", "company_tool", "agent_tool_grant", "provider_connection", "provider_credential", "provider_execution", "inbound_email", "email_reply_proposal", "outbound_email", "email_automation"}:
+        if resource_type not in {"company", "company_membership", "approval_request", "approval_decision", "authorization_policy", "authorization_usage", "agent", "agent_manager", "agent_credential", "agent_permission", "tool_definition", "company_tool", "agent_tool_grant", "provider_connection", "provider_credential", "provider_execution", "inbound_email", "email_reply_proposal", "outbound_email", "email_automation"}:
             raise ValueError("Unsupported company audit resource_type.")
         _validate_safe_details(details)
         if actor_administrator_id is not None and actor_agent_id is not None:

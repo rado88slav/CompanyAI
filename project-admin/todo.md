@@ -214,9 +214,12 @@
 - [x] Complete first graphical first-run wizard.
 - [ ] Complete automatic encrypted configuration restore after separate security review.
 - [ ] Complete real HVAC workstation acceptance checklist.
+- [ ] Enter one operator-controlled Generic SMTP/IMAP mailbox credential manually and run the documented controlled live acceptance sequence.
+- [ ] After live mailbox acceptance succeeds, design the first single-message approval-gated send test before enabling any real outreach.
 - [ ] Add dashboard production delivery and container integration after explicit approval.
 - [ ] Implement the Email Automation background worker after separate scheduler design and approval integration.
-- [ ] Add agent health information.
+- [x] Add preview AI Agent health information.
+- [ ] Add runtime health information for future non-preview agent adapters.
 - [ ] Add dashboard health information.
 - [ ] Create `scripts/docker/reset-dev.sh`.
 - [ ] Complete Docker startup documentation.

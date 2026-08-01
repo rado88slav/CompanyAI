@@ -32,6 +32,7 @@ Generated automatically by:
 ./backend/app/api/router.py
 ./backend/app/api/routes/__init__.py
 ./backend/app/api/routes/agent_authentication.py
+./backend/app/api/routes/agent_manager.py
 ./backend/app/api/routes/agent_runtime.py
 ./backend/app/api/routes/agents.py
 ./backend/app/api/routes/approvals.py
@@ -96,6 +97,7 @@ Generated automatically by:
 ./backend/app/schemas/__init__.py
 ./backend/app/schemas/activity.py
 ./backend/app/schemas/agent.py
+./backend/app/schemas/agent_manager.py
 ./backend/app/schemas/agent_runtime.py
 ./backend/app/schemas/approval.py
 ./backend/app/schemas/audit_log.py
@@ -113,6 +115,7 @@ Generated automatically by:
 ./backend/app/schemas/tool_registry.py
 ./backend/app/services/__init__.py
 ./backend/app/services/agent_identity.py
+./backend/app/services/agent_manager.py
 ./backend/app/services/agent_runtime.py
 ./backend/app/services/approval_manager.py
 ./backend/app/services/audit_log.py
@@ -124,6 +127,7 @@ Generated automatically by:
 ./backend/app/services/dashboard.py
 ./backend/app/services/development_activity_seed.py
 ./backend/app/services/email.py
+./backend/app/services/email_automation.py
 ./backend/app/services/email_campaign.py
 ./backend/app/services/email_campaign_adapters.py
 ./backend/app/services/first_run.py
@@ -153,6 +157,7 @@ Generated automatically by:
 ./backend/requirements.txt
 ./backend/tests/__init__.py
 ./backend/tests/test_agent_identity.py
+./backend/tests/test_agent_manager.py
 ./backend/tests/test_agent_runtime.py
 ./backend/tests/test_approval_manager.py
 ./backend/tests/test_audit_logging.py
@@ -166,6 +171,7 @@ Generated automatically by:
 ./backend/tests/test_dashboard.py
 ./backend/tests/test_database.py
 ./backend/tests/test_development_activity_seed.py
+./backend/tests/test_email_automation.py
 ./backend/tests/test_email_campaign_adapters.py
 ./backend/tests/test_email_campaigns.py
 ./backend/tests/test_email_workflow.py
@@ -182,6 +188,7 @@ Generated automatically by:
 ./docker-compose.local.yml
 ./docker-compose.yml
 ./docker/.gitkeep
+./docs/AI_AGENT_MANAGER.md
 ./docs/ARCHITECTURE.md
 ./docs/BACKUP_RESTORE.md
 ./docs/EMAIL_SANDBOX.md
@@ -190,8 +197,10 @@ Generated automatically by:
 ./docs/LOCAL_EDITION_ARCHITECTURE.md
 ./docs/LOCAL_RUNTIME.md
 ./docs/LOCAL_SECURITY_MODEL.md
+./docs/MAILBOX_LIVE_ACCEPTANCE.md
 ./docs/OFFLINE_INSTALLATION.md
 ./docs/OFFLINE_UPDATES.md
+./docs/OPENCLAW_ADAPTER_CONTRACT.md
 ./docs/ROADMAP.md
 ./docs/TROUBLESHOOTING_LOCAL.md
 ./docs/WINDOWS_INSTALLER_PLAN.md
@@ -202,6 +211,7 @@ Generated automatically by:
 ./frontend/package.json
 ./frontend/src/App.tsx
 ./frontend/src/api/activity.ts
+./frontend/src/api/agentManager.ts
 ./frontend/src/api/agentRuntime.ts
 ./frontend/src/api/client.ts
 ./frontend/src/api/dashboard.ts
@@ -234,6 +244,7 @@ Generated automatically by:
 ./frontend/src/test/App.test.tsx
 ./frontend/src/test/setup.ts
 ./frontend/src/types/activity.ts
+./frontend/src/types/agentManager.ts
 ./frontend/src/types/agentRuntime.ts
 ./frontend/src/types/dashboard.ts
 ./frontend/src/types/documentation.ts
@@ -256,6 +267,8 @@ Generated automatically by:
 ./installer/windows/Uninstall-CompanyAI.ps1
 ./integrations/.gitkeep
 ./project-admin/bash-history.txt
+./project-admin/codex-handoff/GENERIC-SMTP-IMAP.md
+./project-admin/codex-handoff/generic-smtp-imap-prototype.patch
 ./project-admin/decisions.md
 ./project-admin/inventory.md
 ./project-admin/progress.md

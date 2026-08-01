@@ -22,7 +22,7 @@ const navigation = [
   { to: "/", label: "Overview", icon: "O", end: true },
   { to: "/activity", label: "Activity", icon: "T" },
   { to: "/system-status", label: "System Status", icon: "H" },
-  { to: "/agent", label: "Agent Activity", icon: "A" },
+  { to: "/agent", label: "AI Agents", icon: "A" },
   { to: "/providers", label: "Provider Connections", icon: "P" },
   { to: "/email", label: "Email Operations", icon: "E" },
   { to: "/calls", label: "Call Operations", icon: "C" },
@@ -34,7 +34,7 @@ const navigation = [
 
 const sectionLabels: Record<string, string> = {
   activity: "Activity",
-  agent: "Agent Activity",
+  agent: "AI Agents",
   approvals: "Approvals",
   audit: "Audit Log",
   calls: "Call Operations",

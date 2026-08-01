@@ -121,6 +121,31 @@ La page Agent exécute des outils internes déterministes dans une runtime bound
 - Revoir les actions agent dans Activity Center.
 
 ---
+slug: ai-agents
+title: AI Agents
+category: Automatisation
+summary: Create the Email Operations Preview Agent and run safe synthetic tasks.
+keywords: agent, manager, preview, prompt, openclaw, approval, synthetic
+related: agent,approvals,email-automation
+---
+# AI Agents
+AI Agents is the first product-level Agent Manager. Today it uses a deterministic local preview adapter. OpenClaw itself is not integrated.
+## Étapes
+1. Open AI Agents.
+2. Create the Email Operations Preview Agent from the built-in template.
+3. Review the prompt preview before activation.
+4. Activate the agent.
+5. Run one of the synthetic preview tasks.
+## Expected results
+- Schedule preview and draft tasks return structured proposals.
+- Unsubscribe classification recommends suppression.
+- Campaign pause proposals show Approval Manager status.
+- Forbidden send is denied.
+> [!WARNING] No real email, provider execution, mailbox login or campaign launch is performed.
+## OpenClaw
+OpenClaw remains a future separate adapter contract with no Docker socket, no direct database access and no unrestricted filesystem.
+
+---
 slug: email-campaigns
 title: Email Campaigns
 category: Email

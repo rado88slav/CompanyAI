@@ -69,6 +69,8 @@ class AuditAction(StrEnum):
     AGENT_AUTHENTICATED = "agent.authenticated"
     AGENT_PERMISSION_GRANTED = "agent_permission.granted"
     AGENT_PERMISSION_REVOKED = "agent_permission.revoked"
+    AGENT_MANAGER_TASK_PREVIEWED = "agent_manager.task_previewed"
+    AGENT_MANAGER_TASK_DENIED = "agent_manager.task_denied"
     TOOL_DEFINITION_CREATED = "tool_definition.created"
     TOOL_DEFINITION_UPDATED = "tool_definition.updated"
     TOOL_DEFINITION_ACTIVATED = "tool_definition.activated"

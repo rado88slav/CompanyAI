@@ -73,3 +73,14 @@ strict TLS verification and bounded timeouts, perform no send operation and
 touch IMAP folders only in read-only mode. Activation reuses the existing
 provider connection lifecycle and is refused until an active credential plus
 successful SMTP and IMAP tests are present.
+
+## AI Agent Boundary
+
+AI Agents are available as a preview-only dashboard workflow. The local
+preview adapter produces deterministic proposals for synthetic email
+operations tasks and routes authorization checks through CompanyAI. It does
+not run OpenClaw, external AI providers, provider executions, campaign workers,
+mailbox reads or email sends.
+
+The future OpenClaw deployment must follow `docs/OPENCLAW_ADAPTER_CONTRACT.md`
+before any integration is enabled.

@@ -1607,6 +1607,103 @@ h1 {
   font-size: 0.88rem;
 }
 
+.acceptance-panel,
+.agent-manager-layout {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.acceptance-panel {
+  grid-template-columns: minmax(230px, 0.9fr) minmax(260px, 1fr) minmax(210px, 0.8fr);
+  align-items: center;
+  padding: 22px;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.acceptance-panel h2 {
+  margin: 5px 0 8px;
+}
+
+.acceptance-panel p,
+.acceptance-panel ol {
+  margin: 0;
+  color: #667388;
+}
+
+.acceptance-panel__guardrails,
+.agent-task-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.acceptance-panel__guardrails span {
+  padding: 8px 10px;
+  border: 1px solid #cdd6e3;
+  border-radius: 8px;
+  background: #fff;
+  color: #162033;
+  font-weight: 700;
+}
+
+.agent-manager-layout {
+  grid-template-columns: minmax(260px, 0.85fr) minmax(320px, 1.4fr);
+}
+
+.agent-template-panel,
+.agent-list-panel {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(16, 26, 45, 0.06);
+}
+
+.agent-template-panel h2 {
+  margin: 4px 0 0;
+}
+
+.agent-template-panel p {
+  margin: 0;
+  color: #667388;
+}
+
+.agent-template-panel label {
+  display: grid;
+  gap: 8px;
+  color: #465267;
+  font-weight: 700;
+}
+
+.agent-template-panel textarea {
+  min-height: 130px;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid #cdd6e3;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.provider-card.is-selected {
+  border-color: #2563eb;
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.12);
+}
+
+.prompt-preview {
+  overflow: auto;
+  max-height: 360px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #101a2d;
+  color: #e5edf6;
+  white-space: pre-wrap;
+}
+
 .setup-required-panel {
   display: grid;
   grid-template-columns: minmax(260px, 0.9fr) minmax(320px, 1.1fr);
@@ -2115,6 +2212,11 @@ h1 {
 
   .activity-list li {
     grid-template-columns: auto 1fr;
+  }
+
+  .acceptance-panel,
+  .agent-manager-layout {
+    grid-template-columns: 1fr;
   }
 
   .activity-card,

@@ -557,3 +557,20 @@ grants, provider credentials, audit logging and Approval Manager decisions.
 Any future OpenClaw action that can affect external systems must be expressed
 as an exact CompanyAI-authorized tool/provider operation rather than direct
 host automation.
+
+## 041 — Preview AI Agent Manager
+
+AI Agent Manager starts with a deterministic local preview runtime, not
+unrestricted autonomy and not OpenClaw execution. The built-in Email Operations
+Preview Agent is a company-owned Agent Identity record with exact safe
+permissions and structured profile metadata. Its effective prompt is assembled
+from named sections: system identity, company scope, role, objectives, allowed
+tools, forbidden actions, approval rules, company instructions, output schema
+and escalation rules.
+
+The preview runtime returns structured proposals for synthetic tasks only.
+Forbidden sends are blocked in backend code before any provider path is
+reachable. Other proposals are evaluated through Approval Manager and audited.
+No provider execution, mailbox login, credential read, external model call,
+shell command, Docker socket access, direct database access, real email send or
+campaign launch is available through this milestone.

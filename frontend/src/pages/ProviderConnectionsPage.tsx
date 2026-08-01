@@ -233,6 +233,26 @@ export function ProviderConnectionsPage() {
       {formError ? <div className="state-card error">{formError}</div> : null}
       {formMessage ? <div className="state-card success">{formMessage}</div> : null}
 
+      <section className="acceptance-panel">
+        <div>
+          <span className="eyebrow">Controlled live acceptance</span>
+          <h2>One mailbox, operator-driven tests only</h2>
+          <p>Use this flow to validate SMTP authentication/TLS and IMAP read-only folder access before any campaign or worker exists.</p>
+        </div>
+        <ol>
+          <li>Create or select a Generic SMTP/IMAP mailbox.</li>
+          <li>Save the password through encrypted credentials only.</li>
+          <li>Run Test SMTP and Test IMAP separately.</li>
+          <li>Activate only after both protocol checks succeed.</li>
+        </ol>
+        <div className="acceptance-panel__guardrails">
+          <span>No email sent</span>
+          <span>No IMAP mutation</span>
+          <span>No campaign start</span>
+          <span>No password display</span>
+        </div>
+      </section>
+
       {showEmailForm ? (
         <form className="mailbox-form" noValidate onSubmit={(event) => void submitGenericMailbox(event)}>
           <div className="section-heading">

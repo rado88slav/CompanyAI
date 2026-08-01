@@ -438,58 +438,108 @@ test("company selector changes the active company for protected requests", async
   );
 });
 
-test("renders agent runtime tools and structured read-only result", async () => {
+const agentTemplate = {
+  template_id: "email_operations_preview_agent",
+  name: "Email Operations Preview Agent",
+  role: "Email operations preview analyst",
+  runtime_type: "local_preview",
+  approval_mode: "always_require_approval",
+  allowed_tools: ["email.schedule.preview"],
+  forbidden_actions: ["email.message.send"],
+  default_permissions: ["agent.preview.email_schedule"],
+};
+
+const managedAgent = {
+  id: "agent-1",
+  company_id: "company-id",
+  name: "Email Operations Preview Agent",
+  slug: "email-operations-preview-agent",
+  role: "Email operations preview analyst",
+  status: "inactive",
+  runtime_type: "local_preview",
+  assigned_tools: ["email.schedule.preview"],
+  permissions: ["agent.preview.email_schedule"],
+  approval_mode: "always_require_approval",
+  health: "ready",
+  readiness: "preview_only",
+  last_activity_at: null,
+  instructions: { company_instructions: "Use conservative previews." },
+  created_at: "2026-08-01T10:00:00Z",
+  updated_at: "2026-08-01T10:00:00Z",
+};
+
+test("renders AI Agents, creates a preview agent and runs a forbidden-send denial", async () => {
   setToken();
   await authenticatedFetchMock(
-    await jsonResponse({ items: [{
-      key: "dashboard.summary.read",
-      display_name: "Read dashboard summary",
-      description: "Return safe dashboard summary.",
-      category: "dashboard",
-      risk_level: "low",
-      requires_approval: false,
-      runtime_registered: true,
-      company_enabled: true,
-    }, {
-      key: "email.campaigns.list",
-      display_name: "List mock email campaigns",
-      description: "Return deterministic mock campaigns.",
-      category: "email",
-      risk_level: "low",
-      requires_approval: false,
-      runtime_registered: true,
-      company_enabled: true,
-    }]}),
+    await jsonResponse([agentTemplate]),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse(managedAgent, true, 201),
+    await jsonResponse({ ...managedAgent, status: "active" }),
     await jsonResponse({
-      tool_key: "dashboard.summary.read",
-      status: "succeeded",
-      executed_at: "2026-01-01T00:00:00Z",
+      agent_id: "agent-1",
+      task_key: "attempt_forbidden_send",
+      runtime_type: "local_preview",
+      status: "denied",
+      proposal: {
+        proposal_type: "forbidden_send",
+        summary: "The requested send action is forbidden.",
+        recommended_action: "Deny the send and keep all output in preview mode.",
+        draft_subject: null,
+        draft_body: null,
+        classification: null,
+        safety_notes: ["No send is allowed."],
+      },
+      authorization: {
+        status: "blocked",
+        reason_code: "forbidden_by_agent_template",
+        effective_risk: "high",
+        approval_request_id: null,
+        policy_id: null,
+      },
       audit_event_id: "audit-1",
-      result: summary,
+      provider_execution_created: false,
+      external_action_taken: false,
     }),
   );
 
   window.history.pushState({}, "", "/agent");
   render(<App />);
 
-  expect(await screen.findByRole("heading", { name: "Agent Activity" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "How Agent works" })).toHaveAttribute("href", "/documentation/agent");
-  expect(screen.getByText("List mock email campaigns")).toBeInTheDocument();
-  fireEvent.click(screen.getAllByRole("button", { name: "Run read-only tool" })[0]);
-  expect(await screen.findByText("dashboard.summary.read")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "AI Agents" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "AI Agent Guide" })).toHaveAttribute("href", "/documentation/ai-agents");
+  fireEvent.click(screen.getByRole("button", { name: "Create preview agent" }));
+  expect(await screen.findByText("Email operations preview analyst")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Activate" }));
+  expect(await screen.findByText("active")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Attempt a forbidden send action" }));
+  expect(await screen.findByText("forbidden_send")).toBeInTheDocument();
+  expect(screen.getByText("forbidden_by_agent_template")).toBeInTheDocument();
   expect(screen.getByText("audit-1")).toBeInTheDocument();
   expect(document.body.textContent?.toLowerCase()).not.toContain("opaque-test-session-value");
+  expect(document.body.textContent?.toLowerCase()).not.toContain("password");
 });
 
-test("renders agent runtime setup state when no tools are enabled", async () => {
+test("renders AI Agents prompt preview without secrets", async () => {
   setToken();
-  await authenticatedFetchMock(await jsonResponse({ items: [] }));
+  await authenticatedFetchMock(
+    await jsonResponse([agentTemplate]),
+    await jsonResponse({ items: [managedAgent], total: 1, limit: 50, offset: 0 }),
+    await jsonResponse({
+      agent_id: "agent-1",
+      template_id: "email_operations_preview_agent",
+      sections: { system_identity: "CompanyAI controlled preview agent." },
+      prompt_text: "SYSTEM_IDENTITY\nCompanyAI controlled preview agent.",
+    }),
+  );
 
   window.history.pushState({}, "", "/agent");
   render(<App />);
 
-  expect(await screen.findByRole("heading", { name: "No runtime tools enabled" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Enable local tool" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "AI Agents" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Prompt preview" }));
+  expect(await screen.findByRole("heading", { name: "Prompt preview" })).toBeInTheDocument();
+  expect(screen.getByText(/CompanyAI controlled preview agent/)).toBeInTheDocument();
+  expect(document.body.textContent?.toLowerCase()).not.toContain("secret");
 });
 
 test("renders provider connections from safe catalog and company data", async () => {

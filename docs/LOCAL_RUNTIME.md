@@ -79,6 +79,16 @@ Manual live mailbox acceptance remains pending until real credentials are
 provided by the operator. Do not use real mailbox passwords in tickets, docs,
 terminal transcripts or repository files.
 
+See `docs/MAILBOX_LIVE_ACCEPTANCE.md` for the operator checklist.
+
+## AI Agents
+
+The dashboard `/agent` route exposes AI Agents in safe preview mode. The
+built-in Email Operations Preview Agent can be created, activated and used for
+synthetic preview tasks. It does not send email, read mailbox passwords,
+create provider executions, start campaign workers or call external AI
+providers. See `docs/AI_AGENT_MANAGER.md`.
+
 ## Diagnostics
 
 ```bash

@@ -193,6 +193,17 @@ does not create provider executions, connect to mailboxes, send email or run a
 background worker. A future worker must consume this policy through the same
 company-isolated service boundary and Approval Manager contract.
 
+AI Agent Manager now provides the first product-level agent control surface in
+preview-only mode. It reuses Agent Identity for company-owned agents and exact
+permissions, stores safe structured profile sections in agent metadata and
+runs deterministic local preview tasks through backend code. Proposals are
+validated, evaluated through Approval Manager where relevant, audited and
+returned as structured responses. The preview runtime cannot send email,
+create provider executions, read credentials, call external networks, access
+the Docker socket, run shell commands or touch the database directly.
+OpenClaw itself is not integrated; only a future adapter contract is
+documented.
+
 Migration `0010_provider_connections` is applied locally after `0009_tool_registry`. The provider tables exist and contain zero rows. Provider Execution now supplies a separately authorized dry-run foundation, while live external calls, OAuth flows and connectivity checks remain future work.
 
 The development credential-encryption key was safely rotated while `provider_credentials` contained zero rows. Its cryptographic material was subsequently preserved during the atomic local cutover from standalone `CREDENTIAL_ENCRYPTION_KEY` to the active-ID plus secret-keyring contract. The active development key ID is the non-secret identifier `legacy`; the old standalone environment variable is no longer active. Secret values and hashes remain local and must never appear in Git, documentation, logs or configuration errors. The immutable keyring core exists, and the repository and real development database heads are both `0013_credential_keyring_contract`. The verified `encryption_key_id` contract is `VARCHAR(64) NOT NULL`; `provider_credentials` remains empty.

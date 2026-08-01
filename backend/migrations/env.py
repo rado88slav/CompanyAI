@@ -20,6 +20,10 @@ target_metadata = Base.metadata
 def get_database_url() -> str:
     """Return the PostgreSQL URL without hiding its password."""
 
+    override = config.attributes.get("database_url")
+    if isinstance(override, str) and override:
+        return override
+
     return get_settings().database_url.render_as_string(
         hide_password=False,
     )

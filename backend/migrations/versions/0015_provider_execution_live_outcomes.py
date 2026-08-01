@@ -1,13 +1,13 @@
 """Allow live provider execution outcome states.
 
-Revision ID: 0015_provider_execution_live_outcomes
+Revision ID: 0015_live_execution_outcomes
 Revises: 0014_email_workflow
 Create Date: 2026-08-01 00:00:00.000000
 """
 
 from alembic import op
 
-revision = "0015_provider_execution_live_outcomes"
+revision = "0015_live_execution_outcomes"
 down_revision = "0014_email_workflow"
 branch_labels = None
 depends_on = None

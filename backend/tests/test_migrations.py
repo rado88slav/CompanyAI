@@ -32,8 +32,22 @@ def test_migration_history_has_one_head() -> None:
     )
 
     assert script_directory.get_heads() == [
-        "0015_provider_execution_live_outcomes"
+        "0015_live_execution_outcomes"
     ]
+
+
+def test_migration_revision_identifiers_fit_alembic_version_column() -> None:
+    script_directory = ScriptDirectory.from_config(create_alembic_config())
+
+    for revision in script_directory.walk_revisions():
+        assert len(revision.revision) <= 32
+        down_revisions = revision.down_revision
+        if down_revisions is None:
+            continue
+        if isinstance(down_revisions, str):
+            assert len(down_revisions) <= 32
+        else:
+            assert all(len(item) <= 32 for item in down_revisions)
 
 
 def test_initial_migration_is_available() -> None:
@@ -155,7 +169,7 @@ def test_credential_keyring_contract_follows_expand_revision() -> None:
 
 def test_provider_execution_live_outcomes_follow_email_workflow() -> None:
     revision = ScriptDirectory.from_config(create_alembic_config()).get_revision(
-        "0015_provider_execution_live_outcomes"
+        "0015_live_execution_outcomes"
     )
     assert revision is not None
     assert revision.down_revision == "0014_email_workflow"

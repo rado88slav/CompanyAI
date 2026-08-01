@@ -99,8 +99,8 @@ The controlled one-message test is intentionally strict. Check:
 - a different authorized administrator approved the exact Approval Manager
   request before simulation execution.
 
-Current execution is simulation only. A rejection does not mean SMTP was
-contacted.
+Simulation rejections do not contact SMTP. LIVE TEST rejections before the
+final execution step also do not contact SMTP.
 
 ## AI Agent Preview Task Is Denied
 

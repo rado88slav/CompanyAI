@@ -286,6 +286,22 @@ test("expired session clears protected context", async () => {
   expect(sessionStorage.getItem("companyai.accessToken")).toBeNull();
 });
 
+test("forbidden API errors do not clear the authenticated session", async () => {
+  setToken();
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(await jsonResponse(firstRunReady))
+    .mockResolvedValueOnce(await jsonResponse(administrator))
+    .mockResolvedValueOnce(await jsonResponse(companyContexts))
+    .mockResolvedValueOnce(await jsonResponse({ detail: "The dashboard summary is forbidden." }, false, 403))
+    .mockResolvedValueOnce(await jsonResponse(activity));
+
+  render(<App />);
+
+  expect(await screen.findByText("Operations dashboard unavailable")).toBeInTheDocument();
+  expect(sessionStorage.getItem("companyai.accessToken")).toBe("opaque-test-session-value");
+  expect(screen.getByRole("button", { name: "Logout" })).toBeInTheDocument();
+});
+
 test("renders the overview loading state and successful real summary", async () => {
   setToken();
   let resolveRequest!: (response: Response) => void;
@@ -1011,6 +1027,50 @@ test("renders inbox empty state and refresh", async () => {
   expect(screen.getByDisplayValue("Europe/Sofia")).toBeInTheDocument();
   expect(screen.getByText("Welcome sequence")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+});
+
+test("adds and removes exact single-message recipients with pending UI", async () => {
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse(campaignSchedule),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
+    await jsonResponse({ recipient_allowlist: ["allowed@example.test"], exact_only: true }),
+    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
+  );
+  window.history.pushState({}, "", "/email");
+  render(<App />);
+
+  expect(await screen.findByText("No exact recipients configured.")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Exact recipient allowlist"), { target: { value: "allowed@example.test" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add exact recipient" }));
+  expect(screen.getByRole("button", { name: "Updating" })).toBeDisabled();
+  expect(await screen.findByText("allowed@example.test")).toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole("button", { name: "Remove" }).at(-1)!);
+  expect(await screen.findByText("No exact recipients configured.")).toBeInTheDocument();
+});
+
+test("shows sanitized allowlist API errors without redirecting to login", async () => {
+  setToken();
+  await authenticatedFetchMock(
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse(campaignSchedule),
+    await jsonResponse({ items: [], total: 0, limit: 50, offset: 0 }),
+    await jsonResponse({ recipient_allowlist: [], exact_only: true }),
+    await jsonResponse({ detail: "The requested operation could not be completed." }, false, 500),
+  );
+  window.history.pushState({}, "", "/email");
+  render(<App />);
+
+  fireEvent.change(await screen.findByLabelText("Exact recipient allowlist"), { target: { value: "allowed@example.test" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add exact recipient" }));
+
+  expect(await screen.findByText("The requested operation could not be completed.")).toBeInTheDocument();
+  expect(sessionStorage.getItem("companyai.accessToken")).toBe("opaque-test-session-value");
+  expect(screen.getByRole("button", { name: "Logout" })).toBeInTheDocument();
 });
 
 test("previews email automation dry-run slots", async () => {

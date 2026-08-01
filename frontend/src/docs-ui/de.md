@@ -354,7 +354,7 @@ Email Sandbox ist die verpflichtende Safety Boundary vor einem realen Outreach P
 5. `[COMPANYAI TEST]` Subject Prefix, wenn konfiguriert.
 6. Keine automatic Follow-ups, Bulk Sending oder Attachments.
 ## Controlled single-message test
-Email Operations kann eine Generic SMTP/IMAP Test Message previewen, Approval Manager Authorization anfordern und nur eine Simulation ausführen. Der aktuelle Flow erstellt dry-run Provider Execution Records, entschlüsselt aber keine Credentials, öffnet kein SMTP, sendet keine Email, aktiviert kein Tracking und retryt keine uncertain results.
+Email Operations kann eine Generic SMTP/IMAP Test Message previewen, exact test recipients verwalten, Approval Manager Authorization anfordern und entweder Simulation oder einen ausdrücklich bestätigten LIVE TEST ausführen. Allowlist Audit Records enthalten nur operation metadata, changed state und recipient count. Simulation entschlüsselt keine Credentials, öffnet kein SMTP und sendet keine Email. LIVE TEST kann nach Approval und final typed confirmation genau eine Nachricht senden.
 > [!WARNING] Verwenden Sie während Sandbox Acceptance Testing keine echten HVAC Prospects.
 ## Wenn ein Send abgelehnt wird
 Prüfen Sie visible reason, approval state, allowlist und emergency stop. Rejections werden mit sanitized reasons auditiert.

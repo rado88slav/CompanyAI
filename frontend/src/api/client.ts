@@ -141,7 +141,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     },
   });
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       notifySessionExpired();
       throw new ApiError("Authentication is required.", response.status);
     }
@@ -186,7 +186,7 @@ export function fetchAvailableCompanies(signal?: AbortSignal): Promise<Available
 }
 
 export function isAuthenticationError(error: unknown): boolean {
-  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+  return error instanceof ApiError && error.status === 401;
 }
 
 export async function companyApi<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -202,7 +202,7 @@ export async function companyApi<T>(path: string, init: RequestInit = {}): Promi
     },
   });
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       notifySessionExpired();
       throw new ApiError("Authentication is required.", response.status);
     }

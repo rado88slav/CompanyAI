@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ApiError } from "../api/client";
 import { emailApi } from "../api/email";
 import type { CampaignSchedulePreview, CampaignScheduleSettings, EmailCampaign, InboundEmail, SingleMessageApproval, SingleMessagePreview, SingleMessageRecipientAllowlist, SingleMessageTestPayload, WorkerSimulation } from "../types/email";
 
@@ -21,6 +22,8 @@ export function EmailInboxPage() {
   const [liveConfirmation, setLiveConfirmation] = useState("");
   const [allowlist, setAllowlist] = useState<SingleMessageRecipientAllowlist | null>(null);
   const [allowlistEmail, setAllowlistEmail] = useState("");
+  const [allowlistBusy, setAllowlistBusy] = useState(false);
+  const [allowlistError, setAllowlistError] = useState("");
   const [singleForm, setSingleForm] = useState<SingleMessageTestPayload>({
     provider_connection_id: "",
     recipient_email: "",
@@ -96,11 +99,35 @@ export function EmailInboxPage() {
     setLiveConfirmation("");
   }
   async function addAllowlistRecipient() {
+    if (!allowlistEmail || allowlistBusy) return;
     setMessage("");
-    const value = await emailApi.addSingleMessageRecipientAllowlist(allowlistEmail);
-    setAllowlist(value);
-    setAllowlistEmail("");
-    setMessage("Exact test recipient allowlist updated.");
+    setAllowlistError("");
+    setAllowlistBusy(true);
+    try {
+      const value = await emailApi.addSingleMessageRecipientAllowlist(allowlistEmail);
+      setAllowlist(value);
+      setAllowlistEmail("");
+      setMessage("Exact test recipient allowlist updated.");
+    } catch (error) {
+      setAllowlistError(error instanceof ApiError ? error.message : "The exact recipient allowlist could not be updated.");
+    } finally {
+      setAllowlistBusy(false);
+    }
+  }
+  async function removeAllowlistRecipient(recipientEmail: string) {
+    if (allowlistBusy) return;
+    setMessage("");
+    setAllowlistError("");
+    setAllowlistBusy(true);
+    try {
+      const value = await emailApi.removeSingleMessageRecipientAllowlist(recipientEmail);
+      setAllowlist(value);
+      setMessage("Exact test recipient allowlist updated.");
+    } catch (error) {
+      setAllowlistError(error instanceof ApiError ? error.message : "The exact recipient allowlist could not be updated.");
+    } finally {
+      setAllowlistBusy(false);
+    }
   }
   async function pauseSchedule() {
     const value = await emailApi.pauseSchedule();
@@ -245,10 +272,11 @@ export function EmailInboxPage() {
         <label>Exact recipient allowlist
           <input value={allowlistEmail} onChange={(event) => setAllowlistEmail(event.target.value)} placeholder="person@example.com" />
         </label>
-        <button type="button" onClick={addAllowlistRecipient} disabled={!allowlistEmail}>Add exact recipient</button>
+        <button type="button" onClick={addAllowlistRecipient} disabled={!allowlistEmail || allowlistBusy}>{allowlistBusy ? "Updating" : "Add exact recipient"}</button>
         <div className="state-card">
           <strong>Allowed test recipients</strong>
-          <p>{allowlist?.recipient_allowlist.length ? allowlist.recipient_allowlist.join(", ") : "No exact recipients configured."}</p>
+          {allowlist?.recipient_allowlist.length ? <ul className="compact-list">{allowlist.recipient_allowlist.map((recipient) => <li key={recipient}><span>{recipient}</span><button type="button" onClick={() => removeAllowlistRecipient(recipient)} disabled={allowlistBusy}>Remove</button></li>)}</ul> : <p>No exact recipients configured.</p>}
+          {allowlistError && <p className="error-text">{allowlistError}</p>}
         </div>
       </div>
       <div className="automation-grid">

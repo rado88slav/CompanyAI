@@ -32,11 +32,12 @@ one active Generic SMTP/IMAP mailbox whose SMTP and IMAP acceptance checks have
 succeeded, one explicit recipient, a unique idempotency key, the
 `[COMPANYAI TEST]` subject prefix and an Approval Manager request.
 
-In the current implementation the final action is simulation only. It creates
-or consumes Provider Execution and Approval Manager records in dry-run mode and
-does not open SMTP, decrypt mailbox credentials, send email, retry uncertain
-results, use CC/BCC, attach files, enable tracking, schedule follow-ups or
-accept recipient lists.
+Simulation creates or consumes Provider Execution and Approval Manager records
+in dry-run mode and does not open SMTP, decrypt mailbox credentials, send
+email, retry uncertain results, use CC/BCC, attach files, enable tracking,
+schedule follow-ups or accept recipient lists. The separate LIVE TEST path can
+send exactly one plain-text SMTP message only after exact allowlist matching,
+Approval Manager authorization and final typed confirmation.
 
 Operator procedure: `docs/SINGLE_MESSAGE_TEST.md`.
 

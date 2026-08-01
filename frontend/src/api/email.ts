@@ -35,6 +35,8 @@ export const emailApi = {
     companyApi<SingleMessageRecipientAllowlist>("/emails/single-message-tests/recipient-allowlist"),
   addSingleMessageRecipientAllowlist: (recipientEmail: string) =>
     companyApi<SingleMessageRecipientAllowlist>("/emails/single-message-tests/recipient-allowlist", {method: "POST", body: JSON.stringify({recipient_email: recipientEmail})}),
+  removeSingleMessageRecipientAllowlist: (recipientEmail: string) =>
+    companyApi<SingleMessageRecipientAllowlist>("/emails/single-message-tests/recipient-allowlist", {method: "DELETE", body: JSON.stringify({recipient_email: recipientEmail})}),
   simulateWorker: () =>
     companyApi<WorkerSimulation>("/email-automation/worker/simulate", {method: "POST", body: JSON.stringify({max_actions: 10, idempotency_key: `worker-sim-${Date.now()}`})}),
 };

@@ -55,6 +55,12 @@ def add_single_message_recipient_allowlist(company_id: UUID, data: SingleMessage
     try: return service.add_single_message_recipient_allowlist(company_id=company_id, data=data, actor=context.administrator)
     except Exception as exc: handle(exc)
 
+
+@router.delete("/emails/single-message-tests/recipient-allowlist", response_model=SingleMessageRecipientAllowlistResponse)
+def remove_single_message_recipient_allowlist(company_id: UUID, data: SingleMessageRecipientAllowlistUpdate, context: Annotated[ActiveCompanyContext, Depends(require_provider_executions_manage)], service: Annotated[EmailWorkflowService, Depends(get_email_workflow_service)]):
+    try: return service.remove_single_message_recipient_allowlist(company_id=company_id, data=data, actor=context.administrator)
+    except Exception as exc: handle(exc)
+
 @router.post("/emails/test-import", response_model=InboundEmailSummary, status_code=status.HTTP_201_CREATED)
 def import_test_email(company_id: UUID, data: TestInboundEmailImport, context: Annotated[ActiveCompanyContext, Depends(require_emails_write)], service: Annotated[EmailWorkflowService, Depends(get_email_workflow_service)]):
     try: return service.summary(service.import_test(company_id, data, context.administrator))

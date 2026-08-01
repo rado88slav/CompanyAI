@@ -28,6 +28,9 @@ through Email Operations → One Test Email → Exact recipient allowlist.
 
 Only exact email addresses are valid. Domains and wildcards are rejected. Do
 not record the personal address in Git, documentation, screenshots or tickets.
+Allowlist add and remove actions update the company Email Sandbox policy and
+write sanitized audit metadata only: operation name, changed flag and recipient
+count. Audit records must not contain the address.
 
 ## Compose
 

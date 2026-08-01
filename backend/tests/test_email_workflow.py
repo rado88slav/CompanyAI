@@ -198,10 +198,13 @@ def test_development_environment_preserves_local_test_email_workflow(monkeypatch
 
 
 class FakeAudit:
-    def __init__(self):
+    def __init__(self, *, fail=False):
         self.events = []
+        self.fail = fail
 
     def append_company_event(self, **kwargs):
+        if self.fail:
+            raise ValueError("Unsupported company audit resource_type.")
         self.events.append(kwargs)
 
 
@@ -287,6 +290,137 @@ class FakeLiveTransport:
         if self.outcome == "uncertain":
             raise MailboxSendOutcomeUncertainError
         return MailboxSendResult(status="accepted", accepted_at=datetime.now(UTC), server_response="accepted")
+
+
+class FakeAllowlistSession:
+    def __init__(self, *, existing=None):
+        self.settings = {}
+        self.committed = False
+        self.rolled_back = False
+        self.added = []
+        if existing is not None:
+            self.settings[existing.company_id] = existing
+
+    def scalar(self, _statement):
+        if len(self.settings) == 1:
+            return next(iter(self.settings.values()))
+        return None
+
+    def add(self, item):
+        self.added.append(item)
+        self.settings[item.company_id] = item
+
+    def commit(self):
+        self.committed = True
+
+    def rollback(self):
+        self.rolled_back = True
+
+
+def _allowlist_service(session=None, audit=None):
+    session = session or FakeAllowlistSession()
+    service = EmailWorkflowService.__new__(EmailWorkflowService)
+    service.session = session
+    service.audit = audit or FakeAudit()
+    service.smtp_live_transport = FakeLiveTransport()
+    service._sandbox_policy = lambda company_id: session.settings[company_id].value if company_id in session.settings else {
+        "enabled": True,
+        "recipient_allowlist": [],
+        "sender_allowlist": [],
+        "max_recipients_per_message": 1,
+        "max_messages_per_hour": 5,
+        "max_messages_per_day": 10,
+        "required_subject_prefix": "[COMPANYAI TEST]",
+        "emergency_stop": False,
+    }
+    return service
+
+
+def _allowlist_update(value="Allowed@Example.TEST"):
+    from app.schemas.email import SingleMessageRecipientAllowlistUpdate
+
+    return SingleMessageRecipientAllowlistUpdate(recipient_email=value)
+
+
+def test_single_message_recipient_allowlist_adds_exact_recipient_safely():
+    company_id, actor_id = uuid4(), uuid4()
+    service = _allowlist_service()
+
+    result = service.add_single_message_recipient_allowlist(company_id=company_id, data=_allowlist_update(), actor=SimpleNamespace(id=actor_id))
+
+    assert result.recipient_allowlist == ["allowed@example.test"]
+    assert service.session.committed is True
+    event = service.audit.events[-1]
+    assert event["resource_type"] == "email_automation"
+    assert event["action"] == "email_automation.settings_updated"
+    assert event["details"] == {
+        "operation": "single_message_recipient_allowlist_updated",
+        "changed": True,
+        "recipient_count": 1,
+    }
+    assert "allowed@example.test" not in repr(event)
+
+
+def test_single_message_recipient_allowlist_listing_uses_configured_recipients():
+    company_id = uuid4()
+    session = FakeAllowlistSession(existing=SimpleNamespace(company_id=company_id, value={"recipient_allowlist": ["B@Example.TEST", "a@example.test", "@example.test", "*.example.test"]}))
+    service = _allowlist_service(session=session)
+
+    result = service.single_message_recipient_allowlist(company_id=company_id)
+
+    assert result.recipient_allowlist == ["a@example.test", "b@example.test"]
+
+
+def test_single_message_recipient_allowlist_duplicate_is_normalized_noop():
+    company_id, actor_id = uuid4(), uuid4()
+    session = FakeAllowlistSession(existing=SimpleNamespace(company_id=company_id, value={"recipient_allowlist": ["allowed@example.test"]}))
+    service = _allowlist_service(session=session)
+
+    result = service.add_single_message_recipient_allowlist(company_id=company_id, data=_allowlist_update("ALLOWED@example.test"), actor=SimpleNamespace(id=actor_id))
+
+    assert result.recipient_allowlist == ["allowed@example.test"]
+    assert service.audit.events[-1]["details"]["changed"] is False
+    assert service.audit.events[-1]["details"]["recipient_count"] == 1
+
+
+def test_single_message_recipient_allowlist_removes_recipient_safely():
+    company_id, actor_id = uuid4(), uuid4()
+    session = FakeAllowlistSession(existing=SimpleNamespace(company_id=company_id, value={"recipient_allowlist": ["allowed@example.test", "other@example.test"]}))
+    service = _allowlist_service(session=session)
+
+    result = service.remove_single_message_recipient_allowlist(company_id=company_id, data=_allowlist_update("allowed@example.test"), actor=SimpleNamespace(id=actor_id))
+
+    assert result.recipient_allowlist == ["other@example.test"]
+    assert service.audit.events[-1]["resource_type"] == "email_automation"
+    assert service.audit.events[-1]["details"] == {
+        "operation": "single_message_recipient_allowlist_removed",
+        "changed": True,
+        "recipient_count": 1,
+    }
+    assert "allowed@example.test" not in repr(service.audit.events[-1])
+
+
+def test_single_message_recipient_allowlist_is_company_isolated():
+    company_a, company_b = uuid4(), uuid4()
+    service = _allowlist_service()
+
+    service.add_single_message_recipient_allowlist(company_id=company_a, data=_allowlist_update("allowed@example.test"), actor=SimpleNamespace(id=uuid4()))
+
+    assert service.single_message_recipient_allowlist(company_id=company_a).recipient_allowlist == ["allowed@example.test"]
+    assert service.single_message_recipient_allowlist(company_id=company_b).recipient_allowlist == []
+
+
+def test_single_message_recipient_allowlist_rolls_back_when_audit_fails():
+    company_id = uuid4()
+    session = FakeAllowlistSession()
+    service = _allowlist_service(session=session, audit=FakeAudit(fail=True))
+
+    with pytest.raises(ValueError):
+        service.add_single_message_recipient_allowlist(company_id=company_id, data=_allowlist_update(), actor=SimpleNamespace(id=uuid4()))
+
+    assert session.committed is False
+    assert session.rolled_back is True
+    assert service.smtp_live_transport.calls == []
 
 
 def _single_message_service(monkeypatch, *, connection=None, credential=None, existing=None, policy=None, sent_count=0, live_transport=None):

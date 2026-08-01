@@ -152,25 +152,61 @@ class EmailWorkflowService:
         return SingleMessageRecipientAllowlistResponse(recipient_allowlist=recipients)
 
     def add_single_message_recipient_allowlist(self, *, company_id: UUID, data: SingleMessageRecipientAllowlistUpdate, actor: Administrator) -> SingleMessageRecipientAllowlistResponse:
-        setting = self.session.scalar(
-            select(CompanySetting).where(
-                CompanySetting.company_id == company_id,
-                CompanySetting.category == "email_sandbox",
-                CompanySetting.key == "policy",
-            ).with_for_update()
+        return self._update_single_message_recipient_allowlist(
+            company_id=company_id,
+            recipient_email=data.recipient_email,
+            actor=actor,
+            remove=False,
         )
-        policy = dict(setting.value) if setting is not None and isinstance(setting.value, dict) else self._sandbox_policy(company_id)
-        recipients = self._exact_allowlist(policy.get("recipient_allowlist", []))
-        recipients.add(data.recipient_email)
-        policy["recipient_allowlist"] = sorted(recipients)
-        if setting is None:
-            setting = CompanySetting(company_id=company_id, category="email_sandbox", key="policy", value=policy)
-            self.session.add(setting)
-        else:
-            setting.value = policy
-        self.audit.append_company_event(company_id=company_id, actor_administrator_id=actor.id, action=AuditAction.EMAIL_AUTOMATION_SETTINGS_UPDATED.value, resource_type="company_setting", resource_id=None, details={"operation": "single_message_recipient_allowlist_updated", "changed": True})
-        self.session.commit()
-        return SingleMessageRecipientAllowlistResponse(recipient_allowlist=policy["recipient_allowlist"])
+
+    def remove_single_message_recipient_allowlist(self, *, company_id: UUID, data: SingleMessageRecipientAllowlistUpdate, actor: Administrator) -> SingleMessageRecipientAllowlistResponse:
+        return self._update_single_message_recipient_allowlist(
+            company_id=company_id,
+            recipient_email=data.recipient_email,
+            actor=actor,
+            remove=True,
+        )
+
+    def _update_single_message_recipient_allowlist(self, *, company_id: UUID, recipient_email: str, actor: Administrator, remove: bool) -> SingleMessageRecipientAllowlistResponse:
+        try:
+            setting = self.session.scalar(
+                select(CompanySetting).where(
+                    CompanySetting.company_id == company_id,
+                    CompanySetting.category == "email_sandbox",
+                    CompanySetting.key == "policy",
+                ).with_for_update()
+            )
+            policy = dict(setting.value) if setting is not None and isinstance(setting.value, dict) else self._sandbox_policy(company_id)
+            recipients = self._exact_allowlist(policy.get("recipient_allowlist", []))
+            previous = set(recipients)
+            if remove:
+                recipients.discard(recipient_email)
+            else:
+                recipients.add(recipient_email)
+            policy["recipient_allowlist"] = sorted(recipients)
+            if setting is None:
+                setting = CompanySetting(company_id=company_id, category="email_sandbox", key="policy", value=policy)
+                self.session.add(setting)
+            else:
+                setting.value = policy
+            operation = "single_message_recipient_allowlist_removed" if remove else "single_message_recipient_allowlist_updated"
+            self.audit.append_company_event(
+                company_id=company_id,
+                actor_administrator_id=actor.id,
+                action=AuditAction.EMAIL_AUTOMATION_SETTINGS_UPDATED.value,
+                resource_type="email_automation",
+                resource_id=None,
+                details={
+                    "operation": operation,
+                    "changed": previous != recipients,
+                    "recipient_count": len(recipients),
+                },
+            )
+            self.session.commit()
+            return SingleMessageRecipientAllowlistResponse(recipient_allowlist=policy["recipient_allowlist"])
+        except Exception:
+            self.session.rollback()
+            raise
 
     def _exact_allowlist(self, values: object) -> set[str]:
         if not isinstance(values, list):

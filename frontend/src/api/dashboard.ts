@@ -76,7 +76,7 @@ export async function fetchDashboardSummary(
   );
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) notifySessionExpired();
+    if (response.status === 401) notifySessionExpired();
     throw new ApiError("The dashboard summary is currently unavailable.", response.status);
   }
 

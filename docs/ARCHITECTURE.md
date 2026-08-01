@@ -234,11 +234,11 @@ The controlled single-message test flow extends this boundary for Generic
 SMTP/IMAP mailboxes. It validates an active mailbox, successful SMTP and IMAP
 acceptance health, active credential metadata, one recipient, subject prefix,
 allowlists, quotas, optional working hours, explicit confirmation and a unique
-idempotency key. The request creates a dry-run Provider Execution and an
-Approval Manager single-action request. Current execution is simulation only:
-it never opens SMTP, decrypts credentials, sends email, retries uncertain
-results, accepts recipient lists or enables CC, BCC, attachments, tracking or
-follow-ups.
+idempotency key. Simulation requests create dry-run Provider Execution and
+Approval Manager records without opening SMTP, decrypting credentials, sending
+email or retrying uncertain results. The separate LIVE TEST mode is limited to
+one explicitly approved and typed-confirmed plain-text SMTP message. Both modes
+reject recipient lists, CC, BCC, attachments, tracking and follow-ups.
 
 Provider Credential model, repository and service integration are keyring-aware. The repository runtime contract now requires `CREDENTIAL_ENCRYPTION_ACTIVE_KEY_ID` plus secret `CREDENTIAL_ENCRYPTION_KEYRING` JSON. Application creation parses the complete immutable keyring once before FastAPI is constructed and shares it with Provider Connections through application state. Standalone `CREDENTIAL_ENCRYPTION_KEY` and ambiguous mixed legacy/new configuration are rejected without fallback. New credentials and business rotations use encryption version 2, store the configured active key ID and revision `0`, and authenticate the key ID together with the existing company, connection, credential and provider identity. Previous configured keys are decryption-only because encryption always selects the active key.
 

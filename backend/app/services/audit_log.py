@@ -76,6 +76,7 @@ _SAFE_DETAIL_KEYS = frozenset(
         "target_active",
         "target_superuser",
         "session_revocation_supported",
+        "recipient_count",
     }
 )
 
